@@ -1,0 +1,11 @@
+wg_address: "10.10.0.2/24"
+# App acts as rendezvous; list all peers
+wg_peers:
+  - public_key: "{{ hostvars['db1.prod.wilkesliberty.com'].wg_public_key | default('') }}"
+    allowed_ips: "10.10.0.3/32"
+  - public_key: "{{ hostvars['search1.prod.wilkesliberty.com'].wg_public_key | default('') }}"
+    allowed_ips: "10.10.0.4/32"
+  - public_key: "{{ hostvars['analytics1.prod.wilkesliberty.com'].wg_public_key | default('') }}"
+    allowed_ips: "10.10.0.7/32"
+  - public_key: "{{ hostvars['sso1.prod.wilkesliberty.com'].wg_public_key | default('') }}"
+    allowed_ips: "10.10.0.8/32"

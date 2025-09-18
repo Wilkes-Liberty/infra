@@ -15,3 +15,22 @@ app_int_ip: 10.10.0.2
 db_int_ip: 10.10.0.3
 solr_int_ip: 10.10.0.4
 analytics_int_ip: 10.10.0.7
+
+# mesh-wide
+wg_network_cidr: "10.10.0.0/24"
+wg_listen_port: 51820
+wg_allow_admin_ssh_cidrs:
+  - 203.0.113.10/32   # replace with your Proton egress or office IP
+
+
+# ── Mesh & admin access ─────────────────────────────────────────────
+wg_network_cidr: "10.10.0.0/24"         # your WireGuard mesh subnet
+admin_allow_cidrs:                      # where SSH and admin UIs are allowed from
+  - 203.0.113.10/32                     # ← replace with your Proton egress / office IPs
+
+# ── Private service IPs (used for per-host allow rules) ─────────────
+app_int_ip:       10.10.0.2
+db_int_ip:        10.10.0.3
+search_int_ip:    10.10.0.4
+analytics_int_ip: 10.10.0.7
+sso_int_ip:       10.10.0.8

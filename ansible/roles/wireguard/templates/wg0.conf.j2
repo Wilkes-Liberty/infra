@@ -1,0 +1,19 @@
+# {{ inventory_hostname }} WireGuard config
+[Interface]
+Address = {{ wg_address }}
+ListenPort = {{ wg_listen_port }}
+SaveConfig = false
+PrivateKey = {{ hostvars[inventory_hostname]['wg_private_key'] }}
+
+# Optional: tighten rp_filter & sysctls (systemd drop-in is another option)
+PostUp = ufw allow {{ wg_listen_port }}/udp
+PostDown = ufw delete allow {{ wg_listen_port }}/udp
+
+{% for p in wg_peers | default([]) %}
+[Peer]
+PublicKey = {{ p.public_key }}
+AllowedIPs = {{ p.allowed_ips }}
+{% if p.endpoint is defined and p.endpoint %}Endpoint = {{ p.endpoint }}{% endif %}
+{% if p.persistent_keepalive is defined %}PersistentKeepalive = {{ p.persistent_keepalive }}{% endif %}
+
+{% endfor %}

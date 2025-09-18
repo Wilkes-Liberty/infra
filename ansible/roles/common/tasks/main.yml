@@ -2,3 +2,6 @@
 # TODO: implement this role
 - debug:
     msg: "Role common would run here."
+
+- name: Apply firewall rules
+  include_tasks: firewall.yml

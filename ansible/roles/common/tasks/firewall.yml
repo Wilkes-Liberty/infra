@@ -1,0 +1,135 @@
+---
+- name: Ensure UFW present
+  apt:
+    name: ufw
+    state: present
+    update_cache: yes
+
+- name: Reset UFW to a clean state (idempotent)
+  ufw:
+    state: reset
+
+- name: Set default policies (deny incoming, allow outgoing)
+  ufw:
+    direction: incoming
+    policy: deny
+
+- name: Ensure outgoing allowed
+  ufw:
+    direction: outgoing
+    policy: allow
+
+# ── SSH ─────────────────────────────────────────────────────────────
+- name: Allow SSH from known admin CIDRs
+  ufw:
+    rule: allow
+    port: '22'
+    proto: tcp
+    src: "{{ item }}"
+  loop: "{{ admin_allow_cidrs }}"
+
+- name: Allow SSH from private mesh
+  ufw:
+    rule: allow
+    port: '22'
+    proto: tcp
+    src: "{{ wg_network_cidr }}"
+
+# ── APP (public web, WG entry) ──────────────────────────────────────
+- name: APP | Allow HTTP/HTTPS publicly
+  ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop: [80, 443]
+  when: "'app' in group_names"
+
+- name: APP | Allow WireGuard UDP from admin CIDRs
+  ufw:
+    rule: allow
+    port: '51820'
+    proto: udp
+    src: "{{ item }}"
+  loop: "{{ admin_allow_cidrs }}"
+  when: "'app' in group_names"
+
+# (Redis is local-only; bind to 127.0.0.1 or app_int_ip and no UFW rule needed)
+
+# ── DB (private only) ───────────────────────────────────────────────
+- name: DB | Allow MySQL from app
+  ufw:
+    rule: allow
+    port: '3306'
+    proto: tcp
+    src: "{{ app_int_ip }}"
+  when: "'db' in group_names"
+
+- name: DB | Allow MySQL from analytics (Matomo) if applicable
+  ufw:
+    rule: allow
+    port: '3306'
+    proto: tcp
+    src: "{{ analytics_int_ip }}"
+  when: "'db' in group_names"
+
+# ── SOLR (private only) ─────────────────────────────────────────────
+- name: SOLR | Allow 8983 from app
+  ufw:
+    rule: allow
+    port: '8983'
+    proto: tcp
+    src: "{{ app_int_ip }}"
+  when: "'solr' in group_names"
+
+# ── ANALYTICS/OBS (Matomo public; observability private) ────────────
+- name: ANALYTICS | Allow HTTP/HTTPS publicly (Matomo)
+  ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop: [80, 443]
+  when: "'analytics' in group_names"
+
+- name: ANALYTICS | Allow Grafana/Prometheus/Uptime from admin CIDRs
+  ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+    src: "{{ admin_cidr }}"
+  loop: [3000, 3001, 9090]
+  loop_control:
+    loop_var: item
+  vars:
+    admin_cidr: "{{ admin_allow_cidrs | first }}"
+  when: "'analytics' in group_names and (admin_allow_cidrs | length) > 0"
+
+- name: ANALYTICS | (Alternative) Allow observability from mesh (comment previous task if using this)
+  ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+    src: "{{ wg_network_cidr }}"
+  loop: [3000, 3001, 9090]
+  when: false  # set to true if you prefer mesh-wide access over admin CIDRs
+
+# ── SSO (public web) ────────────────────────────────────────────────
+- name: SSO | Allow HTTP/HTTPS publicly
+  ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop: [80, 443]
+  when: "'sso' in group_names"
+
+# ── Enable/Reload ───────────────────────────────────────────────────
+- name: Enable UFW
+  ufw:
+    state: enabled
+
+- name: Show UFW status (debug)
+  command: ufw status numbered
+  register: ufw_status
+  changed_when: false
+
+- debug:
+    var: ufw_status.stdout_lines

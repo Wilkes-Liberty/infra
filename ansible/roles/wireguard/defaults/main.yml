@@ -1,0 +1,13 @@
+# WireGuard role defaults
+wg_iface: wg0
+wg_network_cidr: "10.10.0.0/24"
+wg_listen_port: 51820
+wg_allow_admin_ssh_cidrs: []   # e.g., ["203.0.113.10/32"] to allow SSH from your office/Proton egress
+
+# Host-level vars to set per machine (in inventory/group_vars/host_vars):
+# wg_address: "10.10.0.2/24"      # this host's address on wg_iface
+# wg_peers:                        # list of peer dicts for this host
+#   - public_key: "BASE64PUB..."
+#     allowed_ips: "10.10.0.3/32"
+#     endpoint: "X.X.X.X:51820"   # optional
+#     persistent_keepalive: 25     # optional
