@@ -10,3 +10,8 @@ terraform/.terraform/
 
 # Local
 .DS_Store
+
+
+# IDE artifacts
+.vscode/
+.idea/
