@@ -1,0 +1,5 @@
+int.wilkesliberty.com:53 {
+  file zones/int.wilkesliberty.com.zone
+  log
+  errors
+}

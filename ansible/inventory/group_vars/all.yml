@@ -1,0 +1,17 @@
+domain: wilkesliberty.com
+int_domain: int.wilkesliberty.com
+
+# Proton VPN: restrict admin/services to these CIDRs (fill in your egress ranges)
+admin_allow_cidrs:
+  - 203.0.113.0/24   # replace with Proton Business egress or your office IPs
+
+# Common versions
+php_version: "8.3"
+node_major: "20"
+solr_version: "9.6.1"
+
+# Private IPs (Proton VPN or WG)
+app_int_ip: 10.10.0.2
+db_int_ip: 10.10.0.3
+solr_int_ip: 10.10.0.4
+analytics_int_ip: 10.10.0.7

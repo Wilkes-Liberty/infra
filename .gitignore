@@ -1,0 +1,12 @@
+# Ansible
+*.retry
+ansible/.vault_pass
+ansible/inventory/*_secrets.yml
+
+# Terraform (if used later)
+terraform/.terraform/
+*.tfstate*
+*.tfvars
+
+# Local
+.DS_Store

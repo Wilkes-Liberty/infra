@@ -1,0 +1,4 @@
+---
+# TODO: implement this role
+- debug:
+    msg: "Role app would run here."

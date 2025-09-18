@@ -1,0 +1,19 @@
+- hosts: all
+  become: yes
+  roles: [common]
+
+- hosts: app
+  become: yes
+  roles: [app]
+
+- hosts: db
+  become: yes
+  roles: [db]
+
+- hosts: solr
+  become: yes
+  roles: [solr]
+
+- hosts: analytics
+  become: yes
+  roles: [analytics_obs]
