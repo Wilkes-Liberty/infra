@@ -1,0 +1,4 @@
+creation_rules:
+  - path_regex: ansible/inventory/group_vars/.*_secrets\.yml$
+    encrypted_regex: '^(.*)$'
+    age: 'age10q0tj8gewf6rgx8plzz0lh9z8mamha6zw5qa7k2ea0d7q7kt8f5srrzmmn'
