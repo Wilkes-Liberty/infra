@@ -17,3 +17,7 @@
 - hosts: analytics
   become: yes
   roles: [analytics_obs]
+
+- hosts: sso
+  become: yes
+  roles: [authentik]

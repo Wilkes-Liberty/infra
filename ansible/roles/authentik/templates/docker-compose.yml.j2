@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+  postgresql:
+    image: {{ postgres_image }}
+    environment:
+      POSTGRES_USER: authentik
+      POSTGRES_PASSWORD: {{ authentik_db_password }}
+      POSTGRES_DB: authentik
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: {{ redis_image }}
+    command: ["redis-server", "--requirepass", "{{ authentik_redis_password }}"]
+    volumes:
+      - ./redis_data:/data
+    restart: unless-stopped
+
+  server:
+    image: {{ authentik_image }}
+    environment:
+      AUTHENTIK_SECRET_KEY: "{{ authentik_secret_key }}"
+      AUTHENTIK_REDIS__HOST: "redis"
+      AUTHENTIK_REDIS__PASSWORD: "{{ authentik_redis_password }}"
+      AUTHENTIK_POSTGRESQL__HOST: "postgresql"
+      AUTHENTIK_POSTGRESQL__USER: "authentik"
+      AUTHENTIK_POSTGRESQL__PASSWORD: "{{ authentik_db_password }}"
+      AUTHENTIK_POSTGRESQL__NAME: "authentik"
+      # External URL for proper redirects:
+      AUTHENTIK_OUTPOSTS__DOCKER__ENABLED: "true"
+      AUTHENTIK_BOOTSTRAP_EMAIL: "{{ authentik_contact_email }}"
+    volumes:
+      - ./media:/media
+      - ./certs:/certs
+    # Bind only to loopback; Nginx will proxy HTTPS
+    ports:
+      - "127.0.0.1:9000:9000"
+    depends_on:
+      - postgresql
+      - redis
+    restart: unless-stopped

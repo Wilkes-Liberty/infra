@@ -1,0 +1,19 @@
+# Public SSO endpoint
+authentik_domain: "sso.wilkesliberty.com"
+authentik_contact_email: "admin@wilkesliberty.com"
+
+# Authentik secrets (put real values in encrypted vars: SOPS/Ansible Vault)
+authentik_db_password: "CHANGE_ME_DB"
+authentik_redis_password: "CHANGE_ME_REDIS"
+authentik_secret_key: "CHANGE_ME_SECRET"
+
+# Where to install
+authentik_root: /opt/authentik
+
+# Njalla DNS token for Certbot (put in encrypted vars; not in git)
+njalla_api_token: "NJALLA_API_TOKEN_PLACEHOLDER"
+
+# Docker images/versions
+authentik_image: "ghcr.io/goauthentik/server:latest"
+postgres_image: "postgres:15"
+redis_image: "redis:7"
