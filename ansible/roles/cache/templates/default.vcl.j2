@@ -1,0 +1,68 @@
+vcl 4.1;
+
+import std;
+
+backend app {
+  .host = "{{ cache_backend_host }}";
+  .port = "{{ cache_backend_port }}";
+  .first_byte_timeout = 30s;
+  .between_bytes_timeout = 30s;
+  .connect_timeout = 2s;
+}
+
+sub vcl_init {
+  # health probe optional: requires /healthz on app
+  # new app_probe = std.healthy(app);
+}
+
+sub vcl_recv {
+  # Normalize
+  set req.http.X-Forwarded-Proto = "https";
+
+  # Pass admin/session traffic straight to origin (adjust for your CMS cookies)
+  if (req.http.Cookie ~ "(wordpress_|PHPSESSID|SESS|logged_in|matomo_sess|drupal") {
+    return (pass);
+  }
+
+  # Strip cookies for static assets so they cache
+  if (req.url ~ "\.(?:css|js|mjs|jpg|jpeg|png|gif|webp|svg|ico|woff2?|ttf|eot|map)(\?.*)?$") {
+    unset req.http.Cookie;
+  }
+
+  # Respect PURGE (optional; restrict by IP in Caddy if you enable)
+  if (req.method == "PURGE") {
+    return (purge);
+  }
+
+  # Only cache GET/HEAD
+  if (req.method != "GET" && req.method != "HEAD") {
+    return (pass);
+  }
+
+  return (hash);
+}
+
+sub vcl_backend_response {
+  # Default grace/stale
+  set beresp.grace = 30s;
+
+  # Don’t cache private or auth’d responses
+  if (beresp.http.Set-Cookie || beresp.http.Cache-Control ~ "private") {
+    set beresp.ttl = 0s;
+    return (deliver);
+  }
+
+  # Heuristic for static assets
+  if (bereq.url ~ "\.(?:css|js|mjs|jpg|jpeg|png|gif|webp|svg|ico|woff2?|ttf|eot|map)(\?.*)?$") {
+    if (beresp.ttl <= 0s) {
+      set beresp.ttl = 1d;
+    }
+    unset beresp.http.Set-Cookie;
+  }
+
+  return (deliver);
+}
+
+sub vcl_deliver {
+  set resp.http.X-Cache = obj.hits > 0 ? "HIT" : "MISS";
+}

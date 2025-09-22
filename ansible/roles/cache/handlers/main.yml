@@ -1,0 +1,13 @@
+---
+- name: Reload systemd
+  command: systemctl daemon-reload
+
+- name: Restart varnish
+  systemd:
+    name: varnish
+    state: restarted
+
+- name: Restart caddy
+  systemd:
+    name: caddy
+    state: restarted

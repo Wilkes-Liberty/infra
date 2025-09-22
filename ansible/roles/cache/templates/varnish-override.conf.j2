@@ -1,0 +1,8 @@
+[Service]
+Environment="VARNISH_LISTEN_ADDRESS={{ varnish_listen.split(':')[0] }}"
+Environment="VARNISH_LISTEN_PORT={{ varnish_listen.split(':')[1] }}"
+Environment="VARNISH_STORAGE={{ varnish_storage }}"
+Environment="VARNISH_THREAD_POOLS={{ varnish_thread_pools }}"
+Environment="VARNISH_THREAD_POOL_MIN={{ varnish_thread_pool_min }}"
+Environment="VARNISH_THREAD_POOL_MAX={{ varnish_thread_pool_max }}"
+# ExecStart from upstream uses these envs; no need to rewrite the whole unit.

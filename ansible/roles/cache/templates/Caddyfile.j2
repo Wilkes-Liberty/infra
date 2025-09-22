@@ -1,0 +1,23 @@
+{
+  email {{ caddy_admin_email }}
+  # auto_https on
+}
+
+{{- range $i, $h := cache_public_hosts }}
+{{$h}} {
+  encode zstd gzip
+  @purge {
+    method PURGE
+  }
+  # Optional: secure who can purge (e.g., allow only from mesh/admin IPs)
+  # handle @purge {
+  #   respond "purged" 200
+  # }
+
+  reverse_proxy {{ "{{" }} env "VARNISH_SOCKET" {{ "}}" }} {
+    header_up Host {host}
+    header_up X-Forwarded-For {remote_host}
+    header_up X-Forwarded-Proto {scheme}
+  }
+}
+{{- end }}

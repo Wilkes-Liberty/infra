@@ -1,0 +1,18 @@
+# Which public hostnames should terminate on this cache node?
+cache_public_hosts:
+  - "www.wilkesliberty.com"
+  - "api.wilkesliberty.com"
+
+# Origin (App) over the private mesh
+cache_backend_host: "app.int.wilkesliberty.com"
+cache_backend_port: 80
+
+# Varnish
+varnish_listen: "127.0.0.1:6081"
+varnish_storage: "malloc,2G"      # VPS #3 start point; bump if you upgrade RAM
+varnish_thread_pools: 2
+varnish_thread_pool_min: 100
+varnish_thread_pool_max: 2000
+
+# Caddy
+caddy_admin_email: "admin@wilkesliberty.com"

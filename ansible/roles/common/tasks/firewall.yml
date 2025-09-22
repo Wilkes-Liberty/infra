@@ -72,6 +72,27 @@
     src: "{{ analytics_int_ip }}"
   when: "'db' in group_names"
 
+# ── CACHE (public entrypoint; backends private) ─────────────────────
+- name: CACHE | Allow HTTP/HTTPS publicly
+  ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop: [80, 443]
+  when: "'cache' in group_names"
+
+- name: CACHE | Allow WireGuard UDP from admin CIDRs (for mesh/admin access)
+  ufw:
+    rule: allow
+    port: '51820'
+    proto: udp
+    src: "{{ item }}"
+  loop: "{{ admin_allow_cidrs }}"
+  when: "'cache' in group_names and (admin_allow_cidrs | length) > 0"
+
+# No inbound to Varnish (6081); it should be bound to 127.0.0.1 with Caddy in front.
+# Outbound to app (10.10.0.2:80/443) is permitted by default "allow outgoing".
+
 # ── SOLR (private only) ─────────────────────────────────────────────
 - name: SOLR | Allow 8983 from app
   ufw:

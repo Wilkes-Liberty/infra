@@ -1,0 +1,62 @@
+---
+- name: Install packages (Varnish + helpers)
+  apt:
+    name:
+      - varnish
+      - apt-transport-https
+      - curl
+    state: present
+    update_cache: yes
+
+# Install latest Caddy (static deb) — stable, gets you auto-HTTPS/HTTP/2/3
+- name: Install Caddy (deb)
+  apt:
+    deb: "https://github.com/caddyserver/caddy/releases/download/v2.8.4/caddy_2.8.4_linux_amd64.deb"
+  register: caddy_install
+  until: caddy_install is succeeded
+  retries: 3
+  delay: 3
+
+# Varnish config
+- name: Render Varnish default.vcl
+  template:
+    src: default.vcl.j2
+    dest: /etc/varnish/default.vcl
+    mode: "0644"
+  notify: Restart varnish
+
+- name: Ensure systemd override dir for varnish
+  file:
+    path: /etc/systemd/system/varnish.service.d
+    state: directory
+    mode: "0755"
+
+- name: Render varnishd override (listen/storage/threads)
+  template:
+    src: varnish-override.conf.j2
+    dest: /etc/systemd/system/varnish.service.d/override.conf
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart varnish
+
+# Caddy config
+- name: Render Caddyfile
+  template:
+    src: Caddyfile.j2
+    dest: /etc/caddy/Caddyfile
+    mode: "0644"
+  notify: Restart caddy
+
+# Enable & start services
+- name: Enable & start varnish
+  systemd:
+    name: varnish
+    state: started
+    enabled: true
+
+- name: Enable & start caddy
+  systemd:
+    name: caddy
+    state: started
+    enabled: true

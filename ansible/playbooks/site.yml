@@ -23,3 +23,7 @@
 - hosts: sso
   become: yes
   roles: [authentik]
+
+- hosts: cache
+  become: yes
+  roles: [cache]
