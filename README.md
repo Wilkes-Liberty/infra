@@ -56,7 +56,8 @@ infra/
 - Ansible installed locally
 - SSH access to target servers
 - Proton VPN or equivalent for secure access
-- Vault password file for encrypted secrets
+- sops and age installed; export SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt
+- Ansible collection community.sops installed (ansible-galaxy collection install community.sops)
 
 ### Setup
 
@@ -66,11 +67,13 @@ infra/
    vi ansible/inventory/hosts.ini
    ```
 
-2. **Set Vault Password**
+2. **Configure SOPS/age**
    ```bash
-   # Create vault password file (excluded from git)
-   echo "your-vault-password" > ansible/.vault_pass
-   chmod 600 ansible/.vault_pass
+   # Ensure SOPS and age are installed, and point to your private key
+   export SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt
+
+   # Install the Ansible vars plugin used by this repo
+   ansible-galaxy collection install community.sops
    ```
 
 3. **Update Variables**
@@ -78,9 +81,17 @@ infra/
    # Edit global variables
    vi ansible/inventory/group_vars/all.yml
    
-   # Create encrypted secrets file
-   ansible-vault create ansible/inventory/prod_secrets.yml
+   # Create or edit encrypted secrets with SOPS (auto-encrypted via .sops.yaml)
+   sops ansible/inventory/group_vars/sso_secrets.yml
    ```
+
+## Secrets (SOPS/age)
+
+- Encrypted variables live under ansible/inventory/group_vars/*_secrets.yml (example: sso_secrets.yml).
+- Encryption is enforced by .sops.yaml: any file matching that pattern is automatically encrypted for the repository’s age recipient.
+- Ansible is configured to load SOPS-encrypted vars via community.sops (see ansible/ansible.cfg). If your AGE private key is available (export SOPS_AGE_KEY_FILE), Ansible will decrypt at runtime.
+- Edit secrets safely with SOPS (do not paste secrets into plaintext files):
+  - sops ansible/inventory/group_vars/sso_secrets.yml
 
 ## Common Tasks
 
@@ -180,7 +191,8 @@ ddev drush cr
 - Confirm server IP addresses
 
 **Ansible Failures**
-- Check vault password file
+- Ensure SOPS_AGE_KEY_FILE points to your AGE key file and your key is available
+- Confirm community.sops is installed (ansible-galaxy collection install community.sops)
 - Verify inventory configuration
 - Ensure target servers are accessible
 
