@@ -34,3 +34,9 @@ db_int_ip:        10.10.0.3
 search_int_ip:    10.10.0.4
 analytics_int_ip: 10.10.0.7
 sso_int_ip:       10.10.0.8
+
+# Cache node (Varnish + Caddy)
+cache_int_ip: 10.10.0.9
+
+# Cache node (Varnish + Caddy)
+cache_int_ip: 10.10.0.9

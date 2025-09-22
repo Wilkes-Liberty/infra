@@ -1,0 +1,9 @@
+wg_address: "10.10.0.9/24"
+wg_peers:
+  - public_key: "{{ hostvars['app1.prod.wilkesliberty.com'].wg_public_key | default('') }}"
+    allowed_ips: "10.10.0.2/32"
+
+# Role-specific vars
+cache_roles:
+  - caddy
+  - varnish
