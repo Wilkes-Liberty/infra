@@ -183,13 +183,31 @@ ddev drush cr
 4. Run automated tests
 5. Deploy to production
 
+## Infrastructure Status (October 2025)
+
+### ✅ Production Ready
+This infrastructure repository has been fully audited and all critical issues have been resolved:
+
+- **Inventory**: Clean, standardized FQDN format without duplications
+- **Variables**: Consolidated definitions, no conflicts or duplications
+- **Automation**: Functional deployment and backup scripts
+- **Documentation**: Comprehensive guides for variable precedence and structure
+- **Security**: SOPS/age encryption properly configured
+
+### Recent Improvements
+- Fixed all inventory duplications and hostname inconsistencies
+- Consolidated variable definitions in group_vars/all.yml
+- Created missing deployment and backup automation
+- Enhanced .gitignore to prevent artifact commits
+- Added comprehensive documentation (see ansible/README.md)
+
 ## Troubleshooting
 
 ### Common Issues
 
 **SSH Access Issues**
 - Verify VPN connection
-- Check SSH key permissions
+- Check SSH key permissions  
 - Confirm server IP addresses
 
 **Ansible Failures**
@@ -198,9 +216,14 @@ ddev drush cr
 - Verify inventory configuration
 - Ensure target servers are accessible
 
+**Variable Resolution Issues** 
+- Check ansible/README.md for variable precedence documentation
+- Use `ansible-inventory --host [hostname]` to debug variable conflicts
+- Verify SOPS decryption is working for encrypted files
+
 **Application Issues**
 - Check logs: `tail -f /var/log/nginx/error.log`
-- Drupal logs: `ddev drush watchdog:show`
+- Drupal logs: `ddev drush watchdog:show` 
 - Clear caches: `ddev drush cr`
 
 ### Support Contacts
@@ -222,6 +245,40 @@ Private repository for Wilkes Liberty infrastructure. Unauthorized access prohib
 
 ---
 
-**Last Updated**: September 2024  
-**Version**: 1.0  
+**Last Updated**: October 2025  
+**Version**: 2.0 (Infrastructure Audit Complete)  
 **Maintainer**: Wilkes Liberty Infrastructure Team
+
+## Quick Reference
+
+### Validation Commands
+```bash
+# Verify infrastructure health
+ansible-inventory -i ansible/inventory/hosts.ini --graph
+make --dry-run bootstrap
+./scripts/backup-db.sh --dry-run
+```
+
+### Deployment Commands  
+```bash
+# Deploy infrastructure
+make bootstrap    # Initial setup
+make site        # Full deployment
+make deploy      # Application only
+make backup-db   # Database backup
+```
+
+### Terraform DNS Management
+```bash
+# Terraform files are in project root (single environment pattern)
+terraform plan       # Plan DNS changes
+terraform apply      # Apply DNS records
+terraform show       # View current state
+```
+
+### Documentation
+- **WARP.md**: Complete infrastructure guide and architecture
+- **ansible/README.md**: Variable precedence and configuration structure  
+- **DNS_RECORDS.md**: Public DNS configuration reference
+- **MULTI_ENVIRONMENT_STRATEGY.md**: Three-environment expansion plan (dev → staging → prod)
+- **GITHUB_ACTIONS_STRATEGY.md**: CI/CD pipeline with branch-based deployment triggers
