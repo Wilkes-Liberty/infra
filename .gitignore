@@ -3,14 +3,16 @@
 ansible/.vault_pass
 ansible/inventory/*_secrets.yml
 
-# Terraform (if used later)
-terraform/.terraform/
+# Terraform
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.backup
 *.tfstate*
 *.tfvars
 
 # Local
 .DS_Store
-
 
 # IDE artifacts
 .vscode/
