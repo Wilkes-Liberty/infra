@@ -264,12 +264,13 @@ Once production is stable, expand to staging and development environments:
    - Create shared Terraform modules for common patterns
    - Separate Ansible inventories for each environment
 
-2. **GitHub Actions CI/CD pipeline**
-   - **Development**: Auto-deploy on push to `development` branch
-   - **Staging**: Auto-deploy on merge `development` → `staging`
-   - **Production**: Manual approval + deploy on merge `staging` → `master`
+2. **GitHub Actions CI/CD pipeline** (Currently disabled while building infrastructure)
+   - **Development**: ~~Auto-deploy~~ Manual deploy only (workflow_dispatch)
+   - **Staging**: ~~Auto-deploy~~ Manual deploy only (workflow_dispatch)  
+   - **Production**: Manual deploy only with confirmation (workflow_dispatch)
    - Infrastructure validation and compliance checks
    - Rollback capabilities at each stage
+   - **Note**: Auto-deployment triggers are commented out until infrastructure is complete
 
 ### Migration to Multi-Environment
 When ready to add staging and development environments:
@@ -288,19 +289,56 @@ The migration script will:
 - ✅ Set up environment-specific configuration
 - ✅ Update documentation and validate new structure
 
-### GitHub Actions Deployment Flow
+### GitHub Actions Deployment Flow (Manual Only - Building Phase)
 ```
 Feature Branch → development → staging → master
      ↓              ↓           ↓        ↓
-   Pull Request    Auto Deploy  Auto Deploy Manual Gate
-   Unit Tests     to Dev Env   to Staging   Blue/Green
-   Code Review    Smoke Tests  Load Tests   Production
+   Pull Request    Manual Only  Manual Only Manual Only
+   Unit Tests     workflow_    workflow_   workflow_
+   Code Review    dispatch     dispatch    dispatch
 ```
 
-**Triggers**:
+**Current Triggers** (Auto-deployment disabled):
+- ~~Push to `development`~~ → Manual trigger only (workflow_dispatch)
+- ~~Merge `dev` → `staging`~~ → Manual trigger only (workflow_dispatch)  
+- ~~Merge `staging` → `master`~~ → Manual trigger with confirmation required
+
+**Future Triggers** (When infrastructure is complete):
 - Push to `development` → Deploy to dev environment
 - Merge `dev` → `staging` → Deploy to staging environment  
 - Merge `staging` → `master` → Manual approval + production deployment
+
+## Manual Deployment (Current Phase)
+
+While auto-deployments are disabled, use GitHub's Actions tab to manually trigger deployments:
+
+### Manual Deployment via GitHub UI
+1. Go to **Actions** tab in GitHub repository
+2. Select the desired workflow:
+   - "Deploy to Development"
+   - "Deploy to Staging" 
+   - "Deploy to Production"
+3. Click **"Run workflow"**
+4. **Important**: Type `deploy` in the confirmation field
+5. For production: Optionally check "emergency deployment" to skip pre-checks
+6. Click **"Run workflow"** to start
+
+### Manual Deployment via CLI
+```bash
+# Trigger development deployment
+gh workflow run "Deploy to Development" --field confirm_deployment=deploy
+
+# Trigger staging deployment  
+gh workflow run "Deploy to Staging" --field confirm_deployment=deploy
+
+# Trigger production deployment
+gh workflow run "Deploy to Production" --field confirm_deployment=deploy
+
+# Emergency production deployment (skips pre-checks)
+gh workflow run "Deploy to Production" --field confirm_deployment=deploy --field emergency_deployment=true
+```
+
+**Note**: All deployments require explicit confirmation to prevent accidental deployments.
 
 ## Infrastructure Management Commands
 
