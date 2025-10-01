@@ -1,0 +1,8 @@
+---
+- name: Configure fleet to use internal DNS for int.wilkesliberty.com
+  hosts: fleet
+  become: yes
+  vars_files:
+    - ../group_vars/all/coredns.yml
+  roles:
+    - resolved

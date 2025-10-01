@@ -1,0 +1,8 @@
+---
+- name: Deploy CoreDNS to internal DNS host(s)
+  hosts: dns
+  become: yes
+  vars_files:
+    - ../group_vars/all/coredns.yml
+  roles:
+    - coredns
