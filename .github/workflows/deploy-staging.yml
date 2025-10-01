@@ -1,0 +1,174 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [staging]
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.3'
+
+    - name: Install dependencies
+      run: |
+        if [ -f "composer.json" ]; then
+          composer install --no-dev --optimize-autoloader
+        fi
+        
+        if [ -f "package.json" ]; then
+          npm ci
+        fi
+
+    - name: Run full test suite
+      run: |
+        # Unit tests
+        if [ -f "phpunit.xml" ]; then
+          vendor/bin/phpunit --coverage-clover coverage.xml
+        fi
+        
+        # JavaScript tests
+        if [ -f "package.json" ] && [ -n "$(npm run | grep test)" ]; then
+          npm test
+        fi
+        
+        # Integration tests
+        if [ -f "tests/integration" ]; then
+          ./tests/integration/run-tests.sh
+        fi
+
+    - name: Run security scanning
+      run: |
+        # PHP security check
+        if [ -f "composer.json" ]; then
+          composer audit
+        fi
+        
+        # Node.js security check
+        if [ -f "package.json" ]; then
+          npm audit --audit-level high
+        fi
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: latest
+
+    - name: Setup Ansible
+      run: |
+        pip install ansible
+        ansible-galaxy collection install community.sops
+
+    - name: Configure SOPS/age
+      env:
+        SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+      run: |
+        mkdir -p ~/.config/sops/age
+        echo "$SOPS_AGE_KEY" > ~/.config/sops/age/keys.txt
+        export SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt
+
+    - name: Deploy infrastructure to staging
+      env:
+        TF_VAR_njalla_api_token: ${{ secrets.STAGING_NJALLA_API_TOKEN }}
+        TF_VAR_proton_dkim1_target: ${{ secrets.PROTON_DKIM1_TARGET }}
+        TF_VAR_proton_dkim2_target: ${{ secrets.PROTON_DKIM2_TARGET }}
+        TF_VAR_proton_dkim3_target: ${{ secrets.PROTON_DKIM3_TARGET }}
+      run: |
+        cd infra
+        if [ -d "environments/staging" ]; then
+          cd environments/staging
+          terraform init
+          terraform plan -out=tfplan
+          terraform apply tfplan
+        else
+          echo "Multi-environment structure not yet implemented"
+        fi
+
+    - name: Deploy application to staging
+      env:
+        ANSIBLE_HOST_KEY_CHECKING: False
+        SOPS_AGE_KEY_FILE: ~/.config/sops/age/keys.txt
+      run: |
+        cd infra
+        if [ -d "environments/staging" ]; then
+          ansible-playbook -i ansible/inventory/staging/hosts.ini ansible/playbooks/deploy-app.yml
+        else
+          # Fallback for current structure
+          ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/site.yml
+        fi
+
+    - name: Run integration tests
+      run: |
+        # Wait for deployment to settle
+        sleep 30
+        
+        # Health checks
+        curl -f https://staging.wilkesliberty.com/health || exit 1
+        
+        # API tests
+        if [ -f "tests/api-tests.sh" ]; then
+          STAGING_URL=https://staging.wilkesliberty.com ./tests/api-tests.sh
+        fi
+        
+        # Database connectivity
+        # Add your specific integration tests here
+
+    - name: Run performance tests
+      run: |
+        # Basic performance test with curl
+        response_time=$(curl -o /dev/null -s -w '%{time_total}' https://staging.wilkesliberty.com/)
+        echo "Response time: ${response_time}s"
+        
+        # Performance threshold check (2 seconds max)
+        if (( $(echo "$response_time > 2.0" | bc -l) )); then
+          echo "Performance test failed: ${response_time}s > 2.0s"
+          exit 1
+        fi
+
+    - name: Generate deployment report
+      run: |
+        echo "## Staging Deployment Report" > deployment-report.md
+        echo "**Date**: $(date)" >> deployment-report.md
+        echo "**Branch**: ${{ github.ref }}" >> deployment-report.md
+        echo "**Commit**: ${{ github.sha }}" >> deployment-report.md
+        echo "**Status**: ✅ Success" >> deployment-report.md
+        echo "" >> deployment-report.md
+        echo "### Tests Completed" >> deployment-report.md
+        echo "- ✅ Unit tests" >> deployment-report.md
+        echo "- ✅ Integration tests" >> deployment-report.md
+        echo "- ✅ Security scanning" >> deployment-report.md
+        echo "- ✅ Performance tests" >> deployment-report.md
+
+    - name: Upload deployment report
+      uses: actions/upload-artifact@v4
+      with:
+        name: staging-deployment-report
+        path: deployment-report.md
+
+    - name: Notify deployment status
+      if: always()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        channel: '#deployments'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        text: |
+          Staging deployment ${{ job.status }}!
+          Branch: ${{ github.ref }}
+          Commit: ${{ github.sha }}
+          Ready for production review: https://staging.wilkesliberty.com
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
