@@ -1,42 +1,32 @@
+# ── Domain Configuration ─────────────────────────────────────────────
 domain: wilkesliberty.com
 int_domain: int.wilkesliberty.com
 
-# Proton VPN: restrict admin/services to these CIDRs (fill in your egress ranges)
-admin_allow_cidrs:
-  - 203.0.113.0/24   # replace with Proton Business egress or your office IPs
+# ── Network & Access Control ─────────────────────────────────────────
+wg_network_cidr: "10.10.0.0/24"    # WireGuard mesh subnet
+wg_listen_port: 51820
 
-# Common versions
+# Admin access: restrict SSH and admin UIs to these CIDRs
+admin_allow_cidrs:
+  - 203.0.113.0/24     # Replace with your Proton Business egress or office IPs
+  - 203.0.113.10/32    # Replace with your specific admin IP
+
+# ── Service Internal IP Addresses ─────────────────────────────────────
+# DNS server
+dns_int_ip: 10.10.0.10
+
+# Application infrastructure 
+app_int_ip: 10.10.0.2
+db_int_ip: 10.10.0.3
+search_int_ip: 10.10.0.4     # Solr search server
+analytics_int_ip: 10.10.0.7
+sso_int_ip: 10.10.0.8
+cache_int_ip: 10.10.0.9      # Varnish + Caddy cache node
+
+# Legacy aliases (for backward compatibility)
+solr_int_ip: "{{ search_int_ip }}"  # Alias for search_int_ip
+
+# ── Software Versions ─────────────────────────────────────────────────
 php_version: "8.3"
 node_major: "20"
 solr_version: "9.6.1"
-
-# Private IPs (Proton VPN or WG)
-app_int_ip: 10.10.0.2
-db_int_ip: 10.10.0.3
-solr_int_ip: 10.10.0.4
-analytics_int_ip: 10.10.0.7
-
-# mesh-wide
-wg_network_cidr: "10.10.0.0/24"
-wg_listen_port: 51820
-wg_allow_admin_ssh_cidrs:
-  - 203.0.113.10/32   # replace with your Proton egress or office IP
-
-
-# ── Mesh & admin access ─────────────────────────────────────────────
-wg_network_cidr: "10.10.0.0/24"         # your WireGuard mesh subnet
-admin_allow_cidrs:                      # where SSH and admin UIs are allowed from
-  - 203.0.113.10/32                     # ← replace with your Proton egress / office IPs
-
-# ── Private service IPs (used for per-host allow rules) ─────────────
-app_int_ip:       10.10.0.2
-db_int_ip:        10.10.0.3
-search_int_ip:    10.10.0.4
-analytics_int_ip: 10.10.0.7
-sso_int_ip:       10.10.0.8
-
-# Cache node (Varnish + Caddy)
-cache_int_ip: 10.10.0.9
-
-# Cache node (Varnish + Caddy)
-cache_int_ip: 10.10.0.9
