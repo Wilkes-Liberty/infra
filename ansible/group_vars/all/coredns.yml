@@ -1,0 +1,14 @@
+int_domain: "int.wilkesliberty.com."
+dns_listen_ip: "10.10.0.10"
+upstream_dns: ["1.1.1.1","9.9.9.9"]
+internal_hosts:
+  app: "10.10.0.2"
+  db: "10.10.0.3"
+  search: "10.10.0.4"
+  analytics: "10.10.0.7"
+  sso: "10.10.0.8"
+  cache: "10.10.0.9"
+  monitor: "10.10.0.7"
+  uptime: "10.10.0.7"
+reverse_cidr: "10.10.0.0/24"
+reverse_zone: "0.10.10.in-addr.arpa."
