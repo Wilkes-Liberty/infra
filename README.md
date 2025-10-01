@@ -33,9 +33,11 @@ infra/
 │   ├── playbooks/     # Ansible playbooks
 │   ├── roles/         # Ansible roles for each service
 │   └── templates/     # Configuration templates
-├── coredns/          # CoreDNS configuration
-├── scripts/          # Utility scripts
-├── terraform/        # Terraform configs (future use)
+├── coredns/          # CoreDNS configuration (static files)
+├── scripts/          # Utility scripts (backup-db.sh)
+├── *.tf              # Terraform configuration files (DNS management)
+├── terraform.tfvars  # Terraform variables (not committed)
+├── .terraform/       # Terraform working directory (gitignored)
 └── Makefile          # Common tasks automation
 ```
 
