@@ -1,8 +1,25 @@
 name: Deploy to Production
 
+# Auto-deployment disabled while building infrastructure
+# Uncomment the 'on' section when ready to enable automatic deployments
+# on:
+#   push:
+#     branches: [master, main]
+
+# Manual trigger only for now
 on:
-  push:
-    branches: [master, main]
+  workflow_dispatch:
+    inputs:
+      confirm_deployment:
+        description: 'Type "deploy" to confirm manual deployment to PRODUCTION'
+        required: true
+        default: ''
+        type: string
+      emergency_deployment:
+        description: 'Check this box for emergency deployments (skips some checks)'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   deploy-production:
@@ -12,6 +29,13 @@ jobs:
       url: https://wilkesliberty.com
 
     steps:
+    - name: Validate deployment confirmation
+      if: github.event.inputs.confirm_deployment != 'deploy'
+      run: |
+        echo "❌ PRODUCTION deployment not confirmed. Please type 'deploy' in the confirmation field."
+        echo "⚠️  WARNING: This will deploy to PRODUCTION environment!"
+        exit 1
+        
     - name: Checkout code
       uses: actions/checkout@v4
 
@@ -32,8 +56,16 @@ jobs:
         mkdir -p ~/.config/sops/age
         echo "$SOPS_AGE_KEY" > ~/.config/sops/age/keys.txt
         export SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt
+        
+    - name: Emergency deployment warning
+      if: github.event.inputs.emergency_deployment == 'true'
+      run: |
+        echo "🚨 EMERGENCY DEPLOYMENT MODE ENABLED"
+        echo "⚠️  Pre-deployment checks will be skipped!"
+        echo "⚠️  Use only for critical hotfixes!"
 
     - name: Pre-deployment checks
+      if: github.event.inputs.emergency_deployment != 'true'
       run: |
         echo "## Pre-deployment Validation" > pre-deployment-report.md
         echo "**Date**: $(date)" >> pre-deployment-report.md

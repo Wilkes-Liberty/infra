@@ -1,8 +1,20 @@
 name: Deploy to Staging
 
+# Auto-deployment disabled while building infrastructure
+# Uncomment the 'on' section when ready to enable automatic deployments
+# on:
+#   push:
+#     branches: [staging]
+
+# Manual trigger only for now
 on:
-  push:
-    branches: [staging]
+  workflow_dispatch:
+    inputs:
+      confirm_deployment:
+        description: 'Type "deploy" to confirm manual deployment'
+        required: true
+        default: ''
+        type: string
 
 jobs:
   test-and-deploy:
@@ -10,6 +22,12 @@ jobs:
     environment: staging
 
     steps:
+    - name: Validate deployment confirmation
+      if: github.event.inputs.confirm_deployment != 'deploy'
+      run: |
+        echo "❌ Deployment not confirmed. Please type 'deploy' in the confirmation field."
+        exit 1
+        
     - name: Checkout code
       uses: actions/checkout@v4
 
