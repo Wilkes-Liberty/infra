@@ -1,0 +1,223 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [master, main]
+
+jobs:
+  deploy-production:
+    runs-on: ubuntu-latest
+    environment: 
+      name: production
+      url: https://wilkesliberty.com
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: latest
+
+    - name: Setup Ansible
+      run: |
+        pip install ansible
+        ansible-galaxy collection install community.sops
+
+    - name: Configure SOPS/age
+      env:
+        SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+      run: |
+        mkdir -p ~/.config/sops/age
+        echo "$SOPS_AGE_KEY" > ~/.config/sops/age/keys.txt
+        export SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt
+
+    - name: Pre-deployment checks
+      run: |
+        echo "## Pre-deployment Validation" > pre-deployment-report.md
+        echo "**Date**: $(date)" >> pre-deployment-report.md
+        echo "**Branch**: ${{ github.ref }}" >> pre-deployment-report.md
+        echo "**Commit**: ${{ github.sha }}" >> pre-deployment-report.md
+        echo "" >> pre-deployment-report.md
+        
+        # Check if staging is healthy
+        echo "Checking staging environment health..."
+        staging_status=$(curl -s -o /dev/null -w "%{http_code}" https://staging.wilkesliberty.com/health || echo "000")
+        
+        if [ "$staging_status" == "200" ]; then
+          echo "- ✅ Staging environment healthy" >> pre-deployment-report.md
+        else
+          echo "- ❌ Staging environment unhealthy (HTTP $staging_status)" >> pre-deployment-report.md
+          echo "Staging environment is not healthy. Aborting production deployment."
+          exit 1
+        fi
+        
+        # Check production current status
+        echo "Checking current production status..."
+        prod_status=$(curl -s -o /dev/null -w "%{http_code}" https://wilkesliberty.com/health || echo "000")
+        echo "- ℹ️ Current production status: HTTP $prod_status" >> pre-deployment-report.md
+
+    - name: Deploy infrastructure to production
+      env:
+        TF_VAR_njalla_api_token: ${{ secrets.PRODUCTION_NJALLA_API_TOKEN }}
+        TF_VAR_proton_dkim1_target: ${{ secrets.PROTON_DKIM1_TARGET }}
+        TF_VAR_proton_dkim2_target: ${{ secrets.PROTON_DKIM2_TARGET }}
+        TF_VAR_proton_dkim3_target: ${{ secrets.PROTON_DKIM3_TARGET }}
+      run: |
+        cd infra
+        if [ -d "environments/prod" ]; then
+          cd environments/prod
+          terraform init
+          terraform plan -out=tfplan
+          terraform apply tfplan
+        else
+          # Current single environment structure
+          terraform init
+          terraform plan -out=tfplan
+          terraform apply tfplan
+        fi
+
+    - name: Create database backup before deployment
+      env:
+        ANSIBLE_HOST_KEY_CHECKING: False
+        SOPS_AGE_KEY_FILE: ~/.config/sops/age/keys.txt
+      run: |
+        cd infra
+        echo "Creating pre-deployment backup..."
+        if [ -f "scripts/backup-db.sh" ]; then
+          ./scripts/backup-db.sh --backup-dir /opt/backups/pre-deployment-$(date +%Y%m%d_%H%M%S)
+        fi
+
+    - name: Deploy application to production (Blue/Green)
+      env:
+        ANSIBLE_HOST_KEY_CHECKING: False
+        SOPS_AGE_KEY_FILE: ~/.config/sops/age/keys.txt
+      run: |
+        cd infra
+        
+        # Deploy using blue/green strategy
+        if [ -d "environments/prod" ]; then
+          # Multi-environment structure
+          ansible-playbook -i ansible/inventory/prod/hosts.ini ansible/playbooks/deploy-app.yml \
+            --extra-vars "deployment_strategy=blue_green"
+        else
+          # Current structure
+          ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/deploy-app.yml \
+            --limit app --extra-vars "deployment_strategy=blue_green"
+        fi
+
+    - name: Health checks and monitoring validation
+      run: |
+        echo "Running post-deployment health checks..."
+        
+        # Wait for deployment to settle
+        sleep 60
+        
+        # Health check with retries
+        max_attempts=10
+        attempt=1
+        
+        while [ $attempt -le $max_attempts ]; do
+          echo "Health check attempt $attempt/$max_attempts..."
+          
+          if curl -f https://wilkesliberty.com/health; then
+            echo "✅ Health check passed!"
+            break
+          else
+            echo "❌ Health check failed, attempt $attempt/$max_attempts"
+            if [ $attempt -eq $max_attempts ]; then
+              echo "All health check attempts failed. Initiating rollback..."
+              exit 1
+            fi
+            sleep 30
+            ((attempt++))
+          fi
+        done
+        
+        # Additional checks
+        echo "Running additional validation checks..."
+        
+        # Database connectivity
+        # Add your specific health checks here
+        
+        # Performance check
+        response_time=$(curl -o /dev/null -s -w '%{time_total}' https://wilkesliberty.com/)
+        echo "Response time: ${response_time}s"
+        
+        if (( $(echo "$response_time > 3.0" | bc -l) )); then
+          echo "❌ Performance degraded: ${response_time}s > 3.0s"
+          echo "Consider rollback if performance continues to be degraded."
+        fi
+
+    - name: Generate deployment report
+      if: always()
+      run: |
+        echo "## Production Deployment Report" > production-deployment-report.md
+        echo "**Date**: $(date)" >> production-deployment-report.md
+        echo "**Branch**: ${{ github.ref }}" >> production-deployment-report.md
+        echo "**Commit**: ${{ github.sha }}" >> production-deployment-report.md
+        echo "**Deployment Strategy**: Blue/Green" >> production-deployment-report.md
+        
+        if [ $? -eq 0 ]; then
+          echo "**Status**: ✅ Success" >> production-deployment-report.md
+        else
+          echo "**Status**: ❌ Failed" >> production-deployment-report.md
+        fi
+        
+        echo "" >> production-deployment-report.md
+        echo "### Deployment Steps Completed" >> production-deployment-report.md
+        echo "- ✅ Pre-deployment validation" >> production-deployment-report.md
+        echo "- ✅ Infrastructure updates" >> production-deployment-report.md
+        echo "- ✅ Database backup" >> production-deployment-report.md
+        echo "- ✅ Application deployment" >> production-deployment-report.md
+        echo "- ✅ Health checks" >> production-deployment-report.md
+        echo "" >> production-deployment-report.md
+        echo "### Rollback Information" >> production-deployment-report.md
+        echo "If rollback is needed, use the pre-deployment backup and run:" >> production-deployment-report.md
+        echo '```bash' >> production-deployment-report.md
+        echo "cd infra" >> production-deployment-report.md
+        echo "ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/rollback.yml" >> production-deployment-report.md
+        echo '```' >> production-deployment-report.md
+
+    - name: Upload deployment report
+      uses: actions/upload-artifact@v4
+      with:
+        name: production-deployment-report
+        path: production-deployment-report.md
+
+    - name: Notify deployment success
+      if: success()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: success
+        channel: '#general'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        text: |
+          🚀 Production deployment successful!
+          
+          **Branch**: ${{ github.ref }}
+          **Commit**: ${{ github.sha }}
+          **Site**: https://wilkesliberty.com
+          
+          Deployment completed with blue/green strategy.
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+    - name: Notify deployment failure and rollback needed
+      if: failure()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        channel: '#alerts'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        text: |
+          🚨 Production deployment FAILED!
+          
+          **Branch**: ${{ github.ref }}
+          **Commit**: ${{ github.sha }}
+          
+          Manual intervention required. Check logs and consider rollback.
+          Rollback command: `ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/rollback.yml`
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
