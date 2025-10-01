@@ -1,0 +1,110 @@
+name: Deploy to Development
+
+on:
+  push:
+    branches: [development]
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+    environment: development
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.3'
+
+    - name: Install dependencies
+      run: |
+        # Install Composer dependencies if needed
+        if [ -f "composer.json" ]; then
+          composer install --no-dev --optimize-autoloader
+        fi
+        
+        # Install Node dependencies if needed
+        if [ -f "package.json" ]; then
+          npm ci
+        fi
+
+    - name: Run tests
+      run: |
+        # PHP tests
+        if [ -f "phpunit.xml" ]; then
+          vendor/bin/phpunit
+        fi
+        
+        # JavaScript tests
+        if [ -f "package.json" ] && [ -n "$(npm run | grep test)" ]; then
+          npm test
+        fi
+
+    - name: Run linting
+      run: |
+        # PHP linting
+        if [ -f "phpcs.xml" ]; then
+          vendor/bin/phpcs
+        fi
+        
+        # JavaScript linting
+        if [ -f ".eslintrc.js" ] || [ -f ".eslintrc.json" ]; then
+          npm run lint
+        fi
+
+    - name: Setup Ansible
+      run: |
+        pip install ansible
+        ansible-galaxy collection install community.sops
+
+    - name: Configure SOPS/age
+      env:
+        SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+      run: |
+        mkdir -p ~/.config/sops/age
+        echo "$SOPS_AGE_KEY" > ~/.config/sops/age/keys.txt
+        export SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt
+
+    - name: Deploy to development environment
+      env:
+        ANSIBLE_HOST_KEY_CHECKING: False
+        SOPS_AGE_KEY_FILE: ~/.config/sops/age/keys.txt
+      run: |
+        cd infra
+        # Deploy to development environment (when multi-env structure exists)
+        if [ -d "environments/dev" ]; then
+          cd environments/dev
+          ansible-playbook -i ../../ansible/inventory/dev/hosts.ini ../../ansible/playbooks/deploy-app.yml
+        else
+          # Current single environment deployment
+          ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/deploy-app.yml --limit app
+        fi
+
+    - name: Run smoke tests
+      run: |
+        # Basic health checks
+        curl -f http://dev.wilkesliberty.com/health || exit 1
+        
+        # Database connectivity test
+        # Add your specific smoke tests here
+
+    - name: Notify deployment status
+      if: always()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        channel: '#deployments'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        text: |
+          Development deployment ${{ job.status }}!
+          Branch: ${{ github.ref }}
+          Commit: ${{ github.sha }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
