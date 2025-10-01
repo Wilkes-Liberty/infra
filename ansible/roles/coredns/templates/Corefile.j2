@@ -1,0 +1,22 @@
+{{ int_domain }}:53 {
+    file /etc/coredns/zones/db.{{ int_domain }}
+    cache 30
+    log
+    errors
+}
+
+{% if reverse_cidr|length > 0 %}
+{{ reverse_zone }}:53 {
+    file /etc/coredns/zones/db.{{ reverse_zone }}
+    cache 30
+    log
+    errors
+}
+{% endif %}
+
+. {
+    forward . {% for s in upstream_dns %}{{ s }} {% endfor %}
+    cache 60
+    log
+    errors
+}

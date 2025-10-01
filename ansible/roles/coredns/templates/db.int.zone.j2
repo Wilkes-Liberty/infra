@@ -1,0 +1,15 @@
+$ORIGIN {{ int_domain }}
+$TTL 300
+@   IN SOA  ns.{{ int_domain }} hostmaster.wilkesliberty.com. (
+        {{ "%Y%m%d01"|strftime }} ; serial
+        7200       ; refresh
+        3600       ; retry
+        1209600    ; expire
+        300 )      ; negative TTL
+
+@    IN NS   ns.{{ int_domain }}
+ns   IN A    {{ dns_listen_ip }}
+
+{% for host, ip in internal_hosts.items() -%}
+{{ "%-9s"|format(host) }} IN A    {{ ip }}
+{% endfor %}

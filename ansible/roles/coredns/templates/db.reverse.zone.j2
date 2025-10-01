@@ -1,0 +1,10 @@
+$ORIGIN {{ reverse_zone }}
+$TTL 300
+@   IN SOA ns.{{ int_domain }} hostmaster.wilkesliberty.com. (
+        {{ "%Y%m%d01"|strftime }} 7200 3600 1209600 300 )
+@   IN NS  ns.{{ int_domain }}
+
+{% for host, ip in internal_hosts.items() %}
+{% set last_octet = ip.split('.')[-1] %}
+{{ last_octet }} IN PTR {{ host }}.{{ int_domain }}
+{% endfor %}

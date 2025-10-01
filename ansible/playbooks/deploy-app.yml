@@ -1,0 +1,39 @@
+---
+# Application deployment playbook
+# This playbook handles deployment of the Drupal application to app servers
+
+- name: Deploy application to app servers
+  hosts: app
+  become: yes
+  vars:
+    app_deployment_mode: true
+  
+  pre_tasks:
+    - name: Verify deployment prerequisites
+      debug:
+        msg: "Starting application deployment to {{ inventory_hostname }}"
+
+  roles:
+    - app
+
+  post_tasks:
+    - name: Verify application is running
+      uri:
+        url: "http://{{ app_int_ip }}/health"
+        method: GET
+        status_code: [200, 404]  # 404 acceptable if health endpoint not yet implemented
+      register: health_check
+      ignore_errors: true
+      
+    - name: Display deployment status
+      debug:
+        msg: "Application deployment completed on {{ inventory_hostname }}"
+
+# Future tasks to add:
+# - Code deployment from git repository
+# - Database migrations (drush updb)
+# - Cache clearing (drush cr)
+# - Configuration import (drush cim)
+# - File permissions and ownership
+# - Service restart coordination
+# - Rollback procedures

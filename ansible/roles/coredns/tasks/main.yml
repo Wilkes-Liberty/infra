@@ -1,0 +1,54 @@
+---
+- name: Ensure CoreDNS is installed
+  apt:
+    name: coredns
+    state: present
+    update_cache: yes
+
+- name: Ensure CoreDNS directories exist
+  file:
+    path: "/etc/coredns/zones"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deploy Corefile
+  template:
+    src: Corefile.j2
+    dest: /etc/coredns/Corefile
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart CoreDNS
+
+- name: Deploy internal zone file
+  template:
+    src: db.int.zone.j2
+    dest: "/etc/coredns/zones/db.{{ int_domain }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart CoreDNS
+
+- name: Deploy reverse zone file (optional)
+  when: reverse_cidr | length > 0
+  template:
+    src: db.reverse.zone.j2
+    dest: "/etc/coredns/zones/db.{{ reverse_zone }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart CoreDNS
+
+- name: Enable & start CoreDNS
+  systemd:
+    name: coredns
+    enabled: yes
+    state: started
+
+- name: Restart CoreDNS
+  listen: Restart CoreDNS
+  systemd:
+    name: coredns
+    state: restarted
