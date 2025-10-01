@@ -11,9 +11,40 @@ terraform.tfstate.backup
 *.tfstate*
 *.tfvars
 
-# Local
+# Backup files (prevent accidental commits)
+*.bak
+*.bak.*
+*.backup
+*.backup.*
+*.orig
+*.tmp
+*.temp
+
+# Logs
+*.log
+
+# Local configuration
+.env
+.env.local
+
+# System files
 .DS_Store
+Thumbs.db
 
 # IDE artifacts
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Node.js (if any helper scripts)
+node_modules/
+npm-debug.log*
