@@ -1,0 +1,271 @@
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # njalla_record_a.analytics1_a will be created
+  + resource "njalla_record_a" "analytics1_a" {
+      + content = "80.78.28.148"
+      + domain  = "wilkesliberty.com"
+      + id      = (known after apply)
+      + name    = "analytics1.prod"
+      + ttl     = 3600
+    }
+
+  # njalla_record_a.apex_a will be created
+  + resource "njalla_record_a" "apex_a" {
+      + content = "80.78.30.4"
+      + domain  = "wilkesliberty.com"
+      + id      = (known after apply)
+      + name    = "@"
+      + ttl     = 3600
+    }
+
+  # njalla_record_a.app1_a will be created
+  + resource "njalla_record_a" "app1_a" {
+      + content = "80.78.28.105"
+      + domain  = "wilkesliberty.com"
+      + id      = (known after apply)
+      + name    = "app1.prod"
+      + ttl     = 3600
+    }
+
+  # njalla_record_a.cache1_a will be created
+  + resource "njalla_record_a" "cache1_a" {
+      + content = "80.78.30.4"
+      + domain  = "wilkesliberty.com"
+      + id      = (known after apply)
+      + name    = "cache1.prod"
+      + ttl     = 3600
+    }
+
+  # njalla_record_a.db1_a will be created
+  + resource "njalla_record_a" "db1_a" {
+      + content = "80.78.28.129"
+      + domain  = "wilkesliberty.com"
+      + id      = (known after apply)
+      + name    = "db1.prod"
+      + ttl     = 3600
+    }
+
+  # njalla_record_a.search1_a will be created
+  + resource "njalla_record_a" "search1_a" {
+      + content = "80.78.28.140"
+      + domain  = "wilkesliberty.com"
+      + id      = (known after apply)
+      + name    = "search1.prod"
+      + ttl     = 3600
+    }
+
+  # njalla_record_a.sso1_a will be created
+  + resource "njalla_record_a" "sso1_a" {
+      + content = "80.78.28.217"
+      + domain  = "wilkesliberty.com"
+      + id      = (known after apply)
+      + name    = "sso1.prod"
+      + ttl     = 3600
+    }
+
+  # njalla_record_aaaa.analytics1_aaaa will be created
+  + resource "njalla_record_aaaa" "analytics1_aaaa" {
+      + content = "2a0a:3840:8078:28::504e:1c94:1337"
+      + domain  = "wilkesliberty.com"
+      + id      = (known after apply)
+      + name    = "analytics1.prod"
+      + ttl     = 3600
+    }
+
+  # njalla_record_aaaa.apex_aaaa will be created
+  + resource "njalla_record_aaaa" "apex_aaaa" {
+      + content = "2a0a:3840:8078:30::504e:1e04:1337"
+      + domain  = "wilkesliberty.com"
+      + id      = (known after apply)
+      + name    = "@"
+      + ttl     = 3600
+    }
+
+  # njalla_record_aaaa.app1_aaaa will be created
+  + resource "njalla_record_aaaa" "app1_aaaa" {
+      + content = "2a0a:3840:8078:28::504e:1c69:1337"
+      + domain  = "wilkesliberty.com"
+      + id      = (known after apply)
+      + name    = "app1.prod"
+      + ttl     = 3600
+    }
+
+  # njalla_record_aaaa.cache1_aaaa will be created
+  + resource "njalla_record_aaaa" "cache1_aaaa" {
+      + content = "2a0a:3840:8078:30::504e:1e04:1337"
+      + domain  = "wilkesliberty.com"
+      + id      = (known after apply)
+      + name    = "cache1.prod"
+      + ttl     = 3600
+    }
+
+  # njalla_record_aaaa.db1_aaaa will be created
+  + resource "njalla_record_aaaa" "db1_aaaa" {
+      + content = "2a0a:3840:8078:28::504e:1c81:1337"
+      + domain  = "wilkesliberty.com"
+      + id      = (known after apply)
+      + name    = "db1.prod"
+      + ttl     = 3600
+    }
+
+  # njalla_record_aaaa.search1_aaaa will be created
+  + resource "njalla_record_aaaa" "search1_aaaa" {
+      + content = "2a0a:3840:8078:28::504e:1c8c:1337"
+      + domain  = "wilkesliberty.com"
+      + id      = (known after apply)
+      + name    = "search1.prod"
+      + ttl     = 3600
+    }
+
+  # njalla_record_aaaa.sso1_aaaa will be created
+  + resource "njalla_record_aaaa" "sso1_aaaa" {
+      + content = "2a0a:3840:8078:28::504e:1cd9:1337"
+      + domain  = "wilkesliberty.com"
+      + id      = (known after apply)
+      + name    = "sso1.prod"
+      + ttl     = 3600
+    }
+
+  # njalla_record_cname.api will be created
+  + resource "njalla_record_cname" "api" {
+      + content = "cache1.prod.wilkesliberty.com."
+      + domain  = "wilkesliberty.com"
+      + id      = (known after apply)
+      + name    = "api"
+      + ttl     = 3600
+    }
+
+  # njalla_record_cname.dkim1 will be created
+  + resource "njalla_record_cname" "dkim1" {
+      + content = "protonmail.domainkey.dptvk2itgwti3vvxsjji2gmwjchdukiuza4dkf6rcdgq5u343pjfq.protonmail.ch."
+      + domain  = "wilkesliberty.com"
+      + id      = (known after apply)
+      + name    = "protonmail._domainkey"
+      + ttl     = 3600
+    }
+
+  # njalla_record_cname.dkim2 will be created
+  + resource "njalla_record_cname" "dkim2" {
+      + content = "protonmail2.domainkey.dptvk2itgwti3vvxsjji2gmwjchdukiuza4dkf6rcdgq5u343pjfq.protonmail.ch."
+      + domain  = "wilkesliberty.com"
+      + id      = (known after apply)
+      + name    = "protonmail2._domainkey"
+      + ttl     = 3600
+    }
+
+  # njalla_record_cname.dkim3 will be created
+  + resource "njalla_record_cname" "dkim3" {
+      + content = "protonmail3.domainkey.dptvk2itgwti3vvxsjji2gmwjchdukiuza4dkf6rcdgq5u343pjfq.protonmail.ch."
+      + domain  = "wilkesliberty.com"
+      + id      = (known after apply)
+      + name    = "protonmail3._domainkey"
+      + ttl     = 3600
+    }
+
+  # njalla_record_cname.sso will be created
+  + resource "njalla_record_cname" "sso" {
+      + content = "sso1.prod.wilkesliberty.com."
+      + domain  = "wilkesliberty.com"
+      + id      = (known after apply)
+      + name    = "sso"
+      + ttl     = 3600
+    }
+
+  # njalla_record_cname.stats will be created
+  + resource "njalla_record_cname" "stats" {
+      + content = "analytics1.prod.wilkesliberty.com."
+      + domain  = "wilkesliberty.com"
+      + id      = (known after apply)
+      + name    = "stats"
+      + ttl     = 3600
+    }
+
+  # njalla_record_cname.www will be created
+  + resource "njalla_record_cname" "www" {
+      + content = "cache1.prod.wilkesliberty.com."
+      + domain  = "wilkesliberty.com"
+      + id      = (known after apply)
+      + name    = "www"
+      + ttl     = 3600
+    }
+
+  # njalla_record_mx.mx_primary will be created
+  + resource "njalla_record_mx" "mx_primary" {
+      + content  = "mail.protonmail.ch."
+      + domain   = "wilkesliberty.com"
+      + id       = (known after apply)
+      + name     = "@"
+      + priority = 10
+      + ttl      = 3600
+    }
+
+  # njalla_record_mx.mx_secondary will be created
+  + resource "njalla_record_mx" "mx_secondary" {
+      + content  = "mailsec.protonmail.ch."
+      + domain   = "wilkesliberty.com"
+      + id       = (known after apply)
+      + name     = "@"
+      + priority = 20
+      + ttl      = 3600
+    }
+
+  # njalla_record_txt.dmarc will be created
+  + resource "njalla_record_txt" "dmarc" {
+      + content = "v=DMARC1; p=quarantine; adkim=s; aspf=s; rua=mailto:dmarc@wilkesliberty.com; ruf=mailto:dmarc@wilkesliberty.com"
+      + domain  = "wilkesliberty.com"
+      + id      = (known after apply)
+      + name    = "_dmarc"
+      + ttl     = 3600
+    }
+
+  # njalla_record_txt.proton_verification will be created
+  + resource "njalla_record_txt" "proton_verification" {
+      + content = (sensitive value)
+      + domain  = "wilkesliberty.com"
+      + id      = (known after apply)
+      + name    = "@"
+      + ttl     = 10800
+    }
+
+  # njalla_record_txt.spf will be created
+  + resource "njalla_record_txt" "spf" {
+      + content = "v=spf1 include:_spf.protonmail.ch ~all"
+      + domain  = "wilkesliberty.com"
+      + id      = (known after apply)
+      + name    = "@"
+      + ttl     = 3600
+    }
+
+Plan: 26 to add, 0 to change, 0 to destroy.
+
+Changes to Outputs:
+  + environment      = "prod"
+  + host_fqdns       = {
+      + analytics = "analytics.int.wilkesliberty.com"
+      + app       = "app.int.wilkesliberty.com"
+      + cache     = "cache.int.wilkesliberty.com"
+      + db        = "db.int.wilkesliberty.com"
+      + search    = "search.int.wilkesliberty.com"
+      + sso       = "sso.int.wilkesliberty.com"
+    }
+  + host_ips         = {
+      + analytics = "10.10.0.7"
+      + app       = "10.10.0.2"
+      + cache     = "10.10.0.9"
+      + db        = "10.10.0.3"
+      + search    = "10.10.0.4"
+      + sso       = "10.10.0.8"
+    }
+  + internal_domain  = "int.wilkesliberty.com"
+  + internal_network = "10.10.0.0/24"
+  + project_name     = "wilkes-liberty"
+
+─────────────────────────────────────────────────────────────────────────────
+
+Note: You didn't use the -out option to save this plan, so Terraform can't
+guarantee to take exactly these actions if you run "terraform apply" now.
