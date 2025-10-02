@@ -69,8 +69,8 @@ resource "njalla_record_cname" "dkim3" {
 # Start with p=quarantine; use p=none to monitor first if you prefer.
 # -------------------------
 resource "njalla_record_txt" "dmarc" {
-  domain = "wilkesliberty.com"
-  name   = "_dmarc"
-  content = "v=DMARC1; p=quarantine; adkim=s; aspf=s; rua=mailto:dmarc@wilkesliberty.com; ruf=mailto:dmarc@wilkesliberty.com"
-  ttl    = 3600
+  domain  = "wilkesliberty.com"
+  name    = "_dmarc"
+  content = "v=DMARC1; p=quarantine; adkim=s; aspf=s; rua=mailto:dmarc-reports@wilkesliberty.com; ruf=mailto:dmarc-failures@wilkesliberty.com; fo=1; pct=100"
+  ttl     = 3600
 }
