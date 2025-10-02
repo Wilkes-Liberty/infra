@@ -1,33 +1,41 @@
 # -------------------------
 # Proton Mail — MX
 # -------------------------
-resource "njalla_record" "mx_primary" {
+resource "njalla_record_mx" "mx_primary" {
   domain   = "wilkesliberty.com"
-  type     = "MX"
   name     = "@"
-  value    = "mail.protonmail.ch."
+  content    = "mail.protonmail.ch."
   priority = 10
   ttl      = 3600
 }
 
-resource "njalla_record" "mx_secondary" {
+resource "njalla_record_mx" "mx_secondary" {
   domain   = "wilkesliberty.com"
-  type     = "MX"
   name     = "@"
-  value    = "mailsec.protonmail.ch."
+  content    = "mailsec.protonmail.ch."
   priority = 20
   ttl      = 3600
+}
+
+# -------------------------
+# Proton Mail — Verification (TXT)
+# Domain verification record required by Proton Mail
+# -------------------------
+resource "njalla_record_txt" "proton_verification" {
+  domain = "wilkesliberty.com"
+  name   = "@"
+  content = var.proton_verification_token
+  ttl    = 10800  # 3h as shown in Njalla
 }
 
 # -------------------------
 # Proton Mail — SPF (TXT)
 # Ensure only ONE SPF record at apex.
 # -------------------------
-resource "njalla_record" "spf" {
+resource "njalla_record_txt" "spf" {
   domain = "wilkesliberty.com"
-  type   = "TXT"
   name   = "@"
-  value  = "v=spf1 include:_spf.protonmail.ch ~all"
+  content = "v=spf1 include:_spf.protonmail.ch ~all"
   ttl    = 3600
 }
 
@@ -63,10 +71,9 @@ resource "njalla_record" "dkim3" {
 # Proton Mail — DMARC (TXT)
 # Start with p=quarantine; use p=none to monitor first if you prefer.
 # -------------------------
-resource "njalla_record" "dmarc" {
+resource "njalla_record_txt" "dmarc" {
   domain = "wilkesliberty.com"
-  type   = "TXT"
   name   = "_dmarc"
-  value  = "v=DMARC1; p=quarantine; adkim=s; aspf=s; rua=mailto:dmarc@wilkesliberty.com; ruf=mailto:dmarc@wilkesliberty.com"
+  content = "v=DMARC1; p=quarantine; adkim=s; aspf=s; rua=mailto:dmarc@wilkesliberty.com; ruf=mailto:dmarc@wilkesliberty.com"
   ttl    = 3600
 }

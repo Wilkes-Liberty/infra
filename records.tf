@@ -2,35 +2,31 @@
 # Public service hostnames
 # -------------------------
 
-resource "njalla_record" "www" {
+resource "njalla_record_cname" "www" {
   domain = "wilkesliberty.com"
-  type   = "CNAME"
   name   = "www"
-  value  = "cache1.prod.wilkesliberty.com."
+  content = "cache1.prod.wilkesliberty.com."
   ttl    = 3600
 }
 
-resource "njalla_record" "api" {
+resource "njalla_record_cname" "api" {
   domain = "wilkesliberty.com"
-  type   = "CNAME"
   name   = "api"
-  value  = "cache1.prod.wilkesliberty.com."
+  content = "cache1.prod.wilkesliberty.com."
   ttl    = 3600
 }
 
-resource "njalla_record" "stats" {
+resource "njalla_record_cname" "stats" {
   domain = "wilkesliberty.com"
-  type   = "CNAME"
   name   = "stats"
-  value  = "analytics1.prod.wilkesliberty.com."
+  content = "analytics1.prod.wilkesliberty.com."
   ttl    = 3600
 }
 
-resource "njalla_record" "sso" {
+resource "njalla_record_cname" "sso" {
   domain = "wilkesliberty.com"
-  type   = "CNAME"
   name   = "sso"
-  value  = "sso1.prod.wilkesliberty.com."
+  content = "sso1.prod.wilkesliberty.com."
   ttl    = 3600
 }
 
@@ -38,18 +34,16 @@ resource "njalla_record" "sso" {
 # Apex A + AAAA
 # -------------------------
 
-resource "njalla_record" "apex_a" {
+resource "njalla_record_a" "apex_a" {
   domain = "wilkesliberty.com"
-  type   = "A"
   name   = "@"
-  value  = "80.78.30.4"  # cache1 IPv4
+  content  = "80.78.30.4"  # cache1 IPv4
   ttl    = 3600
 }
-resource "njalla_record" "apex_aaaa" {
+resource "njalla_record_aaaa" "apex_aaaa" {
   domain = "wilkesliberty.com"
-  type   = "AAAA"
   name   = "@"
-  value  = "2a0a:3840:8078:30::504e:1e04:1337"  # cache1 IPv6
+  content = "2a0a:3840:8078:30::504e:1e04:1337"  # cache1 IPv6
   ttl    = 3600
 }
 
@@ -58,98 +52,86 @@ resource "njalla_record" "apex_aaaa" {
 # -------------------------
 
 # app1
-resource "njalla_record" "app1_a" {
+resource "njalla_record_a" "app1_a" {
   domain = "wilkesliberty.com"
-  type   = "A"
   name   = "app1.prod"
-  value  = "80.78.28.105"
+  content = "80.78.28.105"
   ttl    = 3600
 }
-resource "njalla_record" "app1_aaaa" {
+resource "njalla_record_aaaa" "app1_aaaa" {
   domain = "wilkesliberty.com"
-  type   = "AAAA"
   name   = "app1.prod"
-  value  = "2a0a:3840:8078:28::504e:1c69:1337"
+  content = "2a0a:3840:8078:28::504e:1c69:1337"
   ttl    = 3600
 }
 
 # db1
-resource "njalla_record" "db1_a" {
+resource "njalla_record_a" "db1_a" {
   domain = "wilkesliberty.com"
-  type   = "A"
   name   = "db1.prod"
-  value  = "80.78.28.129"
+  content = "80.78.28.129"
   ttl    = 3600
 }
-resource "njalla_record" "db1_aaaa" {
+resource "njalla_record_aaaa" "db1_aaaa" {
   domain = "wilkesliberty.com"
-  type   = "AAAA"
   name   = "db1.prod"
-  value  = "2a0a:3840:8078:28::504e:1c81:1337"
+  content = "2a0a:3840:8078:28::504e:1c81:1337"
   ttl    = 3600
 }
 
 # search1
-resource "njalla_record" "search1_a" {
+resource "njalla_record_a" "search1_a" {
   domain = "wilkesliberty.com"
-  type   = "A"
   name   = "search1.prod"
-  value  = "80.78.28.140"
+  content = "80.78.28.140"
   ttl    = 3600
 }
-resource "njalla_record" "search1_aaaa" {
+resource "njalla_record_aaaa" "search1_aaaa" {
   domain = "wilkesliberty.com"
-  type   = "AAAA"
   name   = "search1.prod"
-  value  = "2a0a:3840:8078:28::504e:1c8c:1337"
+  content = "2a0a:3840:8078:28::504e:1c8c:1337"
   ttl    = 3600
 }
 
 # analytics1
-resource "njalla_record" "analytics1_a" {
+resource "njalla_record_a" "analytics1_a" {
   domain = "wilkesliberty.com"
-  type   = "A"
   name   = "analytics1.prod"
-  value  = "80.78.28.148"
+  content = "80.78.28.148"
   ttl    = 3600
 }
-resource "njalla_record" "analytics1_aaaa" {
+resource "njalla_record_aaaa" "analytics1_aaaa" {
   domain = "wilkesliberty.com"
-  type   = "AAAA"
   name   = "analytics1.prod"
-  value  = "2a0a:3840:8078:28::504e:1c94:1337"
+  content = "2a0a:3840:8078:28::504e:1c94:1337"
   ttl    = 3600
 }
 
 # sso1
-resource "njalla_record" "sso1_a" {
+resource "njalla_record_a" "sso1_a" {
   domain = "wilkesliberty.com"
-  type   = "A"
   name   = "sso1.prod"
-  value  = "80.78.28.217"
+  content = "80.78.28.217"
   ttl    = 3600
 }
-resource "njalla_record" "sso1_aaaa" {
+resource "njalla_record_aaaa" "sso1_aaaa" {
   domain = "wilkesliberty.com"
-  type   = "AAAA"
   name   = "sso1.prod"
-  value  = "2a0a:3840:8078:28::504e:1cd9:1337"
+  content = "2a0a:3840:8078:28::504e:1cd9:1337"
   ttl    = 3600
 }
 
 # cache1
-resource "njalla_record" "cache1_a" {
+resource "njalla_record_a" "cache1_a" {
   domain = "wilkesliberty.com"
-  type   = "A"
   name   = "cache1.prod"
-  value  = "80.78.30.4"
+  content = "80.78.30.4"
   ttl    = 3600
 }
-resource "njalla_record" "cache1_aaaa" {
+resource "njalla_record_aaaa" "cache1_aaaa" {
   domain = "wilkesliberty.com"
-  type   = "AAAA"
   name   = "cache1.prod"
-  value  = "2a0a:3840:8078:30::504e:1e04:1337"
+  content = "2a0a:3840:8078:30::504e:1e04:1337"
   ttl    = 3600
 }
 
@@ -162,13 +144,13 @@ resource "njalla_record" "cache1_aaaa" {
 #   domain = "wilkesliberty.com"
 #   type   = "CAA"
 #   name   = "@"
-#   value  = "0 issue \"letsencrypt.org\""
+#   content = "0 issue \"letsencrypt.org\""
 #   ttl    = 3600
 # }
 # resource "njalla_record" "caa_iodef" {
 #   domain = "wilkesliberty.com"
 #   type   = "CAA"
 #   name   = "@"
-#   value  = "0 iodef \"mailto:security@wilkesliberty.com\""
+#   content = "0 iodef \"mailto:security@wilkesliberty.com\""
 #   ttl    = 3600
 # }
