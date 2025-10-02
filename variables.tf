@@ -55,3 +55,32 @@ variable "internal_domain" {
 #   type        = string
 #   sensitive   = true
 # }
+
+# Njalla DNS provider
+variable "njalla_api_token" {
+  description = "Njalla API token"
+  type        = string
+  sensitive   = true
+}
+
+# Proton Mail configuration
+variable "proton_dkim1_target" {
+  description = "Proton DKIM 1 target value"
+  type        = string
+}
+
+variable "proton_dkim2_target" {
+  description = "Proton DKIM 2 target value"
+  type        = string
+}
+
+variable "proton_dkim3_target" {
+  description = "Proton DKIM 3 target value"
+  type        = string
+}
+
+variable "proton_verification_token" {
+  description = "Proton Mail verification token"
+  type        = string
+  sensitive   = true
+}
