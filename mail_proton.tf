@@ -43,27 +43,24 @@ resource "njalla_record_txt" "spf" {
 # Proton Mail — DKIM (3 CNAMEs)
 # Paste exact targets from Proton dashboard into terraform.tfvars
 # -------------------------
-resource "njalla_record" "dkim1" {
+resource "njalla_record_cname" "dkim1" {
   domain = "wilkesliberty.com"
-  type   = "CNAME"
   name   = "protonmail._domainkey"
-  value  = var.proton_dkim1_target
+  content = var.proton_dkim1_target
   ttl    = 3600
 }
 
-resource "njalla_record" "dkim2" {
+resource "njalla_record_cname" "dkim2" {
   domain = "wilkesliberty.com"
-  type   = "CNAME"
   name   = "protonmail2._domainkey"
-  value  = var.proton_dkim2_target
+  content = var.proton_dkim2_target
   ttl    = 3600
 }
 
-resource "njalla_record" "dkim3" {
+resource "njalla_record_cname" "dkim3" {
   domain = "wilkesliberty.com"
-  type   = "CNAME"
   name   = "protonmail3._domainkey"
-  value  = var.proton_dkim3_target
+  content = var.proton_dkim3_target
   ttl    = 3600
 }
 
