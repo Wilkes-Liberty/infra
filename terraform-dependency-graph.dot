@@ -1,0 +1,30 @@
+digraph G {
+  rankdir = "RL";
+  node [shape = rect, fontname = "sans-serif"];
+  "njalla_record_a.analytics1_a" [label="njalla_record_a.analytics1_a"];
+  "njalla_record_a.apex_a" [label="njalla_record_a.apex_a"];
+  "njalla_record_a.app1_a" [label="njalla_record_a.app1_a"];
+  "njalla_record_a.cache1_a" [label="njalla_record_a.cache1_a"];
+  "njalla_record_a.db1_a" [label="njalla_record_a.db1_a"];
+  "njalla_record_a.search1_a" [label="njalla_record_a.search1_a"];
+  "njalla_record_a.sso1_a" [label="njalla_record_a.sso1_a"];
+  "njalla_record_aaaa.analytics1_aaaa" [label="njalla_record_aaaa.analytics1_aaaa"];
+  "njalla_record_aaaa.apex_aaaa" [label="njalla_record_aaaa.apex_aaaa"];
+  "njalla_record_aaaa.app1_aaaa" [label="njalla_record_aaaa.app1_aaaa"];
+  "njalla_record_aaaa.cache1_aaaa" [label="njalla_record_aaaa.cache1_aaaa"];
+  "njalla_record_aaaa.db1_aaaa" [label="njalla_record_aaaa.db1_aaaa"];
+  "njalla_record_aaaa.search1_aaaa" [label="njalla_record_aaaa.search1_aaaa"];
+  "njalla_record_aaaa.sso1_aaaa" [label="njalla_record_aaaa.sso1_aaaa"];
+  "njalla_record_cname.api" [label="njalla_record_cname.api"];
+  "njalla_record_cname.dkim1" [label="njalla_record_cname.dkim1"];
+  "njalla_record_cname.dkim2" [label="njalla_record_cname.dkim2"];
+  "njalla_record_cname.dkim3" [label="njalla_record_cname.dkim3"];
+  "njalla_record_cname.sso" [label="njalla_record_cname.sso"];
+  "njalla_record_cname.stats" [label="njalla_record_cname.stats"];
+  "njalla_record_cname.www" [label="njalla_record_cname.www"];
+  "njalla_record_mx.mx_primary" [label="njalla_record_mx.mx_primary"];
+  "njalla_record_mx.mx_secondary" [label="njalla_record_mx.mx_secondary"];
+  "njalla_record_txt.dmarc" [label="njalla_record_txt.dmarc"];
+  "njalla_record_txt.proton_verification" [label="njalla_record_txt.proton_verification"];
+  "njalla_record_txt.spf" [label="njalla_record_txt.spf"];
+}
