@@ -4,7 +4,7 @@
 resource "njalla_record_mx" "mx_primary" {
   domain   = "wilkesliberty.com"
   name     = "@"
-  content    = "mail.protonmail.ch."
+  content  = "mail.protonmail.ch."
   priority = 10
   ttl      = 3600
 }
@@ -12,7 +12,7 @@ resource "njalla_record_mx" "mx_primary" {
 resource "njalla_record_mx" "mx_secondary" {
   domain   = "wilkesliberty.com"
   name     = "@"
-  content    = "mailsec.protonmail.ch."
+  content  = "mailsec.protonmail.ch."
   priority = 20
   ttl      = 3600
 }
@@ -22,10 +22,10 @@ resource "njalla_record_mx" "mx_secondary" {
 # Domain verification record required by Proton Mail
 # -------------------------
 resource "njalla_record_txt" "proton_verification" {
-  domain = "wilkesliberty.com"
-  name   = "@"
+  domain  = "wilkesliberty.com"
+  name    = "@"
   content = var.proton_verification_token
-  ttl    = 10800  # 3h as shown in Njalla
+  ttl     = 10800 # 3h as shown in Njalla
 }
 
 # -------------------------
@@ -33,10 +33,10 @@ resource "njalla_record_txt" "proton_verification" {
 # Ensure only ONE SPF record at apex.
 # -------------------------
 resource "njalla_record_txt" "spf" {
-  domain = "wilkesliberty.com"
-  name   = "@"
+  domain  = "wilkesliberty.com"
+  name    = "@"
   content = "v=spf1 include:_spf.protonmail.ch ~all"
-  ttl    = 3600
+  ttl     = 3600
 }
 
 # -------------------------
@@ -44,24 +44,24 @@ resource "njalla_record_txt" "spf" {
 # Paste exact targets from Proton dashboard into terraform.tfvars
 # -------------------------
 resource "njalla_record_cname" "dkim1" {
-  domain = "wilkesliberty.com"
-  name   = "protonmail._domainkey"
+  domain  = "wilkesliberty.com"
+  name    = "protonmail._domainkey"
   content = var.proton_dkim1_target
-  ttl    = 3600
+  ttl     = 3600
 }
 
 resource "njalla_record_cname" "dkim2" {
-  domain = "wilkesliberty.com"
-  name   = "protonmail2._domainkey"
+  domain  = "wilkesliberty.com"
+  name    = "protonmail2._domainkey"
   content = var.proton_dkim2_target
-  ttl    = 3600
+  ttl     = 3600
 }
 
 resource "njalla_record_cname" "dkim3" {
-  domain = "wilkesliberty.com"
-  name   = "protonmail3._domainkey"
+  domain  = "wilkesliberty.com"
+  name    = "protonmail3._domainkey"
   content = var.proton_dkim3_target
-  ttl    = 3600
+  ttl     = 3600
 }
 
 # -------------------------

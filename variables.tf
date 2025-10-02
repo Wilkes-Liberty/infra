@@ -21,7 +21,7 @@ variable "internal_cidr" {
 variable "admin_allow_cidrs" {
   description = "CIDR blocks allowed for admin access"
   type        = list(string)
-  default     = []  # Define in terraform.tfvars
+  default     = [] # Define in terraform.tfvars
 }
 
 # Domain configuration
