@@ -1,0 +1,12 @@
+---
+# Tailscale handlers
+
+- name: Restart tailscaled
+  systemd:
+    name: tailscaled
+    state: restarted
+
+- name: Reload tailscaled
+  systemd:
+    name: tailscaled
+    state: reloaded

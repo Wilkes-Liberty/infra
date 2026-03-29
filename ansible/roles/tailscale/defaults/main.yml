@@ -1,0 +1,28 @@
+---
+# Tailscale role defaults
+
+# Tailscale authentication key (should be overridden in secrets)
+# Generate at: https://login.tailscale.com/admin/settings/keys
+# Recommend using reusable, ephemeral keys with tags
+tailscale_auth_key: ""  # Set in group_vars or via environment variable
+
+# Tailscale configuration options
+tailscale_up_args: "--accept-routes --accept-dns=false"  # Customize as needed
+
+# Optional: Set hostname advertised to Tailscale
+# If empty, uses system hostname
+tailscale_hostname: ""
+
+# Optional: Advertise routes from this node
+# Example: ["10.10.0.0/24"] to advertise internal network
+tailscale_advertise_routes: []
+
+# Optional: Set exit node
+tailscale_exit_node: ""
+
+# Optional: Enable SSH over Tailscale
+tailscale_ssh: false
+
+# Service state
+tailscale_service_enabled: true
+tailscale_service_state: started
