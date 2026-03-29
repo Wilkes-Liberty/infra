@@ -375,7 +375,6 @@ EOF
 - hosts: fleet
   roles:
     - common
-    - wireguard
     - letsencrypt  # Add this after common setup
     # ... other roles
 ```
@@ -404,7 +403,7 @@ cat /var/log/letsencrypt/certificate-status.md
 
 - **API Token Security**: Store Njalla API token in SOPS-encrypted secrets
 - **File Permissions**: Certificates readable by ssl-cert group, private keys 600
-- **Network Security**: Internal certificates only accessible within VPN
+- **Network Security**: Internal certificates only accessible within Tailscale mesh
 - **Monitoring**: Alert on certificates expiring within 30 days
 - **Backup**: Daily backup of certificate files
 - **Rotation**: Regular API token rotation (quarterly recommended)

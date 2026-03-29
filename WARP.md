@@ -70,7 +70,7 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 ### Play Orchestration (ansible/playbooks)
 - **bootstrap.yml**: Applies common role to all hosts with become
 - **site.yml**: Main orchestration playbook running in sequence:
-  - all hosts: wireguard, then common
+  - all hosts: common role
   - app group: app role
   - db group: db role
   - solr group: solr role
@@ -83,15 +83,18 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 ### Roles Implementation Status (ansible/roles)
 
 #### Fully Implemented
+- **tailscale**: Mesh VPN configuration
+  - Automatic installation on all hosts
+  - Connects nodes to Tailscale mesh network
+  - Configurable auth keys, routes, hostnames
+  - Supports subnet routing and exit nodes
+  - See ansible/roles/tailscale/README.md for setup
 - **common**: UFW firewall policy (tasks/firewall.yml)
-  - Default deny inbound/allow outbound, allow SSH from admin_allow_cidrs and wg_network_cidr
+  - Default deny inbound/allow outbound, allow SSH from admin_allow_cidrs and tailscale_network_cidr
   - Public HTTP/HTTPS on app/analytics/sso/cache groups
   - MySQL 3306 allowed from app/analytics to db
   - Solr 8983 allowed from app to solr
   - Cache-specific: Varnish (6081) bound to 127.0.0.1 with Caddy front-end
-- **wireguard**: Mesh VPN configuration
-  - Defines mesh variables via defaults and per-host host_vars (wg_address, wg_peers)
-  - App host acts as hub; peers defined for db/search/analytics/sso
 - **cache**: HTTP edge caching (Varnish + Caddy)
   - Caddy terminates TLS/HTTP/2/3 for public hosts (cache_public_hosts)
   - Reverse proxies to Varnish on 127.0.0.1:6081
@@ -130,9 +133,9 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
   - Individual host records for each service
   - IPv4 and IPv6 A/AAAA records
   - CNAME records for service aliases
-- **VPN Mesh**: WireGuard connecting all services
-  - App server as hub, others as peers
-  - Enables secure inter-service communication
+- **VPN Mesh**: Tailscale connecting all services
+  - Mesh network for secure inter-service communication
+  - Automatic peer discovery and NAT traversal
 
 ## Configuration Management
 
@@ -187,14 +190,15 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 - **Infrastructure Management**: Clean inventory, consolidated variables, comprehensive documentation
 - **Cache Layer**: Varnish + Caddy edge caching (production-ready)
 - **DNS Infrastructure**: CoreDNS internal DNS with forward/reverse resolution
-- **VPN Mesh**: WireGuard connecting all services securely
+- **VPN Mesh**: Tailscale connecting all services securely
 - **Backup System**: Automated database backup script with retention management
 - **Deployment Pipeline**: Application deployment playbook with health checks
 
 ### ⚠️ Functional Notes
 - **Cache PURGE**: Available in cache role (via Caddyfile) but disabled by default; restrict to admin CIDRs if enabling
 - **Application separation**: The Drupal application is not in this repo; local dev uses ddev in separate app codebase
-- **Role implementation**: common, wireguard, cache, coredns, and resolved roles are functional; app, db, solr, analytics_obs are stubs
+- **Role implementation**: tailscale, common, cache, coredns, and resolved roles are functional; app, db, solr, analytics_obs are stubs
+- **Tailscale Setup**: Generate auth key at https://login.tailscale.com/admin/settings/keys and store in SOPS-encrypted tailscale_secrets.yml
 - **Secrets management**: SOPS/age encryption properly configured for sensitive variables
 
 ## Development Roadmap

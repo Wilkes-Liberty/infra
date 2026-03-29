@@ -90,8 +90,9 @@ Guidance for AI coding agents to produce minimal, safe, context-aware changes. P
 ## 3. High-Level Architecture
 
 - Terraform (single root) manages external/public concerns (currently DNS + Proton Mail records).
-- Ansible manages host-level service configuration (app, cache, db, solr, authentik, wireguard, coredns, analytics, resolver).
+- Ansible manages host-level service configuration (app, cache, db, solr, authentik, coredns, analytics, resolver).
 - CoreDNS (deployed via Ansible) serves internal authoritative and reverse zones.
+- Tailscale provides mesh VPN connectivity between all services.
 - Separation rationale: immutable/public infra via Terraform; faster mutable config via Ansible; clear public vs internal DNS boundary.
 - Email deliverability (SPF/MX/DKIM/DMARC/verification) via `mail_proton.tf`.
 
@@ -100,7 +101,7 @@ Guidance for AI coding agents to produce minimal, safe, context-aware changes. P
 - **Root:** `main.tf`, `provider.tf`, `variables.tf`, `outputs.tf`, `records.tf`, `mail_proton.tf`, `terraform.tfvars`, `terraform_secrets.yml`
 - **Docs:** `README.md`, `MULTI_ENVIRONMENT_STRATEGY.md`, `TERRAFORM_ORGANIZATION.md`, `DNS_RECORDS.md`, `GITHUB_ACTIONS_STRATEGY.md`, `AUDIT_SUMMARY.md`, `WARP.md`, `CONTRIBUTING.md`
 - **Ansible:** `ansible.cfg`, `inventory/`, `group_vars/`, `host_vars/`, `playbooks/`, `roles/`
-- **Roles:** `analytics_obs`, `app`, `authentik`, `cache`, `common`, `coredns`, `db`, `resolved`, `solr`, `wireguard`
+- **Roles:** `analytics_obs`, `app`, `authentik`, `cache`, `common`, `coredns`, `db`, `resolved`, `solr`
 - **CoreDNS Reference:** `coredns/Corefile`, `coredns/zones/int.wilkesliberty.com.zone`
 - **Scripts:** `load-terraform-secrets.sh`, `dev-environment-check.sh`, `backup-db.sh`, `migrate-to-multi-env.sh`
 - **Makefile:** Contains helper targets (inspect before duplicating).
@@ -121,14 +122,14 @@ Adding an environment requires:
 - Public user → Public DNS (Terraform records) → (cache / caddy / varnish) → app → db / solr
 - User auth → authentik (SSO) → app
 - Internal resolution → CoreDNS (internal + reverse zones)
-- Admin / ops → WireGuard tunnel → hosts
+- Admin / ops → Tailscale mesh → hosts
 - Email MTAs → Proton Mail DNS records (Terraform)
 
 ## 7. External / Service Integrations
 
 - Proton Mail DNS (mail delivery + authentication)
 - Authentik (identity / SSO)
-- WireGuard (secure admin network)
+- Tailscale (secure mesh network)
 - Solr (search)
 - CoreDNS (internal authoritative DNS)
 - Analytics / observability role (internal metrics/logs)
