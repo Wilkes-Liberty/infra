@@ -1,0 +1,110 @@
+---
+# Generate individual Let's Encrypt certificate
+
+- name: "Check if certificate already exists - {{ cert_config.name }}"
+  stat:
+    path: "{{ letsencrypt_cert_dir }}/live/{{ cert_config.domains[0] }}/fullchain.pem"
+  register: cert_exists
+
+- name: "Generate certificate - {{ cert_config.name }}"
+  shell: |
+    {% if letsencrypt_staging %}
+    STAGING_FLAG="--staging"
+    {% else %}
+    STAGING_FLAG=""
+    {% endif %}
+    
+    {% if cert_config.challenge == "dns-01" %}
+    /usr/bin/certbot certonly \
+      --authenticator dns-njalla \
+      --dns-njalla-credentials {{ letsencrypt_cert_dir }}/njalla-credentials.ini \
+      --dns-njalla-propagation-seconds 120 \
+      $STAGING_FLAG \
+      --agree-tos \
+      --email {{ letsencrypt_email }} \
+      --non-interactive \
+      --expand \
+      --key-type rsa \
+      --rsa-key-size {{ letsencrypt_key_size }} \
+    {% for domain in cert_config.domains %}
+      -d {{ domain }} \
+    {% endfor %}
+      --cert-name {{ cert_config.domains[0] }}
+    {% else %}
+    /usr/bin/certbot certonly \
+      --webroot \
+      --webroot-path {{ letsencrypt_webroot_path }} \
+      $STAGING_FLAG \
+      --agree-tos \
+      --email {{ letsencrypt_email }} \
+      --non-interactive \
+      --expand \
+      --key-type rsa \
+      --rsa-key-size {{ letsencrypt_key_size }} \
+    {% for domain in cert_config.domains %}
+      -d {{ domain }} \
+    {% endfor %}
+      --cert-name {{ cert_config.domains[0] }}
+    {% endif %}
+  become: yes
+  when: not cert_exists.stat.exists or letsencrypt_force_renewal
+  register: cert_generation
+  failed_when: 
+    - cert_generation.rc != 0
+    - "'Certificate not yet due for renewal' not in cert_generation.stderr"
+
+- name: "Set certificate permissions - {{ cert_config.name }}"
+  file:
+    path: "{{ letsencrypt_cert_dir }}/live/{{ cert_config.domains[0] }}/{{ item }}"
+    mode: "{{ letsencrypt_cert_permissions.mode }}"
+    owner: "{{ letsencrypt_cert_permissions.owner }}"
+    group: "{{ letsencrypt_cert_permissions.group }}"
+  become: yes
+  loop:
+    - fullchain.pem
+    - cert.pem
+    - chain.pem
+  ignore_errors: yes
+
+- name: "Set private key permissions - {{ cert_config.name }}"
+  file:
+    path: "{{ letsencrypt_cert_dir }}/live/{{ cert_config.domains[0] }}/privkey.pem"
+    mode: "{{ letsencrypt_key_permissions.mode }}"
+    owner: "{{ letsencrypt_key_permissions.owner }}"
+    group: "{{ letsencrypt_key_permissions.group }}"
+  become: yes
+  ignore_errors: yes
+
+- name: "Create symbolic links for easy access - {{ cert_config.name }}"
+  file:
+    src: "{{ letsencrypt_cert_dir }}/live/{{ cert_config.domains[0] }}/{{ item.src }}"
+    dest: "{{ item.dest }}/{{ cert_config.name }}_{{ item.name }}"
+    state: link
+    force: yes
+  become: yes
+  loop:
+    - { src: "fullchain.pem", dest: "/etc/ssl/certs", name: "fullchain.pem" }
+    - { src: "privkey.pem", dest: "/etc/ssl/private", name: "privkey.pem" }
+    - { src: "cert.pem", dest: "/etc/ssl/certs", name: "cert.pem" }
+    - { src: "chain.pem", dest: "/etc/ssl/certs", name: "chain.pem" }
+  ignore_errors: yes
+
+- name: "Log certificate generation - {{ cert_config.name }}"
+  lineinfile:
+    path: "/var/log/letsencrypt/certificate-management.log"
+    line: "{{ ansible_date_time.iso8601 }} - Certificate {{ cert_config.name }} processed for domains: {{ cert_config.domains | join(', ') }}"
+    create: yes
+    mode: '0640'
+  become: yes
+
+- name: "Restart specified services - {{ cert_config.name }}"
+  systemd:
+    name: "{{ item }}"
+    state: restarted
+  become: yes
+  loop: "{{ cert_config.services_to_restart | default([]) }}"
+  when: 
+    - cert_generation.changed
+    - cert_config.services_to_restart is defined
+    - cert_config.services_to_restart | length > 0
+  ignore_errors: yes  # Some services might not be installed on all hosts
