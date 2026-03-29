@@ -1,0 +1,102 @@
+---
+# Let's Encrypt Certificate Management Tasks
+
+- name: Install required packages
+  apt:
+    name:
+      - certbot
+      - python3-certbot-nginx
+      - python3-certbot-apache
+      - python3-pip
+      - openssl
+      - curl
+      - jq
+    state: present
+    update_cache: yes
+  become: yes
+
+- name: Create ssl-cert group
+  group:
+    name: ssl-cert
+    state: present
+  become: yes
+
+- name: Create Let's Encrypt directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  become: yes
+  loop:
+    - "{{ letsencrypt_cert_dir }}/renewal-hooks/pre"
+    - "{{ letsencrypt_cert_dir }}/renewal-hooks/post" 
+    - "{{ letsencrypt_cert_dir }}/renewal-hooks/deploy"
+    - "{{ letsencrypt_backup_dir }}"
+
+- name: Install Njalla DNS plugin for certbot
+  include_tasks: install_njalla_plugin.yml
+  when: letsencrypt_challenge_method == "dns-01"
+
+- name: Create Njalla API credentials file
+  template:
+    src: njalla-credentials.ini.j2
+    dest: "{{ letsencrypt_cert_dir }}/njalla-credentials.ini"
+    mode: '0600'
+    owner: root
+    group: root
+  become: yes
+  when: letsencrypt_challenge_method == "dns-01"
+  no_log: true
+
+- name: Generate certificates
+  include_tasks: generate_certificate.yml
+  loop: "{{ letsencrypt_certificates }}"
+  loop_control:
+    loop_var: cert_config
+
+- name: Create renewal hooks
+  include_tasks: create_renewal_hooks.yml
+
+- name: Set up automatic renewal cron job
+  cron:
+    name: "Let's Encrypt certificate renewal"
+    minute: "{{ letsencrypt_renewal_time.split(':')[1] }}"
+    hour: "{{ letsencrypt_renewal_time.split(':')[0] }}"
+    job: "/usr/bin/certbot renew --quiet --no-self-upgrade --post-hook 'systemctl reload nginx' >> /var/log/letsencrypt/renewal.log 2>&1"
+    user: root
+  become: yes
+  when: letsencrypt_renewal_frequency == "daily"
+
+- name: Create systemd timer for certificate renewal (alternative to cron)
+  include_tasks: create_renewal_timer.yml
+  when: letsencrypt_renewal_frequency != "daily"
+
+- name: Set up certificate monitoring (skipped - not implemented yet)
+  debug:
+    msg: "Certificate monitoring setup will be implemented when services are deployed"
+  when: letsencrypt_enable_monitoring
+
+- name: Create certificate backup script
+  template:
+    src: backup-certificates.sh.j2
+    dest: /usr/local/bin/backup-certificates.sh
+    mode: '0755'
+    owner: root
+    group: root
+  become: yes
+  when: letsencrypt_backup_certificates
+
+- name: Set up certificate backup cron job
+  cron:
+    name: "Let's Encrypt certificate backup"
+    minute: "0"
+    hour: "1"
+    job: "/usr/local/bin/backup-certificates.sh >> /var/log/letsencrypt/backup.log 2>&1"
+    user: root
+  become: yes
+  when: letsencrypt_backup_certificates
+
+- name: Verify certificate installation
+  include_tasks: verify_certificates.yml
