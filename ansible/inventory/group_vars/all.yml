@@ -3,8 +3,7 @@ domain: wilkesliberty.com
 int_domain: int.wilkesliberty.com
 
 # ── Network & Access Control ─────────────────────────────────────────
-wg_network_cidr: "10.10.0.0/24"    # WireGuard mesh subnet
-wg_listen_port: 51820
+tailscale_network_cidr: "100.64.0.0/10"    # Tailscale mesh subnet
 
 # Admin access: restrict SSH and admin UIs to these CIDRs
 admin_allow_cidrs:

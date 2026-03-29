@@ -41,7 +41,7 @@ This file contains the **authoritative infrastructure configuration** including:
 - Network and access control settings
 - Service IP addresses  
 - Software versions
-- WireGuard mesh configuration
+- Tailscale mesh configuration
 
 ### CoreDNS Variables (`group_vars/all/coredns.yml`)
 Specialized variables for DNS configuration:
@@ -72,7 +72,7 @@ Individual host configurations:
 
 ### Naming Conventions
 - Use descriptive variable names with service prefixes: `cache_int_ip`, `app_int_ip`
-- Group related variables with consistent prefixes: `wg_*` for WireGuard
+- Group related variables with consistent prefixes: `tailscale_*` for Tailscale
 - Use `_int_ip` suffix for internal IP addresses
 - Use `_secrets.yml` suffix for SOPS-encrypted files
 
@@ -86,8 +86,8 @@ Individual host configurations:
 
 ### Network Configuration
 ```yaml
-wg_network_cidr: "10.10.0.0/24"    # WireGuard mesh subnet
-admin_allow_cidrs:                 # Admin access CIDRs
+tailscale_network_cidr: "100.64.0.0/10"    # Tailscale mesh subnet
+admin_allow_cidrs:                          # Admin access CIDRs
   - 203.0.113.0/24
 ```
 
