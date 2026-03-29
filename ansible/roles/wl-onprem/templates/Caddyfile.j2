@@ -1,0 +1,7 @@
+wilkesliberty.com {
+    reverse_proxy /api* http://100.82.73.91:8080 {  # Mac Mini Tailscale IP
+        header_up X-Forwarded-For {remote_host}
+    }
+    reverse_proxy /auth* http://100.82.73.91:8081   # Keycloak
+    reverse_proxy http://localhost:3000             # Next.js UI (if running on VPS)
+}
