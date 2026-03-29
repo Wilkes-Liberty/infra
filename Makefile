@@ -1,13 +1,47 @@
-ANSIBLE=ansible-playbook -i ansible/inventory/hosts.ini
+# =============================================
+# Wilkes-Liberty Infrastructure Makefile
+# =============================================
 
+.PHONY: help bootstrap onprem monitoring vps deploy clean docker-clean
+
+help:
+	@echo "Available targets:"
+	@echo "  bootstrap     - Bootstrap base tools (Homebrew, etc.)"
+	@echo "  onprem        - Deploy wl-onprem role (Mac Mini server + Docker stack)"
+	@echo "  monitoring    - Deploy Prometheus + Grafana"
+	@echo "  vps           - Deploy Njalla VPS reverse proxy (Caddy)"
+	@echo "  deploy        - Full deployment (onprem + monitoring + vps)"
+	@echo "  clean         - Stop Docker services"
+	@echo "  docker-clean  - Prune Docker images/cache"
+
+# Bootstrap base tools
 bootstrap:
-	$(ANSIBLE) ansible/playbooks/bootstrap.yml
+	ansible-playbook -i inventory/hosts.ini playbooks/bootstrap.yml
 
-site:
-	$(ANSIBLE) ansible/playbooks/site.yml
+# Deploy the on-prem Mac Mini server (wl-onprem role)
+onprem:
+	ansible-playbook -i inventory/hosts.ini playbooks/onprem.yml --limit wl-onprem
 
-deploy:
-	$(ANSIBLE) ansible/playbooks/deploy-app.yml --limit app
+# Deploy monitoring stack
+monitoring:
+	ansible-playbook -i inventory/hosts.ini playbooks/monitoring.yml
 
-backup-db:
-	./scripts/backup-db.sh
+# Deploy Njalla VPS reverse proxy
+vps:
+	ansible-playbook -i inventory/hosts.ini playbooks/vps.yml
+
+# Full deployment (recommended)
+deploy: onprem monitoring vps
+
+# Clean Docker services on the Mac Mini
+clean:
+	docker compose -f ~/nas_docker/docker-compose.yml down
+
+# Aggressive Docker cleanup (use when needed)
+docker-clean:
+	docker system prune -a -f --volumes
+	docker builder prune -a -f
+
+# Quick status check
+status:
+	docker compose -f ~/nas_docker/docker-compose.yml ps
