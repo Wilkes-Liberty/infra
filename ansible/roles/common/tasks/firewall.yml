@@ -28,12 +28,12 @@
     src: "{{ item }}"
   loop: "{{ admin_allow_cidrs }}"
 
-- name: Allow SSH from private mesh
+- name: Allow SSH from Tailscale mesh
   ufw:
     rule: allow
     port: '22'
     proto: tcp
-    src: "{{ wg_network_cidr }}"
+    src: "{{ tailscale_network_cidr }}"
 
 # ── APP (public web, WG entry) ──────────────────────────────────────
 - name: APP | Allow HTTP/HTTPS publicly
@@ -44,14 +44,6 @@
   loop: [80, 443]
   when: "'app' in group_names"
 
-- name: APP | Allow WireGuard UDP from admin CIDRs
-  ufw:
-    rule: allow
-    port: '51820'
-    proto: udp
-    src: "{{ item }}"
-  loop: "{{ admin_allow_cidrs }}"
-  when: "'app' in group_names"
 
 # (Redis is local-only; bind to 127.0.0.1 or app_int_ip and no UFW rule needed)
 
@@ -81,14 +73,6 @@
   loop: [80, 443]
   when: "'cache' in group_names"
 
-- name: CACHE | Allow WireGuard UDP from admin CIDRs (for mesh/admin access)
-  ufw:
-    rule: allow
-    port: '51820'
-    proto: udp
-    src: "{{ item }}"
-  loop: "{{ admin_allow_cidrs }}"
-  when: "'cache' in group_names and (admin_allow_cidrs | length) > 0"
 
 # No inbound to Varnish (6081); it should be bound to 127.0.0.1 with Caddy in front.
 # Outbound to app (10.10.0.2:80/443) is permitted by default "allow outgoing".
@@ -124,12 +108,12 @@
     admin_cidr: "{{ admin_allow_cidrs | first }}"
   when: "'analytics' in group_names and (admin_allow_cidrs | length) > 0"
 
-- name: ANALYTICS | (Alternative) Allow observability from mesh (comment previous task if using this)
+- name: ANALYTICS | (Alternative) Allow observability from Tailscale mesh (comment previous task if using this)
   ufw:
     rule: allow
     port: "{{ item }}"
     proto: tcp
-    src: "{{ wg_network_cidr }}"
+    src: "{{ tailscale_network_cidr }}"
   loop: [3000, 3001, 9090]
   when: false  # set to true if you prefer mesh-wide access over admin CIDRs
 
