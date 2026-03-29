@@ -1,0 +1,63 @@
+---
+- name: Install Homebrew if missing
+  command: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  args:
+    creates: /opt/homebrew/bin/brew
+
+- name: Install Docker Desktop
+  homebrew_cask:
+    name: docker
+    state: present
+
+- name: Set Docker resource limits (GPU-safe)
+  lineinfile:
+    path: ~/Library/Group Containers/group.com.docker/settings.json
+    regexp: '"memoryMiB"'
+    line: '  "memoryMiB": 32768,'
+  notify: Restart Docker Desktop
+
+- name: Ensure nas_docker directory exists
+  file:
+    path: ~/nas_docker
+    state: directory
+    mode: '0755'
+
+- name: Deploy docker-compose.yml from repo
+  copy:
+    src: ../../docker/docker-compose.yml
+    dest: ~/nas_docker/docker-compose.yml
+    mode: '0644'
+
+- name: Start Docker services
+  command: docker compose -f ~/nas_docker/docker-compose.yml up -d
+  args:
+    chdir: ~/nas_docker
+
+- name: Install Tailscale
+  homebrew_cask:
+    name: tailscale
+    state: present
+
+- name: Install Proton VPN
+  homebrew_cask:
+    name: protonvpn
+    state: present
+
+- name: Deploy CCC pause script
+  template:
+    src: ccc-pause.sh.j2
+    dest: ~/Scripts/ccc-pause.sh
+    mode: '0755'
+
+- name: Deploy CCC restart script
+  template:
+    src: ccc-restart.sh.j2
+    dest: ~/Scripts/ccc-restart.sh
+    mode: '0755'
+
+- name: Deploy daily backup cron
+  cron:
+    name: "Daily Proton + iCloud backup"
+    minute: "0"
+    hour: "4"
+    job: "~/Scripts/backup-to-cloud.sh"
