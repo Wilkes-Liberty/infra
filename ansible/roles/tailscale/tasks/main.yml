@@ -1,0 +1,96 @@
+---
+# Tailscale installation and configuration
+
+- name: Check if Tailscale is already installed
+  command: which tailscale
+  register: tailscale_installed
+  changed_when: false
+  failed_when: false
+
+- name: Add Tailscale GPG key (Debian/Ubuntu)
+  apt_key:
+    url: https://pkgs.tailscale.com/stable/ubuntu/jammy.noarmor.gpg
+    state: present
+  when: 
+    - ansible_os_family == "Debian"
+    - tailscale_installed.rc != 0
+
+- name: Add Tailscale repository (Debian/Ubuntu)
+  apt_repository:
+    repo: "deb https://pkgs.tailscale.com/stable/ubuntu {{ ansible_distribution_release }} main"
+    state: present
+    filename: tailscale
+  when: 
+    - ansible_os_family == "Debian"
+    - tailscale_installed.rc != 0
+
+- name: Install Tailscale (Debian/Ubuntu)
+  apt:
+    name: tailscale
+    state: present
+    update_cache: yes
+  when: 
+    - ansible_os_family == "Debian"
+    - tailscale_installed.rc != 0
+
+- name: Install Tailscale (RHEL/CentOS)
+  block:
+    - name: Add Tailscale repository (RHEL/CentOS)
+      yum_repository:
+        name: tailscale-stable
+        description: Tailscale stable
+        baseurl: https://pkgs.tailscale.com/stable/rhel/$releasever/$basearch
+        enabled: yes
+        gpgcheck: yes
+        gpgkey: https://pkgs.tailscale.com/stable/rhel/$releasever/repo.gpg
+        repo_gpgcheck: yes
+    
+    - name: Install Tailscale package
+      yum:
+        name: tailscale
+        state: present
+  when: 
+    - ansible_os_family == "RedHat"
+    - tailscale_installed.rc != 0
+
+- name: Enable and start Tailscale service
+  systemd:
+    name: tailscaled
+    enabled: "{{ tailscale_service_enabled }}"
+    state: "{{ tailscale_service_state }}"
+
+- name: Check if Tailscale is already connected
+  command: tailscale status
+  register: tailscale_status
+  changed_when: false
+  failed_when: false
+
+- name: Build tailscale up command
+  set_fact:
+    tailscale_up_command: >-
+      tailscale up
+      {{ '--authkey=' + tailscale_auth_key if tailscale_auth_key else '' }}
+      {{ tailscale_up_args }}
+      {{ '--hostname=' + tailscale_hostname if tailscale_hostname else '' }}
+      {{ '--advertise-routes=' + (tailscale_advertise_routes | join(',')) if tailscale_advertise_routes | length > 0 else '' }}
+      {{ '--exit-node=' + tailscale_exit_node if tailscale_exit_node else '' }}
+      {{ '--ssh' if tailscale_ssh else '' }}
+
+- name: Connect to Tailscale network
+  command: "{{ tailscale_up_command }}"
+  when: 
+    - tailscale_auth_key != ""
+    - tailscale_status.rc != 0 or 'Logged out' in tailscale_status.stderr
+  register: tailscale_up_result
+  changed_when: tailscale_up_result.rc == 0
+
+- name: Display Tailscale connection status
+  command: tailscale status
+  register: final_status
+  changed_when: false
+  failed_when: false
+
+- name: Show Tailscale status
+  debug:
+    var: final_status.stdout_lines
+  when: final_status.rc == 0
