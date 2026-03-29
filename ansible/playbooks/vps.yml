@@ -1,0 +1,21 @@
+---
+- name: Deploy Njalla VPS Reverse Proxy
+  hosts: njalla-vps
+  become: yes
+  tasks:
+    - name: Install Caddy
+      apt:
+        name: caddy
+        state: present
+        update_cache: yes
+
+    - name: Deploy Caddyfile with Tailscale proxy
+      template:
+        src: Caddyfile.j2
+        dest: /etc/caddy/Caddyfile
+        mode: '0644'
+      notify: Reload Caddy
+
+  handlers:
+    - name: Reload Caddy
+      command: caddy reload
