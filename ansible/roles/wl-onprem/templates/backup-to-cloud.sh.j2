@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Archive old CCC snapshots
+"/Applications/Carbon Copy Cloner.app/Contents/MacOS/ccc" --run-task "MiniClone Weekly" --archive-snapshots
+
+# Local staging
+rsync -av --delete --ignore-errors ~/nas_docker/ ~/LocalBackup/nas_docker/
+
+# Sensitive data → Proton Drive (via official app)
+rsync -av --delete --ignore-errors ~/LocalBackup/nas_docker/ "~/Library/CloudStorage/ProtonDrive-{{ proton_username }}/BusinessBackups/nas_docker/"
+
+# iCloud (non-sensitive)
+rclone sync --fast-list --progress ~/Pictures/ icloud:Photos
+rclone sync --fast-list --progress ~/Library/Application\ Support/HomeKit/ icloud:HomeKit
+
+echo "$(date) — Cloud backups complete" >> ~/Scripts/backup-log.txt

@@ -1,4 +1,12 @@
 ---
+# wl-onprem role
+# Purpose: Deploy and manage the on-prem Mac Mini server (primary private server)
+# Architecture:
+#   - Outer layer: Proton VPN (kill-switch + always-on — enforced client-side)
+#   - Inner layer: Tailscale (private mesh network — 100.64.0.0/10)
+#   - All traffic from Njalla VPS or consultants must go through Proton VPN first
+#   - Docker services (Drupal 11, Keycloak, ClickHouse, etc.) run locally on the 4TB Synology SSD
+
 - name: Install Homebrew if missing
   command: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
   args:
@@ -33,12 +41,12 @@
   args:
     chdir: ~/nas_docker
 
-- name: Install Tailscale
+- name: Install Tailscale (inner private mesh)
   homebrew_cask:
     name: tailscale
     state: present
 
-- name: Install Proton VPN
+- name: Install Proton VPN (outer kill-switch)
   homebrew_cask:
     name: protonvpn
     state: present
@@ -55,9 +63,9 @@
     dest: ~/Scripts/ccc-restart.sh
     mode: '0755'
 
-- name: Deploy daily backup cron
+- name: Deploy daily backup cron (Proton + iCloud)
   cron:
-    name: "Daily Proton + iCloud backup"
+    name: "Daily encrypted backups"
     minute: "0"
     hour: "4"
     job: "~/Scripts/backup-to-cloud.sh"
