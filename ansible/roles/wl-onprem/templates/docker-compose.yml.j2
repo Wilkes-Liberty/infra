@@ -1,0 +1,109 @@
+services:
+  drupal:
+    image: drupal:11-apache
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ~/nas_docker/drupal:/opt/drupal/web
+    environment:
+      - DRUPAL_DB_HOST=postgres
+      - DRUPAL_DB_USER=drupal
+      - DRUPAL_DB_PASSWORD={{ drupal_db_password }}
+      - DRUPAL_DB_NAME=drupal
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    volumes:
+      - ~/nas_docker/postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=drupal
+      - POSTGRES_USER=drupal
+      - POSTGRES_PASSWORD={{ drupal_db_password }}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U drupal -d drupal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 6G
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - ~/nas_docker/redis:/data
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24
+    restart: unless-stopped
+    user: "101:101"
+    security_opt:
+      - seccomp:unconfined
+    volumes:
+      - ~/nas_docker/clickhouse:/var/lib/clickhouse
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 8G
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    restart: unless-stopped
+    command: start-dev
+    environment:
+      - KC_DB=postgres
+      - KC_DB_URL_HOST=postgres
+      - KC_DB_URL_PORT=5432
+      - KC_DB_URL_DATABASE=drupal
+      - KC_DB_USERNAME=drupal
+      - KC_DB_PASSWORD={{ drupal_db_password }}
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD={{ keycloak_admin_password }}
+      - KC_HTTP_ENABLED=true
+      - KC_HOSTNAME_STRICT=false
+      - KC_HOSTNAME=localhost
+      - KC_HEALTH_ENABLED=true
+    ports:
+      - "8081:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - ~/nas_docker/keycloak:/opt/keycloak/data
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 4G
