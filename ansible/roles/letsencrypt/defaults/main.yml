@@ -1,0 +1,100 @@
+# Let's Encrypt Certificate Management - Default Variables
+
+# Certificate configuration
+letsencrypt_email: "admin@wilkesliberty.com"
+letsencrypt_staging: false  # Set to true for testing, false for production
+letsencrypt_key_size: 2048
+letsencrypt_cert_dir: "/etc/letsencrypt"
+letsencrypt_webroot_path: "/var/www/html"
+
+# Challenge method (dns-01 recommended for wildcard certs)
+letsencrypt_challenge_method: "dns-01"  # or "http-01" for individual certs
+letsencrypt_dns_plugin: "njalla"        # Custom DNS plugin for Njalla
+
+# Certificate types to manage
+letsencrypt_certificates:
+  # Internal wildcard certificate for service-to-service communication
+  - name: "internal_wildcard"
+    domains:
+      - "*.int.wilkesliberty.com"
+    challenge: "dns-01"
+    services_to_restart:
+      - nginx
+      - apache2
+      - caddy
+    deploy_hook: "/etc/letsencrypt/renewal-hooks/deploy/restart-internal-services.sh"
+    description: "Internal services SSL certificate"
+  
+  # Main domain certificate for public website
+  - name: "main_domain"
+    domains:
+      - "wilkesliberty.com"
+      - "www.wilkesliberty.com"
+    challenge: "dns-01"
+    services_to_restart:
+      - nginx
+      - caddy
+    deploy_hook: "/etc/letsencrypt/renewal-hooks/deploy/restart-web-services.sh"
+    description: "Main website SSL certificate"
+  
+  # Public API and services certificates
+  - name: "api_certificate"
+    domains:
+      - "api.wilkesliberty.com"
+    challenge: "dns-01"
+    services_to_restart:
+      - nginx
+      - caddy
+    deploy_hook: "/etc/letsencrypt/renewal-hooks/deploy/restart-api-services.sh"
+    description: "API endpoint SSL certificate"
+  
+  - name: "sso_certificate"
+    domains:
+      - "sso.wilkesliberty.com"
+    challenge: "dns-01"
+    services_to_restart:
+      - nginx
+      - authentik-server
+    deploy_hook: "/etc/letsencrypt/renewal-hooks/deploy/restart-sso-services.sh"
+    description: "SSO service SSL certificate"
+  
+  - name: "stats_certificate"
+    domains:
+      - "stats.wilkesliberty.com"
+    challenge: "dns-01"
+    services_to_restart:
+      - nginx
+    deploy_hook: "/etc/letsencrypt/renewal-hooks/deploy/restart-analytics-services.sh"
+    description: "Analytics/stats SSL certificate"
+
+# Renewal configuration
+letsencrypt_renewal_frequency: "daily"
+letsencrypt_renewal_time: "02:30"
+letsencrypt_renewal_randomize: "1hour"
+
+# Security settings
+letsencrypt_force_renewal: false
+letsencrypt_cert_permissions:
+  mode: "0644"
+  owner: "root"
+  group: "ssl-cert"
+
+# Key permissions (more restrictive)
+letsencrypt_key_permissions:
+  mode: "0600"
+  owner: "root"
+  group: "ssl-cert"
+
+# Hooks and scripts
+letsencrypt_pre_hook: ""
+letsencrypt_post_hook: ""
+letsencrypt_deploy_hook: ""
+
+# Monitoring
+letsencrypt_expiry_threshold: 30  # Days before expiry to alert
+letsencrypt_enable_monitoring: true
+
+# Backup configuration
+letsencrypt_backup_certificates: true
+letsencrypt_backup_dir: "/var/backups/letsencrypt"
+letsencrypt_backup_retention: "30"  # Days to keep backups
