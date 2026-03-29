@@ -32,7 +32,7 @@
 
 - name: Deploy docker-compose.yml from repo
   copy:
-    src: ../../docker/docker-compose.yml
+    src: ../../../../docker/docker-compose.yml
     dest: ~/nas_docker/docker-compose.yml
     mode: '0644'
 
