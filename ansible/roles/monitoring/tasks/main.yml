@@ -1,0 +1,8 @@
+- name: Add Prometheus + Grafana to docker-compose
+  template:
+    src: monitoring-compose.yml.j2
+    dest: ~/nas_docker/monitoring-compose.yml
+    mode: '0644'
+
+- name: Start monitoring services
+  command: docker compose -f ~/nas_docker/monitoring-compose.yml up -d
