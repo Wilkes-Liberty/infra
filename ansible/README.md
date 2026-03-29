@@ -58,7 +58,6 @@ SOPS-encrypted variables for sensitive data:
 
 ### Host-Specific Variables (`inventory/host_vars/`)
 Individual host configurations:
-- WireGuard peer configurations
 - Host-specific service settings
 - Per-host overrides
 
