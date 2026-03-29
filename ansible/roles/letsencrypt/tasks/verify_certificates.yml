@@ -1,0 +1,107 @@
+---
+# Verify certificate installation and health
+
+- name: List all certificates managed by certbot
+  shell: certbot certificates
+  register: certbot_list
+  changed_when: false
+  become: yes
+
+- name: Display certificate information
+  debug:
+    var: certbot_list.stdout_lines
+
+- name: Check certificate expiration dates
+  shell: |
+    for cert_dir in /etc/letsencrypt/live/*/; do
+      if [ -f "${cert_dir}fullchain.pem" ]; then
+        domain=$(basename "$cert_dir")
+        expiry=$(openssl x509 -enddate -noout -in "${cert_dir}fullchain.pem" | cut -d= -f2)
+        days_until_expiry=$(( ($(date -d "$expiry" +%s) - $(date +%s)) / 86400 ))
+        echo "Domain: $domain, Expires: $expiry, Days until expiry: $days_until_expiry"
+      fi
+    done
+  register: cert_expiry_check
+  changed_when: false
+  become: yes
+
+- name: Display certificate expiration information
+  debug:
+    var: cert_expiry_check.stdout_lines
+
+- name: Check for certificates expiring soon
+  shell: |
+    for cert_dir in /etc/letsencrypt/live/*/; do
+      if [ -f "${cert_dir}fullchain.pem" ]; then
+        domain=$(basename "$cert_dir")
+        days_until_expiry=$(( ($(date -d "$(openssl x509 -enddate -noout -in "${cert_dir}fullchain.pem" | cut -d= -f2)" +%s) - $(date +%s)) / 86400 ))
+        if [ $days_until_expiry -le {{ letsencrypt_expiry_threshold }} ]; then
+          echo "WARNING: Certificate for $domain expires in $days_until_expiry days"
+        fi
+      fi
+    done
+  register: cert_expiry_warnings
+  changed_when: false
+  become: yes
+
+- name: Display expiration warnings
+  debug:
+    var: cert_expiry_warnings.stdout_lines
+  when: cert_expiry_warnings.stdout != ""
+
+- name: Test certificate files accessibility
+  stat:
+    path: "{{ letsencrypt_cert_dir }}/live/{{ cert_config.domains[0] }}/{{ cert_file }}"
+  register: cert_file_check
+  loop:
+    - fullchain.pem
+    - privkey.pem
+    - cert.pem
+    - chain.pem
+  loop_control:
+    loop_var: cert_file
+  become: yes
+  vars:
+    cert_config: "{{ letsencrypt_certificates[0] }}"  # Test with first certificate
+
+- name: Verify SSL/TLS configuration for internal domain
+  uri:
+    url: "https://{{ ansible_fqdn | default('localhost') }}"
+    method: GET
+    validate_certs: no  # Internal certs might not be in CA store
+    timeout: 10
+  register: ssl_test
+  ignore_errors: yes
+  when: "'*.int.wilkesliberty.com' in (letsencrypt_certificates | map(attribute='domains') | flatten)"
+
+- name: Create certificate status summary
+  copy:
+    content: |
+      # Let's Encrypt Certificate Status Summary
+      Generated: {{ ansible_date_time.iso8601 }}
+      Host: {{ ansible_fqdn | default(inventory_hostname) }}
+      
+      ## Configured Certificates:
+      {% for cert in letsencrypt_certificates %}
+      - {{ cert.name }}: {{ cert.domains | join(', ') }}
+        Challenge: {{ cert.challenge }}
+        Description: {{ cert.description | default('No description') }}
+      {% endfor %}
+      
+      ## Certificate Files Status:
+      {{ certbot_list.stdout }}
+      
+      ## Expiration Information:
+      {% for line in cert_expiry_check.stdout_lines %}
+      {{ line }}
+      {% endfor %}
+      
+      {% if cert_expiry_warnings.stdout != "" %}
+      ## ⚠️ WARNINGS:
+      {% for warning in cert_expiry_warnings.stdout_lines %}
+      {{ warning }}
+      {% endfor %}
+      {% endif %}
+    dest: /var/log/letsencrypt/certificate-status.md
+    mode: '0644'
+  become: yes
