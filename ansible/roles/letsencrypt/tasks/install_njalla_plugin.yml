@@ -1,0 +1,245 @@
+---
+# Install Njalla DNS plugin for certbot
+
+- name: Create certbot plugins directory
+  file:
+    path: /usr/local/lib/python3.9/dist-packages/certbot_dns_njalla
+    state: directory
+    mode: '0755'
+  become: yes
+
+- name: Install certbot Njalla DNS plugin
+  copy:
+    content: |
+      #!/usr/bin/env python3
+      """
+      Certbot DNS plugin for Njalla
+      """
+      import json
+      import logging
+      import requests
+      import time
+      from certbot import errors
+      from certbot.plugins import dns_common
+
+      logger = logging.getLogger(__name__)
+
+      class Authenticator(dns_common.DNSAuthenticator):
+          """DNS Authenticator for Njalla"""
+
+          description = "Obtain certificates using a DNS TXT record (if you are using Njalla for DNS)"
+
+          def __init__(self, *args, **kwargs):
+              super(Authenticator, self).__init__(*args, **kwargs)
+              self.credentials = None
+
+          @classmethod
+          def add_parser_arguments(cls, add):
+              super(Authenticator, cls).add_parser_arguments(add, default_propagation_seconds=120)
+              add("credentials", help="Njalla credentials INI file.")
+
+          def more_info(self):
+              return ("This plugin configures a DNS TXT record to respond to a dns-01 challenge using "
+                      "the Njalla API.")
+
+          def _setup_credentials(self):
+              self._configure_file('credentials',
+                                  'Absolute path to Njalla credentials INI file')
+              self.credentials = self._configure_credentials(
+                  'credentials',
+                  'Njalla credentials INI file',
+                  {
+                      'api_token': 'API token for Njalla account'
+                  }
+              )
+
+          def _perform(self, domain, validation_name, validation):
+              # Extract the base domain (e.g., wilkesliberty.com from *.int.wilkesliberty.com)
+              base_domain = self._get_base_domain(domain)
+              # Extract record name from validation_name (e.g., _acme-challenge.int from _acme-challenge.int.wilkesliberty.com)
+              record_name = validation_name.replace('.' + base_domain, '')
+              self._get_njalla_client().add_txt_record(base_domain, record_name, validation)
+
+          def _cleanup(self, domain, validation_name, validation):
+              # Extract the base domain and record name
+              base_domain = self._get_base_domain(domain)
+              record_name = validation_name.replace('.' + base_domain, '')
+              self._get_njalla_client().del_txt_record(base_domain, record_name, validation)
+
+          def _get_base_domain(self, domain):
+              # Remove wildcard prefix if present
+              clean_domain = domain.replace('*.', '')
+              # For subdomains, we need to find the registered domain
+              # For now, assume wilkesliberty.com is the base domain
+              if 'wilkesliberty.com' in clean_domain:
+                  return 'wilkesliberty.com'
+              return clean_domain
+
+          def _get_njalla_client(self):
+              token = self.credentials.conf('api_token')
+              logger.info('Retrieved token from credentials: %s', repr(token))
+              return _NjallaClient(token)
+
+      class _NjallaClient(object):
+          """
+          Encapsulates all communication with the Njalla API.
+          """
+
+          def __init__(self, api_token):
+              logger.info('NjallaClient received token: %s (type: %s)', repr(api_token), type(api_token))
+              # Handle case where api_token might be a list or string
+              if isinstance(api_token, list):
+                  self.api_token = api_token[0].strip() if api_token else ''
+              else:
+                  self.api_token = str(api_token).strip()
+              logger.info('NjallaClient processed token: %s', repr(self.api_token))
+              self.api_url = 'https://njal.la/api/1/'
+
+          def add_txt_record(self, domain, name, content):
+              """
+              Add a TXT record using the supplied information.
+              """
+              data = {
+                  'jsonrpc': '2.0',
+                  'method': 'add-record',
+                  'params': {
+                      'domain': domain,
+                      'type': 'TXT',
+                      'name': name,
+                      'content': content,
+                      'ttl': 300
+                  },
+                  'id': 1
+              }
+              
+              response = self._api_request(data)
+              if 'error' in response:
+                  raise errors.PluginError('Error adding TXT record: {0}'.format(response['error']))
+
+              logger.info('Successfully added TXT record for {0}'.format(name))
+
+          def del_txt_record(self, domain, name, content):
+              """
+              Delete a TXT record using the supplied information.
+              """
+              # First, find the record ID
+              records = self._get_records(domain)
+              record_id = None
+              
+              for record in records.get('records', []):
+                  if (record.get('type') == 'TXT' and 
+                      record.get('name') == name and 
+                      record.get('content') == content):
+                      record_id = record.get('id')
+                      break
+              
+              if not record_id:
+                  logger.warning('TXT record not found for deletion: {0}'.format(name))
+                  return
+
+              data = {
+                  'jsonrpc': '2.0', 
+                  'method': 'remove-record',
+                  'params': {
+                      'domain': domain,
+                      'id': record_id
+                  },
+                  'id': 1
+              }
+              
+              response = self._api_request(data)
+              if 'error' in response:
+                  raise errors.PluginError('Error deleting TXT record: {0}'.format(response['error']))
+
+              logger.info('Successfully deleted TXT record for {0}'.format(name))
+
+          def _get_records(self, domain):
+              """Get all DNS records for a domain"""
+              data = {
+                  'jsonrpc': '2.0',
+                  'method': 'list-records', 
+                  'params': {'domain': domain},
+                  'id': 1
+              }
+              return self._api_request(data)
+
+          def _api_request(self, data):
+              """Make API request to Njalla"""
+              headers = {
+                  'Authorization': 'Njalla {0}'.format(self.api_token),
+                  'Content-Type': 'application/json'
+              }
+              
+              try:
+                  response = requests.post(self.api_url, json=data, headers=headers, timeout=30)
+                  response.raise_for_status()
+                  return response.json()
+              except requests.RequestException as e:
+                  raise errors.PluginError('API request failed: {0}'.format(e))
+    dest: /usr/local/lib/python3.9/dist-packages/certbot_dns_njalla/dns_njalla.py
+    mode: '0644'
+  become: yes
+
+- name: Create __init__.py for plugin
+  copy:
+    content: ""
+    dest: /usr/local/lib/python3.9/dist-packages/certbot_dns_njalla/__init__.py
+    mode: '0644'  
+  become: yes
+
+- name: Create temporary plugin directory
+  file:
+    path: /tmp/certbot-dns-njalla
+    state: directory
+    mode: '0755'
+
+- name: Create setup.py for plugin
+  copy:
+    content: |
+      from setuptools import setup, find_packages
+      
+      setup(
+          name='certbot-dns-njalla',
+          version='1.0.0',
+          description='Njalla DNS plugin for Certbot',
+          packages=find_packages(),
+          install_requires=[
+              'certbot>=1.1.0',
+              'requests',
+              'setuptools',
+          ],
+          entry_points={
+              'certbot.plugins': [
+                  'dns-njalla = certbot_dns_njalla.dns_njalla:Authenticator',
+              ],
+          },
+      )
+    dest: /tmp/certbot-dns-njalla/setup.py
+    mode: '0644'
+
+- name: Copy plugin files to temp directory
+  copy:
+    src: /usr/local/lib/python3.9/dist-packages/certbot_dns_njalla/
+    dest: /tmp/certbot-dns-njalla/certbot_dns_njalla/
+    remote_src: yes
+    mode: preserve
+  become: yes
+
+- name: Install plugin using pip
+  pip:
+    name: /tmp/certbot-dns-njalla
+    state: present
+    editable: false
+    extra_args: --break-system-packages
+  become: yes
+
+- name: Cleanup temporary directory
+  file:
+    path: /tmp/certbot-dns-njalla
+    state: absent
+
+- name: Verify plugin installation
+  command: certbot plugins
+  register: certbot_plugins
+  changed_when: false
+  failed_when: "'dns-njalla' not in certbot_plugins.stdout"
