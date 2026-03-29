@@ -65,7 +65,7 @@ This document outlines the DNS configuration for Wilkes Liberty infrastructure, 
 ### Internal Communication
 - All services communicate via `.int.wilkesliberty.com` domain
 - CoreDNS provides forward and reverse resolution
-- WireGuard mesh enables secure inter-service connectivity
+- Tailscale mesh enables secure inter-service connectivity
 
 ### Mail Configuration
 - Proton Mail DKIM records managed separately (mail_proton.tf)
