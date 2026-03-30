@@ -4,24 +4,35 @@ This repository contains the infrastructure automation and configuration for the
 
 ## Architecture Overview
 
-The infrastructure consists of multiple servers managed through Ansible automation:
+**Current Infrastructure**: On-premises Mac Mini M4 Pro running Docker Compose with 11 containers.
 
-- **App Server** (`app`) - Drupal 11 application with PHP 8.3
-- **Database Server** (`db`) - MySQL/MariaDB database
-- **Search Server** (`solr`) - Apache Solr 9.6.1 for full-text search
-- **Analytics Server** (`analytics`) - Observability and monitoring
-- **DNS Server** (`coredns`) - Custom DNS configuration
+### Application Services:
+- **Drupal 11** (port 8080) - Headless CMS with GraphQL API
+- **PostgreSQL 16** - Primary database
+- **Redis 7** - Object caching
+- **Keycloak** (port 8081) - SSO and authentication
+- **Apache Solr 9.6** (port 8983) - Full-text search
+
+### Monitoring Stack:
+- **Prometheus** (port 9090) - Metrics collection and alerting
+- **Grafana** (port 3001) - Dashboards and visualization
+- **Alertmanager** (port 9093) - Alert routing and notifications
+- **Node Exporter** (port 9100) - Host system metrics
+- **cAdvisor** (port 8082) - Container resource metrics
+- **Postgres Exporter** (port 9187) - Database performance metrics
 
 ### Network Configuration
 
 - **Primary Domain**: `wilkesliberty.com`
-- **Internal Domain**: `int.wilkesliberty.com`
-- **VPN**: Proton VPN Business for secure access
-- **Internal IPs**:
-  - App: `10.10.0.2`
-  - Database: `10.10.0.3` 
-  - Solr: `10.10.0.4`
-  - Analytics: `10.10.0.7`
+- **Docker Networks**:
+  - `wl_frontend` (172.20.0.0/24) - Public-facing services
+  - `wl_backend` (172.21.0.0/24) - Internal services
+  - `wl_monitoring` (172.22.0.0/24) - Monitoring isolation
+- **VPN Layers**:
+  - Proton VPN (outer kill-switch layer)
+  - Tailscale mesh (100.64.0.0/10) for future VPS connectivity
+
+**Resources**: ~13 CPUs, ~25GB RAM (well within Mac Mini M4 Pro capacity)
 
 ## Directory Structure
 
@@ -43,13 +54,14 @@ infra/
 
 ## Ansible Roles
 
-### Core Roles
+### Active Roles
 
-- **`common`** - Base system configuration, security, users
-- **`app`** - PHP 8.3, Nginx, Drupal application setup
-- **`db`** - Database server configuration
-- **`solr`** - Apache Solr search engine setup
-- **`analytics_obs`** - Monitoring and observability tools
+- **`wl-onprem`** - Mac Mini deployment (creates dirs, deploys Docker stack, configures backups)
+- **`common`** - Base system configuration (for future VPS use)
+- **`tailscale`** - VPN mesh configuration (for future VPS↔Mac Mini)
+- **`vps-proxy`** - Njalla VPS reverse proxy (future)
+- **`letsencrypt`** - SSL certificate management (future)
+- **`monitoring`** - Monitoring orchestration (currently in Docker Compose)
 
 ## Quick Start
 
