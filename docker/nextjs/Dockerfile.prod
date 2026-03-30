@@ -1,0 +1,80 @@
+# =============================================
+# Next.js Production Image
+# =============================================
+# Multi-stage build:
+#   Stage 1 (deps):    Install all npm dependencies
+#   Stage 2 (builder): Build the Next.js application
+#   Stage 3 (runner):  Lean production image with only runtime files
+#
+# Build context: ~/Repositories/ (parent of infra and ui repos)
+# The ui/ directory in that context is the Next.js application.
+#
+# Build from infra/docker/ with:
+#   docker buildx build \
+#     -f infra/docker/nextjs/Dockerfile.prod \
+#     --tag wilkesliberty/nextjs:latest \
+#     ../..
+# =============================================
+
+# ── Stage 1: Install dependencies ──────────────────────────────────────────────
+FROM node:20-alpine AS deps
+
+RUN apk add --no-cache libc6-compat
+
+WORKDIR /app
+
+# Copy only package files to leverage Docker layer caching
+COPY ui/package.json ui/package-lock.json* ./
+
+# Install production dependencies only
+RUN npm ci --only=production && npm cache clean --force
+
+
+# ── Stage 2: Build the application ─────────────────────────────────────────────
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy dependencies from Stage 1
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copy application source
+COPY ui/ .
+
+# Set build-time environment (Next.js bakes NEXT_PUBLIC_ vars at build time)
+# Override at runtime via environment variables in docker-compose.yml
+ARG NEXT_PUBLIC_DRUPAL_BASE_URL
+ARG NEXT_IMAGE_DOMAIN
+
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+
+# Build the Next.js application
+RUN npm run build
+
+
+# ── Stage 3: Production runtime ────────────────────────────────────────────────
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Create non-root user for security
+RUN addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 nextjs
+
+# Copy built application artifacts from builder stage
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+USER nextjs
+
+EXPOSE 3000
+
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+CMD ["node", "server.js"]
