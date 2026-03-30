@@ -54,11 +54,14 @@ services:
     restart: unless-stopped
     volumes:
       - ~/nas_docker/postgres:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
     environment:
       - POSTGRES_DB=drupal
       - POSTGRES_USER=drupal
-      - POSTGRES_PASSWORD=${DRUPAL_DB_PASSWORD:-ChangeThisToAStrongPassword2026!}
+      - POSTGRES_PASSWORD=${DRUPAL_DB_PASSWORD:?DRUPAL_DB_PASSWORD is required}
       - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+      # Exposed so the init script can create the keycloak database
+      - KEYCLOAK_DB_PASSWORD=${KEYCLOAK_DB_PASSWORD:?KEYCLOAK_DB_PASSWORD is required}
     networks:
       - backend
     healthcheck:
@@ -133,11 +136,11 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health/ready"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health/ready | grep -q '\"status\":\"UP\"' || exit 1"]
       interval: 30s
-      timeout: 10s
+      timeout: 15s
       retries: 5
-      start_period: 60s
+      start_period: 120s
     volumes:
       - ~/nas_docker/keycloak:/opt/keycloak/data
     deploy:
