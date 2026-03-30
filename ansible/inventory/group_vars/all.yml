@@ -25,6 +25,12 @@ cache_int_ip: 10.10.0.9      # Varnish + Caddy cache node
 # Legacy aliases (for backward compatibility)
 solr_int_ip: "{{ search_int_ip }}"  # Alias for search_int_ip
 
+# ── Repository URLs ───────────────────────────────────────────────────
+# Used by the wl-onprem role to clone the 'staging' branch for the staging stack.
+# Uncomment and set once the repos have a remote origin configured.
+# webcms_repo_url: "git@github.com:wilkesliberty/webcms.git"
+# ui_repo_url: "git@github.com:wilkesliberty/ui.git"
+
 # ── Software Versions ─────────────────────────────────────────────────
 php_version: "8.3"
 node_major: "20"
