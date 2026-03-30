@@ -3,44 +3,61 @@
 This file provides guidance to WARP (warp.dev) when working with code in this repository.
 
 ## Project Scope
-- This repo manages infrastructure for Wilkes Liberty using Ansible and Terraform
-- Separate from the Drupal application codebase (developed locally with ddev in the app repo)
-- Manages server provisioning/configuration, networking, internal DNS (CoreDNS), and public DNS (Njalla)
-- Includes both infrastructure automation (Ansible) and DNS/domain management (Terraform)
+- This repo manages infrastructure for Wilkes Liberty using Docker Compose, Ansible, and Terraform
+- **Current Architecture**: On-premises Mac Mini M4 Pro running Docker Compose stack (11 containers)
+- **Future Architecture**: Njalla VPS for Next.js frontend, connected via Tailscale mesh to Mac Mini backend
+- Includes Docker orchestration, infrastructure automation (Ansible), DNS management (Terraform), and monitoring (Prometheus/Grafana)
 
 ## Prerequisites
-- Ansible CLI installed
-- community.sops Ansible vars plugin and the sops/age tooling
-  - Install the collection: ansible-galaxy collection install community.sops
-  - Have sops and age installed and your AGE private key available locally (e.g., export SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt)
-- SSH access to the target hosts defined in ansible/inventory/hosts.ini
-- Terraform CLI installed (for DNS management)
-- Njalla API token (for DNS record management)
+- **Docker Desktop** installed and running (required)
+- **Ansible CLI** installed (for automated deployment)
+- **community.sops** Ansible vars plugin and the sops/age tooling
+  - Install the collection: `ansible-galaxy collection install community.sops`
+  - Install community.general: `ansible-galaxy collection install community.general`
+  - Have sops and age installed and your AGE private key available locally (e.g., `export SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt`)
+- **Terraform CLI** installed (for DNS management - optional initially)
+- **Njalla API token** (for DNS record management - optional initially)
 
 ## Core Commands (run from repo root)
 
+### Automated Deployment (Recommended)
+- **Deploy complete on-prem stack** (one command - creates directories, configs, starts Docker):
+  ```bash
+  ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/onprem.yml
+  ```
+
+### Manual Docker Operations
+- Start all services:
+  ```bash
+  cd ~/nas_docker && docker compose up -d
+  ```
+- Stop all services:
+  ```bash
+  cd ~/nas_docker && docker compose down
+  ```
+- View logs:
+  ```bash
+  cd ~/nas_docker && docker compose logs -f
+  ```
+- Check service status:
+  ```bash
+  cd ~/nas_docker && docker compose ps
+  ```
+
 ### Ansible Operations
-- Bootstrap base config on all hosts
-  - make bootstrap
-- Configure all roles across all hosts
-  - make site
-- Deploy CoreDNS to DNS servers
-  - ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/coredns.yml
-- Configure fleet to use internal DNS
-  - ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/resolved.yml
-- Run playbook in check/diff mode (no changes) for a subset
-  - ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/site.yml --limit app --check --diff
-- Limit to a single host or group
-  - ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/site.yml --limit app1.prod.wilkesliberty.com
-  - ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/site.yml --limit cache
-  - ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/site.yml --limit dns
-- Validate connectivity
-  - ansible -i ansible/inventory/hosts.ini all -m ping
-  - ansible -i ansible/inventory/hosts.ini fleet -m ping
-- Inspect inventory graph
-  - ansible-inventory -i ansible/inventory/hosts.ini --graph
-- Edit encrypted group secrets (SOPS/age)
-  - sops ansible/inventory/group_vars/sso_secrets.yml
+- Validate inventory:
+  ```bash
+  ansible-inventory -i ansible/inventory/hosts.ini --graph
+  ```
+- Test connectivity:
+  ```bash
+  ansible -i ansible/inventory/hosts.ini all -m ping
+  ```
+- Edit encrypted secrets (SOPS/age):
+  ```bash
+  sops ansible/inventory/group_vars/tailscale_secrets.yml
+  sops ansible/inventory/group_vars/sso_secrets.yml
+  ```
 
 ### Terraform Operations (DNS Management)
 - Plan DNS changes
