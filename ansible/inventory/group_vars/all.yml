@@ -29,3 +29,15 @@ solr_int_ip: "{{ search_int_ip }}"  # Alias for search_int_ip
 php_version: "8.3"
 node_major: "20"
 solr_version: "9.6.1"
+
+# ── Alert / Notification Settings ─────────────────────────────────────
+# Used to render docker/alertmanager/config.yml.j2 via the wl-onprem role.
+# Override SMTP secrets in an encrypted group_vars file (e.g. sso_secrets.yml).
+alert_smtp_host: "smtp.protonmail.ch"
+alert_smtp_port: 587
+alert_email_from: "alerts@wilkesliberty.com"
+alert_email_to: "3@wilkesliberty.com"
+# alert_smtp_user and alert_smtp_password should be in encrypted sso_secrets.yml:
+#   alert_smtp_user: "your-smtp-user"
+#   alert_smtp_password: "your-smtp-password"
+# alert_slack_webhook_url: ""  # Optional — uncomment in sso_secrets.yml to enable Slack

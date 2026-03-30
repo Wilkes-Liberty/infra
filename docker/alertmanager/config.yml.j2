@@ -1,0 +1,113 @@
+# =============================================
+# Alertmanager Configuration
+# WilkesLiberty Infrastructure
+# =============================================
+# This is an Ansible Jinja2 template.
+# Rendered to ~/nas_docker/alertmanager/config.yml by the wl-onprem Ansible role.
+# Variables come from ansible/inventory/group_vars/all.yml and
+# the encrypted ansible/inventory/group_vars/sso_secrets.yml.
+# =============================================
+
+global:
+  smtp_smarthost: '{{ alert_smtp_host }}:{{ alert_smtp_port }}'
+  smtp_from: '{{ alert_email_from }}'
+  smtp_auth_username: '{{ alert_smtp_user }}'
+  smtp_auth_password: '{{ alert_smtp_password }}'
+  smtp_require_tls: true
+
+# Templates for notifications
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Route tree
+route:
+  receiver: 'default'
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+  routes:
+    # Critical alerts — immediate notification
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 10s
+      repeat_interval: 1h
+
+    # Warning alerts — hourly digest
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+      group_wait: 5m
+      group_interval: 30m
+      repeat_interval: 12h
+
+    # Info alerts — daily summary
+    - match:
+        severity: info
+      receiver: 'info-alerts'
+      group_wait: 1h
+      repeat_interval: 24h
+
+receivers:
+  - name: 'default'
+    email_configs:
+      - to: '{{ alert_email_to }}'
+        headers:
+          Subject: '[WilkesLiberty] Alert Notification'
+
+  - name: 'critical-alerts'
+    email_configs:
+      - to: '{{ alert_email_to }}'
+        headers:
+          Subject: '[CRITICAL] WilkesLiberty Infrastructure Alert'
+        html: |
+          <h2>Critical Alert</h2>
+          <p><strong>Alert:</strong> {{ "{{" }} .GroupLabels.alertname {{ "}}" }}</p>
+          <p><strong>Service:</strong> {{ "{{" }} .GroupLabels.service {{ "}}" }}</p>
+          <p><strong>Summary:</strong> {{ "{{" }} .CommonAnnotations.summary {{ "}}" }}</p>
+          <p><strong>Description:</strong> {{ "{{" }} .CommonAnnotations.description {{ "}}" }}</p>
+          <p><strong>Started:</strong> {{ "{{" }} .StartsAt {{ "}}" }}</p>
+{% if alert_slack_webhook_url is defined and alert_slack_webhook_url %}
+    slack_configs:
+      - api_url: '{{ alert_slack_webhook_url }}'
+        channel: '#infrastructure-alerts'
+        title: 'Critical Alert: {{ "{{" }} .GroupLabels.alertname {{ "}}" }}'
+        text: '{{ "{{" }} .CommonAnnotations.summary {{ "}}" }}'
+{% endif %}
+
+  - name: 'warning-alerts'
+    email_configs:
+      - to: '{{ alert_email_to }}'
+        headers:
+          Subject: '[WARNING] WilkesLiberty Infrastructure'
+        html: |
+          <h2>Warning Alerts</h2>
+          {{ "{{" }} range .Alerts {{ "}}" }}
+          <p><strong>{{ "{{" }} .Labels.alertname {{ "}}" }}</strong>: {{ "{{" }} .Annotations.summary {{ "}}" }}</p>
+          {{ "{{" }} end {{ "}}" }}
+
+  - name: 'info-alerts'
+    email_configs:
+      - to: '{{ alert_email_to }}'
+        headers:
+          Subject: '[INFO] WilkesLiberty Daily Summary'
+        html: |
+          <h2>Daily Infrastructure Summary</h2>
+          {{ "{{" }} range .Alerts {{ "}}" }}
+          <p>{{ "{{" }} .Annotations.summary {{ "}}" }}</p>
+          {{ "{{" }} end {{ "}}" }}
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match_re:
+      severity: 'warning|info'
+    equal: ['alertname', 'instance']
+
+  - source_match:
+      alertname: 'ServiceDown'
+    target_match_re:
+      alertname: '.*'
+    equal: ['service']
