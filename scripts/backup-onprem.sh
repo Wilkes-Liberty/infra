@@ -18,6 +18,36 @@
 
 set -euo pipefail
 
+# ── Argument parsing ──────────────────────────────────────────────────────────
+DRY_RUN=false
+
+usage() {
+    echo "Usage: $(basename "$0") [OPTIONS]"
+    echo ""
+    echo "WilkesLiberty on-premises backup script."
+    echo ""
+    echo "Options:"
+    echo "  --dry-run   Print what would be done without creating any files"
+    echo "  --help      Show this help message and exit"
+    echo ""
+    echo "Environment variables:"
+    echo "  BACKUP_BASE_DIR           Backup destination (default: ~/Backups/wilkesliberty)"
+    echo "  BACKUP_NOTIFICATION_EMAIL Email address for backup status notifications"
+    echo "  BACKUP_ENCRYPTION_KEY     Passphrase for AES-256 encrypted archive"
+    echo ""
+    echo "Examples:"
+    echo "  $(basename "$0")            # Run a real backup"
+    echo "  $(basename "$0") --dry-run  # Preview without writing anything"
+}
+
+for arg in "$@"; do
+    case "$arg" in
+        --dry-run) DRY_RUN=true ;;
+        --help|-h) usage; exit 0 ;;
+        *) echo "Unknown option: $arg" >&2; usage; exit 1 ;;
+    esac
+done
+
 # ── Configuration ──
 BACKUP_BASE_DIR="${BACKUP_BASE_DIR:-$HOME/Backups/wilkesliberty}"
 BACKUP_DATE=$(date +"%Y-%m-%d_%H-%M-%S")
@@ -59,42 +89,82 @@ success() {
     echo -e "${BLUE}[$(date '+%Y-%m-%d %H:%M:%S')] SUCCESS: $1${NC}"
 }
 
+# ── Dry-run wrapper ───────────────────────────────────────────────────────────
+# Usage: run_cmd <description> <cmd> [args...]
+# In dry-run mode, prints the command instead of running it.
+run_cmd() {
+    local description="$1"
+    shift
+    if [ "$DRY_RUN" = true ]; then
+        echo -e "${YELLOW}[DRY RUN] $description${NC}"
+        echo -e "  → $*"
+    else
+        "$@"
+    fi
+}
+
 # ── Backup Directory Structure ──
 setup_backup_dirs() {
     log "Setting up backup directory structure..."
-    
+
+    CURRENT_BACKUP_DIR="$BACKUP_BASE_DIR/daily/${BACKUP_DATE}"
+
+    if [ "$DRY_RUN" = true ]; then
+        warning "[DRY RUN] Would create: $BACKUP_BASE_DIR/{daily,weekly,monthly,logs}"
+        warning "[DRY RUN] Would create: $CURRENT_BACKUP_DIR/{database,files,volumes}"
+        log "Dry-run backup directory: $CURRENT_BACKUP_DIR"
+        return
+    fi
+
     mkdir -p "$BACKUP_BASE_DIR"/{daily,weekly,monthly}
     mkdir -p "$BACKUP_BASE_DIR/logs"
-    
-    # Current backup working directory
-    CURRENT_BACKUP_DIR="$BACKUP_BASE_DIR/daily/${BACKUP_DATE}"
     mkdir -p "$CURRENT_BACKUP_DIR"/{database,files,volumes}
-    
+
     log "Backup directory: $CURRENT_BACKUP_DIR"
 }
 
 # ── PostgreSQL Database Backup ──
 backup_postgres() {
     log "Backing up PostgreSQL database..."
-    
+
     local db_backup_file="$CURRENT_BACKUP_DIR/database/drupal_postgres_${BACKUP_DATE}.sql.gz"
-    
-    # Use Docker to run pg_dump
+
+    if [ "$DRY_RUN" = true ]; then
+        warning "[DRY RUN] Would run: docker exec wl_postgres pg_dump -U drupal -d drupal | gzip > $db_backup_file"
+        warning "[DRY RUN] Would run: docker exec wl_postgres pg_dump -U keycloak -d keycloak | gzip > (keycloak backup file)"
+        return
+    fi
+
+    # Drupal database
     if docker exec wl_postgres pg_dump -U drupal -d drupal | gzip > "$db_backup_file"; then
         local size=$(du -h "$db_backup_file" | cut -f1)
-        success "PostgreSQL backup complete: $size"
+        success "PostgreSQL (drupal) backup complete: $size"
     else
-        error "PostgreSQL backup failed!"
+        error "PostgreSQL (drupal) backup failed!"
         return 1
+    fi
+
+    # Keycloak database (separate DB since migration from shared to dedicated)
+    local kc_backup_file="$CURRENT_BACKUP_DIR/database/keycloak_postgres_${BACKUP_DATE}.sql.gz"
+    if docker exec wl_postgres pg_dump -U keycloak -d keycloak | gzip > "$kc_backup_file" 2>/dev/null; then
+        local kc_size=$(du -h "$kc_backup_file" | cut -f1)
+        success "PostgreSQL (keycloak) backup complete: $kc_size"
+    else
+        warning "PostgreSQL (keycloak) backup skipped — keycloak database may not exist yet"
     fi
 }
 
 # ── Drupal Files Backup ──
 backup_drupal_files() {
     log "Backing up Drupal files..."
-    
+
     local drupal_backup_file="$CURRENT_BACKUP_DIR/files/drupal_files_${BACKUP_DATE}.tar.gz"
-    
+
+    if [ "$DRY_RUN" = true ]; then
+        warning "[DRY RUN] Would backup: $NAS_DOCKER_DIR/drupal → $drupal_backup_file"
+        return
+    fi
+
     if [ -d "$NAS_DOCKER_DIR/drupal" ]; then
         tar -czf "$drupal_backup_file" -C "$NAS_DOCKER_DIR" drupal 2>/dev/null || {
             warning "Some Drupal files may be inaccessible (permissions), continuing..."
@@ -364,9 +434,15 @@ verify_backup() {
 
 # ── Main Execution ──
 main() {
-    log "========================================"
-    log "WilkesLiberty Backup Started"
-    log "========================================"
+    if [ "$DRY_RUN" = true ]; then
+        log "========================================"
+        log "WilkesLiberty Backup (DRY RUN — no files will be created)"
+        log "========================================"
+    else
+        log "========================================"
+        log "WilkesLiberty Backup Started"
+        log "========================================"
+    fi
     
     local start_time=$(date +%s)
     local backup_status="SUCCESS"
