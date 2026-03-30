@@ -1,156 +1,140 @@
+# =============================================
+# WilkesLiberty DNS Records - Single VPS Architecture
+# =============================================
+# All public services proxy through single Njalla VPS
+# VPS IP configured in terraform.tfvars
+# =============================================
+
 # -------------------------
-# Public service hostnames
+# Apex (root domain)
 # -------------------------
 
-resource "njalla_record_cname" "www" {
-  domain  = "wilkesliberty.com"
+resource "njalla_record_a" "apex" {
+  domain  = var.domain_name
+  name    = "@"
+  content = var.vps_ipv4
+  ttl     = 3600
+}
+
+# Optional: IPv6 support
+resource "njalla_record_aaaa" "apex" {
+  count   = var.vps_ipv6 != "" ? 1 : 0
+  domain  = var.domain_name
+  name    = "@"
+  content = var.vps_ipv6
+  ttl     = 3600
+}
+
+# -------------------------
+# Public service subdomains
+# -------------------------
+
+# www - Next.js frontend (runs on VPS)
+resource "njalla_record_a" "www" {
+  domain  = var.domain_name
   name    = "www"
-  content = "cache1.prod.wilkesliberty.com."
+  content = var.vps_ipv4
   ttl     = 3600
 }
 
-resource "njalla_record_cname" "api" {
-  domain  = "wilkesliberty.com"
+resource "njalla_record_aaaa" "www" {
+  count   = var.vps_ipv6 != "" ? 1 : 0
+  domain  = var.domain_name
+  name    = "www"
+  content = var.vps_ipv6
+  ttl     = 3600
+}
+
+# api - Drupal GraphQL backend (proxied to Mac Mini via Tailscale)
+resource "njalla_record_a" "api" {
+  domain  = var.domain_name
   name    = "api"
-  content = "cache1.prod.wilkesliberty.com."
+  content = var.vps_ipv4
   ttl     = 3600
 }
 
-resource "njalla_record_cname" "stats" {
-  domain  = "wilkesliberty.com"
-  name    = "stats"
-  content = "analytics1.prod.wilkesliberty.com."
+resource "njalla_record_aaaa" "api" {
+  count   = var.vps_ipv6 != "" ? 1 : 0
+  domain  = var.domain_name
+  name    = "api"
+  content = var.vps_ipv6
   ttl     = 3600
 }
 
-resource "njalla_record_cname" "sso" {
-  domain  = "wilkesliberty.com"
-  name    = "sso"
-  content = "sso1.prod.wilkesliberty.com."
+# auth - Keycloak SSO (proxied to Mac Mini via Tailscale)
+resource "njalla_record_a" "auth" {
+  domain  = var.domain_name
+  name    = "auth"
+  content = var.vps_ipv4
   ttl     = 3600
 }
 
-# -------------------------
-# Apex A + AAAA
-# -------------------------
-
-resource "njalla_record_a" "apex_a" {
-  domain  = "wilkesliberty.com"
-  name    = "@"
-  content = "80.78.30.4" # cache1 IPv4
-  ttl     = 3600
-}
-resource "njalla_record_aaaa" "apex_aaaa" {
-  domain  = "wilkesliberty.com"
-  name    = "@"
-  content = "2a0a:3840:8078:30::504e:1e04:1337" # cache1 IPv6
+resource "njalla_record_aaaa" "auth" {
+  count   = var.vps_ipv6 != "" ? 1 : 0
+  domain  = var.domain_name
+  name    = "auth"
+  content = var.vps_ipv6
   ttl     = 3600
 }
 
-# -------------------------
-# Per-node A + AAAA
-# -------------------------
-
-# app1
-resource "njalla_record_a" "app1_a" {
-  domain  = "wilkesliberty.com"
-  name    = "app1.prod"
-  content = "80.78.28.105"
-  ttl     = 3600
-}
-resource "njalla_record_aaaa" "app1_aaaa" {
-  domain  = "wilkesliberty.com"
-  name    = "app1.prod"
-  content = "2a0a:3840:8078:28::504e:1c69:1337"
-  ttl     = 3600
-}
-
-# db1
-resource "njalla_record_a" "db1_a" {
-  domain  = "wilkesliberty.com"
-  name    = "db1.prod"
-  content = "80.78.28.129"
-  ttl     = 3600
-}
-resource "njalla_record_aaaa" "db1_aaaa" {
-  domain  = "wilkesliberty.com"
-  name    = "db1.prod"
-  content = "2a0a:3840:8078:28::504e:1c81:1337"
-  ttl     = 3600
-}
-
-# search1
-resource "njalla_record_a" "search1_a" {
-  domain  = "wilkesliberty.com"
-  name    = "search1.prod"
-  content = "80.78.28.140"
-  ttl     = 3600
-}
-resource "njalla_record_aaaa" "search1_aaaa" {
-  domain  = "wilkesliberty.com"
-  name    = "search1.prod"
-  content = "2a0a:3840:8078:28::504e:1c8c:1337"
-  ttl     = 3600
-}
-
-# analytics1
-resource "njalla_record_a" "analytics1_a" {
-  domain  = "wilkesliberty.com"
-  name    = "analytics1.prod"
-  content = "80.78.28.148"
-  ttl     = 3600
-}
-resource "njalla_record_aaaa" "analytics1_aaaa" {
-  domain  = "wilkesliberty.com"
-  name    = "analytics1.prod"
-  content = "2a0a:3840:8078:28::504e:1c94:1337"
-  ttl     = 3600
-}
-
-# sso1
-resource "njalla_record_a" "sso1_a" {
-  domain  = "wilkesliberty.com"
-  name    = "sso1.prod"
-  content = "80.78.28.217"
-  ttl     = 3600
-}
-resource "njalla_record_aaaa" "sso1_aaaa" {
-  domain  = "wilkesliberty.com"
-  name    = "sso1.prod"
-  content = "2a0a:3840:8078:28::504e:1cd9:1337"
-  ttl     = 3600
-}
-
-# cache1
-resource "njalla_record_a" "cache1_a" {
-  domain  = "wilkesliberty.com"
-  name    = "cache1.prod"
-  content = "80.78.30.4"
-  ttl     = 3600
-}
-resource "njalla_record_aaaa" "cache1_aaaa" {
-  domain  = "wilkesliberty.com"
-  name    = "cache1.prod"
-  content = "2a0a:3840:8078:30::504e:1e04:1337"
-  ttl     = 3600
-}
+# analytics - Grafana monitoring (proxied to Mac Mini via Tailscale)
+# Uncomment when ready to expose publicly
+# resource "njalla_record_a" "analytics" {
+#   domain  = var.domain_name
+#   name    = "analytics"
+#   content = var.vps_ipv4
+#   ttl     = 3600
+# }
+#
+# resource "njalla_record_aaaa" "analytics" {
+#   count   = var.vps_ipv6 != "" ? 1 : 0
+#   domain  = var.domain_name
+#   name    = "analytics"
+#   content = var.vps_ipv6
+#   ttl     = 3600
+# }
 
 # -------------------------
-# OPTIONAL: CAA (cert authority) best-practice
-# Allow Let's Encrypt (and only that) to issue certs for your domain.
-# Uncomment if you want to enforce CA policy.
+# Security: CAA records
 # -------------------------
-# resource "njalla_record" "caa_issue" {
-#   domain = "wilkesliberty.com"
-#   type   = "CAA"
-#   name   = "@"
+# NOTE: Njalla provider v0.10.0 does not support CAA records
+# These must be managed manually in Njalla web UI if desired
+# CAA records are optional - they restrict which CAs can issue certificates
+
+# resource "njalla_record_caa" "caa_issue" {
+#   domain  = var.domain_name
+#   name    = "@"
 #   content = "0 issue \"letsencrypt.org\""
-#   ttl    = 3600
+#   ttl     = 3600
 # }
-# resource "njalla_record" "caa_iodef" {
-#   domain = "wilkesliberty.com"
-#   type   = "CAA"
-#   name   = "@"
+#
+# resource "njalla_record_caa" "caa_issuewild" {
+#   domain  = var.domain_name
+#   name    = "@"
+#   content = "0 issuewild \"letsencrypt.org\""
+#   ttl     = 3600
+# }
+#
+# resource "njalla_record_caa" "caa_iodef" {
+#   domain  = var.domain_name
+#   name    = "@"
 #   content = "0 iodef \"mailto:security@wilkesliberty.com\""
-#   ttl    = 3600
+#   ttl     = 3600
 # }
+
+# =============================================
+# DNS Architecture Notes:
+# =============================================
+# - All public DNS points to single Njalla VPS
+# - VPS runs Caddy reverse proxy with automatic SSL
+# - Backend services on Mac Mini (private, Tailscale-only)
+# - IPv6 optional (enable by setting vps_ipv6 variable)
+# - CAA records enforce Let's Encrypt certificates only
+# - TTL: 1 hour (3600s) for all records
+#
+# Private services (NO DNS, Tailscale-only):
+# - PostgreSQL (100.x.x.x:5432)
+# - Redis (100.x.x.x:6379)
+# - Solr (100.x.x.x:8983)
+# - Prometheus (100.x.x.x:9090)
+# =============================================
