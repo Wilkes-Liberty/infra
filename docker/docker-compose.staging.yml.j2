@@ -1,0 +1,263 @@
+# =============================================
+# WilkesLiberty Staging Docker Compose Stack
+# =============================================
+# Environment: Staging (Mac Mini, alongside production)
+# Source branch: staging
+# Repos: {{ ansible_env.HOME }}/Repositories/staging/{webcms,ui}
+#
+# Usage:
+#   cd ~/nas_docker_staging
+#   docker compose up -d
+#
+# Port map (production ports are in parentheses for reference):
+#   Drupal:   8090 (prod: 8080)
+#   Keycloak: 8091 (prod: 8081)
+#   Solr:     8993 (prod: 8983)
+#   Next.js:  3010 (prod: 3000)
+#   Postgres: not exposed (internal only)
+#
+# Monitoring: staging containers join the shared wl_monitoring network.
+# Prometheus discovers them automatically via Docker labels.
+# =============================================
+
+services:
+  # ================== APPLICATION SERVICES ==================
+
+  drupal:
+    build:
+      context: {{ ansible_env.HOME }}/Repositories/staging
+      dockerfile: infra/docker/drupal/Dockerfile.prod
+    container_name: wl_stg_drupal
+    restart: unless-stopped
+    ports:
+      - "8090:80"
+    volumes:
+      - {{ ansible_env.HOME }}/nas_docker_staging/drupal/files:/opt/drupal/web/sites/default/files
+      - {{ ansible_env.HOME }}/nas_docker_staging/drupal/private:/opt/drupal/private
+    environment:
+      - DRUPAL_DB_HOST=postgres
+      - DRUPAL_DB_USER=drupal
+      - DRUPAL_DB_PASSWORD=${STG_DRUPAL_DB_PASSWORD:?STG_DRUPAL_DB_PASSWORD is required}
+      - DRUPAL_DB_NAME=drupal
+      - DRUPAL_HASH_SALT=${STG_DRUPAL_HASH_SALT:?STG_DRUPAL_HASH_SALT is required}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DRUPAL_ENVIRONMENT=staging
+    networks:
+      - frontend
+      - backend
+      - monitoring
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/user/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 3G
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=80"
+      - "prometheus.io/path=/metrics"
+      - "environment=staging"
+
+  postgres:
+    image: postgres:16
+    container_name: wl_stg_postgres
+    restart: unless-stopped
+    volumes:
+      - {{ ansible_env.HOME }}/nas_docker_staging/postgres:/var/lib/postgresql/data
+      - {{ ansible_env.HOME }}/Repositories/infra/docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    environment:
+      - POSTGRES_DB=drupal
+      - POSTGRES_USER=drupal
+      - POSTGRES_PASSWORD=${STG_DRUPAL_DB_PASSWORD:?STG_DRUPAL_DB_PASSWORD is required}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+      - KEYCLOAK_DB_PASSWORD=${STG_KEYCLOAK_DB_PASSWORD:?STG_KEYCLOAK_DB_PASSWORD is required}
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U drupal -d drupal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=512MB"
+      - "-c"
+      - "effective_cache_size=1GB"
+      - "-c"
+      - "maintenance_work_mem=128MB"
+      - "-c"
+      - "max_connections=100"
+
+  redis:
+    image: redis:7-alpine
+    container_name: wl_stg_redis
+    restart: unless-stopped
+    volumes:
+      - {{ ansible_env.HOME }}/nas_docker_staging/redis:/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    command: >
+      redis-server
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 300 1
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0
+    container_name: wl_stg_keycloak
+    restart: unless-stopped
+    command: start
+    environment:
+      - KC_DB=postgres
+      - KC_DB_URL_HOST=postgres
+      - KC_DB_URL_PORT=5432
+      - KC_DB_URL_DATABASE=keycloak
+      - KC_DB_USERNAME=keycloak
+      - KC_DB_PASSWORD=${STG_KEYCLOAK_DB_PASSWORD:?STG_KEYCLOAK_DB_PASSWORD is required}
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=${STG_KEYCLOAK_ADMIN_PASSWORD:?STG_KEYCLOAK_ADMIN_PASSWORD is required}
+      - KC_HTTP_ENABLED=true
+      - KC_HOSTNAME_STRICT=false
+      - KC_HOSTNAME_STRICT_HTTPS=false
+      - KC_PROXY=edge
+      - KC_HEALTH_ENABLED=true
+      - KC_METRICS_ENABLED=true
+    ports:
+      - "8091:8080"
+      - "9001:9000"
+    networks:
+      - frontend
+      - backend
+      - monitoring
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health/ready | grep -q '\"status\":\"UP\"' || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 120s
+    volumes:
+      - {{ ansible_env.HOME }}/nas_docker_staging/keycloak:/opt/keycloak/data
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=9000"
+      - "prometheus.io/path=/metrics"
+      - "environment=staging"
+
+  solr:
+    image: solr:9.6
+    container_name: wl_stg_solr
+    restart: unless-stopped
+    ports:
+      - "8993:8983"
+    volumes:
+      - {{ ansible_env.HOME }}/nas_docker_staging/solr:/var/solr
+    environment:
+      - SOLR_HEAP=512m
+      - SOLR_JAVA_MEM=-Xms512m -Xmx512m
+    networks:
+      - backend
+      - monitoring
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8983/solr/ > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=8983"
+      - "prometheus.io/path=/admin/metrics"
+      - "environment=staging"
+
+  # ================== FRONTEND ==================
+  # Next.js staging — always on (no profile gate needed for staging)
+
+  nextjs:
+    build:
+      context: {{ ansible_env.HOME }}/Repositories/staging
+      dockerfile: infra/docker/nextjs/Dockerfile.prod
+    container_name: wl_stg_nextjs
+    restart: unless-stopped
+    ports:
+      - "3010:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_DRUPAL_BASE_URL=http://drupal:80
+      - NEXT_IMAGE_DOMAIN=${NEXT_STG_IMAGE_DOMAIN:-drupal}
+      - DRUPAL_CLIENT_ID=${STG_DRUPAL_CLIENT_ID:?STG_DRUPAL_CLIENT_ID is required}
+      - DRUPAL_CLIENT_SECRET=${STG_DRUPAL_CLIENT_SECRET:?STG_DRUPAL_CLIENT_SECRET is required}
+      - DRUPAL_REVALIDATE_SECRET=${STG_DRUPAL_REVALIDATE_SECRET:?STG_DRUPAL_REVALIDATE_SECRET is required}
+    networks:
+      - frontend
+    depends_on:
+      drupal:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.75'
+          memory: 1G
+
+# ================== NETWORKS ==================
+
+networks:
+  frontend:
+    driver: bridge
+    name: wl_stg_frontend
+
+  backend:
+    driver: bridge
+    name: wl_stg_backend
+
+  # Join the shared production monitoring network — no separate monitoring stack.
+  # Prometheus auto-discovers staging containers via Docker labels.
+  monitoring:
+    external: true
+    name: wl_monitoring
