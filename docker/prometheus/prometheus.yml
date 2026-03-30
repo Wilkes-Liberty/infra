@@ -22,16 +22,24 @@ alerting:
 rule_files:
   - '/etc/prometheus/alerts.yml'
 
+# ──────────────────────────────────────────────────────────────────────────────
 # Scrape configurations
+# Note: Static configs use Docker service names (resolved via Docker DNS).
+# All services must be on the wl_monitoring network for Prometheus to reach them.
+# Prometheus joins wl_monitoring, wl_frontend, and wl_backend networks is NOT needed —
+# instead, app containers that need scraping also join wl_monitoring.
+# ──────────────────────────────────────────────────────────────────────────────
+
 scrape_configs:
-  # Prometheus itself
+
+  # Prometheus self-monitoring
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
         labels:
           service: 'prometheus'
 
-  # Node Exporter (host metrics)
+  # Host metrics (Docker VM on macOS, or actual host on Linux)
   - job_name: 'node-exporter'
     static_configs:
       - targets: ['node-exporter:9100']
@@ -39,14 +47,14 @@ scrape_configs:
           service: 'host'
           instance: 'mac-mini-m4-pro'
 
-  # cAdvisor (container metrics)
+  # Container metrics
   - job_name: 'cadvisor'
     static_configs:
       - targets: ['cadvisor:8080']
         labels:
           service: 'docker'
 
-  # PostgreSQL Exporter
+  # PostgreSQL database metrics
   - job_name: 'postgres'
     static_configs:
       - targets: ['postgres-exporter:9187']
@@ -54,7 +62,7 @@ scrape_configs:
           service: 'postgres'
           database: 'drupal'
 
-  # Keycloak metrics
+  # Keycloak metrics (Keycloak is on wl_monitoring network)
   - job_name: 'keycloak'
     static_configs:
       - targets: ['keycloak:9000']
@@ -62,39 +70,58 @@ scrape_configs:
           service: 'keycloak'
     metrics_path: '/metrics'
 
-  # Alertmanager
+  # Alertmanager self-monitoring
   - job_name: 'alertmanager'
     static_configs:
       - targets: ['alertmanager:9093']
         labels:
           service: 'alertmanager'
 
-  # Docker service discovery (for labeled containers)
+  # ── Dynamic service discovery via Docker socket ──────────────────────────
+  # Discovers running containers labeled with prometheus.io/scrape=true.
+  # Requirements:
+  #   - Prometheus container must have /var/run/docker.sock mounted (see docker-compose.yml)
+  #   - Target containers must be on wl_monitoring network to be reachable
+  #   - Containers need labels: prometheus.io/scrape=true, prometheus.io/port=<port>
+  #   - Optional: prometheus.io/path=<metrics_path> (default: /metrics)
+
   - job_name: 'docker-services'
     docker_sd_configs:
       - host: unix:///var/run/docker.sock
+        # Only discover containers on the monitoring network
+        filters:
+          - name: network
+            values: ["wl_monitoring"]
+
     relabel_configs:
-      # Only scrape containers with prometheus.io/scrape=true label
+      # Step 1: Only keep containers explicitly opted in to scraping
       - source_labels: [__meta_docker_container_label_prometheus_io_scrape]
         action: keep
-        regex: true
-      
-      # Use custom port if defined
-      - source_labels: [__meta_docker_container_label_prometheus_io_port]
-        action: replace
+        regex: "true"
+
+      # Step 2: Build __address__ from container network IP + port label
+      # __meta_docker_network_ip = IP in the wl_monitoring network
+      # __meta_docker_container_label_prometheus_io_port = port from container label
+      - source_labels: [__meta_docker_network_ip, __meta_docker_container_label_prometheus_io_port]
+        separator: ':'
         target_label: __address__
-        regex: (.+)
-        replacement: __meta_docker_container_network_ip:$1
-      
-      # Use custom metrics path if defined
+        regex: '(.+):(\d+)'
+        replacement: '$1:$2'
+
+      # Step 3: Override metrics path if the container specifies one
       - source_labels: [__meta_docker_container_label_prometheus_io_path]
         action: replace
         target_label: __metrics_path__
         regex: (.+)
-      
-      # Add container name as label
+
+      # Step 4: Expose container name as a label for dashboards
       - source_labels: [__meta_docker_container_name]
         action: replace
-        target_label: container_name
+        target_label: container
         regex: /(.+)
-        replacement: $1
+        replacement: '$1'
+
+      # Step 5: Expose image name as a label
+      - source_labels: [__meta_docker_container_image]
+        action: replace
+        target_label: image
