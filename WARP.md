@@ -147,9 +147,10 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 ### Secrets Management (SOPS/age)
 - Ansible configured to load SOPS-encrypted vars (ansible/ansible.cfg: vars_plugins_enabled includes community.sops)
 - .sops.yaml encrypts any ansible/inventory/group_vars/*_secrets.yml file for specific age recipient
-- Current encrypted files: sso_secrets.yml
+- Current encrypted files: sso_secrets.yml, tailscale_secrets.yml
 - Use sops to edit; decryption requires your local AGE key
 - Never commit plaintext secrets to repository
+- **See SECRETS_MANAGEMENT.md for complete guide**
 
 ### Terraform State and Secrets
 - DNS management via Njalla API

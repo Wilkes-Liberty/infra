@@ -124,8 +124,9 @@ If playbooks fail with undefined variables:
 ### SOPS Issues
 If encrypted variables can't be loaded:
 1. Ensure `SOPS_AGE_KEY_FILE` environment variable is set
-2. Verify your AGE private key is accessible
+2. Verify your AGE private key is accessible at `~/.config/sops/age/keys.txt`
 3. Check that `community.sops` collection is installed
+4. See `../SECRETS_MANAGEMENT.md` for detailed troubleshooting
 
 ## Variable Loading Commands
 

@@ -278,6 +278,8 @@ terraform show       # View current state
 
 ### Documentation
 - **WARP.md**: Complete infrastructure guide and architecture
+- **SECRETS_MANAGEMENT.md**: SOPS/AGE encryption setup and usage guide
+- **TAILSCALE_SETUP.md**: Tailscale mesh VPN deployment guide
 - **ansible/README.md**: Variable precedence and configuration structure  
 - **DNS_RECORDS.md**: Public DNS configuration reference
 - **MULTI_ENVIRONMENT_STRATEGY.md**: Three-environment expansion plan (dev → staging → prod)
