@@ -1,312 +1,261 @@
 # Wilkes Liberty Infrastructure
 
-This repository contains the infrastructure automation and configuration for the Wilkes Liberty web platform, a multilingual Drupal 11 site with headless capabilities.
+Infrastructure automation and configuration for the Wilkes Liberty web platform — a multilingual headless Drupal 11 CMS with a Next.js frontend.
 
-## Architecture Overview
+## Architecture
 
-**Current Infrastructure**: On-premises Mac Mini M4 Pro running Docker Compose with 11 containers.
+**Hardware**: on-prem server (~13 CPUs, 24 GB RAM) + Njalla VPS (Next.js production only)
 
-### Application Services:
-- **Drupal 11** (port 8080) - Headless CMS with GraphQL API
-- **PostgreSQL 16** - Primary database
-- **Redis 7** - Object caching
-- **Keycloak** (port 8081) - SSO and authentication
-- **Apache Solr 9.6** (port 8983) - Full-text search
+```
+┌─────────────────────────────────────────────────────┐
+│                    on-prem server                  │
+│                                                     │
+│  Production Stack          Staging Stack            │
+│  ~/nas_docker/             ~/nas_docker_staging/    │
+│  ─────────────             ──────────────────────   │
+│  Drupal :8080              Drupal :8090             │
+│  Keycloak :8081            Keycloak :8091           │
+│  Solr :8983                Solr :8993               │
+│  PostgreSQL (internal)     PostgreSQL (internal)    │
+│  Redis (internal)          Redis (internal)         │
+│  Next.js (dev only)        Next.js :3010            │
+│                                                     │
+│  Monitoring (shared)                                │
+│  Prometheus :9090  Grafana :3001  Alertmanager :9093│
+└─────────────────────────────────────────────────────┘
+             │ Tailscale mesh (100.64.0.0/10)
+             ▼
+┌──────────────────────────┐
+│       Njalla VPS         │
+│  Next.js :3000 (prod)    │
+│  Caddy reverse proxy     │
+└──────────────────────────┘
+```
 
-### Monitoring Stack:
-- **Prometheus** (port 9090) - Metrics collection and alerting
-- **Grafana** (port 3001) - Dashboards and visualization
-- **Alertmanager** (port 9093) - Alert routing and notifications
-- **Node Exporter** (port 9100) - Host system metrics
-- **cAdvisor** (port 8082) - Container resource metrics
-- **Postgres Exporter** (port 9187) - Database performance metrics
+**Local development**: Developers use DDEV for Drupal and `npm run dev` for Next.js — neither environment is in this repo.
 
-### Network Configuration
+## Services
 
-- **Primary Domain**: `wilkesliberty.com`
-- **Docker Networks**:
-  - `wl_frontend` (172.20.0.0/24) - Public-facing services
-  - `wl_backend` (172.21.0.0/24) - Internal services
-  - `wl_monitoring` (172.22.0.0/24) - Monitoring isolation
-- **VPN Layers**:
-  - Proton VPN (outer kill-switch layer)
-  - Tailscale mesh (100.64.0.0/10) for future VPS connectivity
+### Production Stack (`~/nas_docker/`)
 
-**Resources**: ~13 CPUs, ~25GB RAM (well within Mac Mini M4 Pro capacity)
+| Service | Container | Port | Notes |
+|---------|-----------|------|-------|
+| Drupal 11 | wl_drupal | 8080 | Headless CMS, GraphQL/JSON:API |
+| PostgreSQL 16 | wl_postgres | internal | Primary database |
+| Redis 7 | wl_redis | internal | Object cache (allkeys-lru) |
+| Keycloak 25 | wl_keycloak | 8081, 9000 | SSO, OAuth2 |
+| Solr 9.6 | wl_solr | 8983 | Full-text search |
+| Prometheus | wl_prometheus | 9090 | Metrics collection |
+| Grafana | wl_grafana | 3001 | Dashboards |
+| Alertmanager | wl_alertmanager | 9093 | Alert routing (email + Slack) |
+| Node Exporter | wl_node_exporter | 9100 | Host metrics |
+| cAdvisor | wl_cadvisor | 8082 | Container metrics |
+| Postgres Exporter | wl_postgres_exporter | 9187 | DB metrics |
 
-## Directory Structure
+Next.js production runs on the Njalla VPS, connecting to Drupal over Tailscale.
+
+### Staging Stack (`~/nas_docker_staging/`)
+
+Same services on different ports: Drupal `8090`, Keycloak `8091`, Solr `8993`, Next.js `3010`. Staging containers join the shared `wl_monitoring` network and are auto-discovered by Prometheus.
+
+## Repository Layout
 
 ```
 infra/
-├── ansible/           # Ansible automation
-│   ├── files/         # Static files for deployment
-│   ├── inventory/     # Server inventory and variables
-│   ├── playbooks/     # Ansible playbooks
-│   ├── roles/         # Ansible roles for each service
-│   └── templates/     # Configuration templates
-├── coredns/          # CoreDNS configuration (static files)
-├── scripts/          # Utility scripts (backup-db.sh)
-├── *.tf              # Terraform configuration files (DNS management)
-├── terraform.tfvars  # Terraform variables (not committed)
-├── .terraform/       # Terraform working directory (gitignored)
-└── Makefile          # Common tasks automation
+├── docker/
+│   ├── docker-compose.yml              # Production stack
+│   ├── docker-compose.dev.yml          # Dev overrides (volume mounts, no build)
+│   ├── docker-compose.staging.yml.j2   # Staging (Ansible template)
+│   ├── .env.example                    # Production secrets template
+│   ├── .env.staging.example            # Staging secrets template
+│   ├── drupal/
+│   │   ├── Dockerfile.prod             # Multi-stage production build
+│   │   ├── Dockerfile.dev              # Dev image
+│   │   └── settings.docker.php         # Reads config from env vars
+│   ├── nextjs/
+│   │   ├── Dockerfile.prod             # Three-stage standalone build
+│   │   └── Dockerfile.dev
+│   ├── postgres/init/                  # DB init scripts
+│   ├── prometheus/                     # prometheus.yml, alerts.yml
+│   └── alertmanager/config.yml.j2      # Jinja2 template (Ansible renders)
+├── ansible/
+│   ├── playbooks/onprem.yml            # Main deployment playbook
+│   ├── roles/wl-onprem/               # on-prem server deployment role
+│   └── inventory/
+│       ├── hosts.ini
+│       └── group_vars/
+│           ├── all.yml                 # Non-secret variables + repo URLs
+│           ├── sso_secrets.yml         # SOPS-encrypted secrets
+│           └── tailscale_secrets.yml   # SOPS-encrypted
+├── scripts/
+│   └── backup-onprem.sh               # Supports --dry-run
+├── terraform_secrets.yml              # SOPS-encrypted DNS secrets
+├── .sops.yaml                         # Auto-encryption rules
+└── docs/                              # DNS, Terraform, and workflow references
 ```
-
-## Ansible Roles
-
-### Active Roles
-
-- **`wl-onprem`** - Mac Mini deployment (creates dirs, deploys Docker stack, configures backups)
-- **`common`** - Base system configuration (for future VPS use)
-- **`tailscale`** - VPN mesh configuration (for future VPS↔Mac Mini)
-- **`vps-proxy`** - Njalla VPS reverse proxy (future)
-- **`letsencrypt`** - SSL certificate management (future)
-- **`monitoring`** - Monitoring orchestration (currently in Docker Compose)
 
 ## Quick Start
 
 ### Prerequisites
 
-- Ansible installed locally
-- SSH access to target servers
-- Proton VPN or equivalent for secure access
-- sops and age installed; export SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt
-- Ansible collection community.sops installed (ansible-galaxy collection install community.sops)
-
-### Setup
-
-1. **Configure Inventory**
-   ```bash
-   # Edit server IPs and hostnames
-   vi ansible/inventory/hosts.ini
-   ```
-
-2. **Configure SOPS/age**
-   ```bash
-   # Ensure SOPS and age are installed, and point to your private key
-   export SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt
-
-   # Install the Ansible vars plugin used by this repo
-   ansible-galaxy collection install community.sops
-   ```
-
-3. **Update Variables**
-   ```bash
-   # Edit global variables
-   vi ansible/inventory/group_vars/all.yml
-   
-   # Create or edit encrypted secrets with SOPS (auto-encrypted via .sops.yaml)
-   sops ansible/inventory/group_vars/sso_secrets.yml
-   ```
-
-## Secrets (SOPS/age)
-
-- Encrypted variables live under ansible/inventory/group_vars/*_secrets.yml (example: sso_secrets.yml).
-- Encryption is enforced by .sops.yaml: any file matching that pattern is automatically encrypted for the repository’s age recipient.
-- Ansible is configured to load SOPS-encrypted vars via community.sops (see ansible/ansible.cfg). If your AGE private key is available (export SOPS_AGE_KEY_FILE), Ansible will decrypt at runtime.
-- Edit secrets safely with SOPS (do not paste secrets into plaintext files):
-  - sops ansible/inventory/group_vars/sso_secrets.yml
-
-## Common Tasks
-
-### Deploy Complete On-Prem Stack (Recommended)
 ```bash
+# Ansible + collections
+pip install ansible --break-system-packages
+ansible-galaxy collection install community.sops community.general
+
+# SOPS + AGE for secrets
+brew install sops age
+export SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt
+
+# Terraform (for DNS management — optional)
+brew install terraform
+```
+
+### Deploy to on-prem server
+
+```bash
+# 1. Configure secrets
+cp docker/.env.example ~/nas_docker/.env
+# Edit ~/nas_docker/.env with production values
+
+# 2. Configure staging secrets
+cp docker/.env.staging.example ~/nas_docker_staging/.env
+# Edit ~/nas_docker_staging/.env with staging values
+
+# 3. Set repo URLs in ansible/inventory/group_vars/all.yml
+# (uncomment webcms_repo_url and ui_repo_url)
+
+# 4. Run playbook (deploys everything)
 ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/onprem.yml
 ```
-Automatically creates directories, installs dependencies, deploys Docker Compose, and starts all services.
 
 ### Manual Docker Operations
+
 ```bash
-# Start all services
-cd ~/nas_docker && docker compose up -d
+# Production
+cd ~/nas_docker
+docker compose up -d          # Start
+docker compose ps             # Status
+docker compose logs -f        # Logs
+docker compose down           # Stop
 
-# Stop all services
-docker compose down
-
-# View logs
-docker compose logs -f
-
-# Check service status
+# Staging
+cd ~/nas_docker_staging
+docker compose up -d --build  # Start (builds from staging branch)
 docker compose ps
+docker compose down
 ```
 
-### Backup Operations
+### Dev Stack (on on-prem server, code mounted live)
+
+```bash
+cd ~/Repositories/infra/docker
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+# First time: install dependencies inside containers
+docker compose exec drupal composer install
+docker compose exec nextjs npm install
+```
+
+## Secrets Management
+
+All secrets use **SOPS + AGE** encryption. The `.sops.yaml` file enforces encryption for any `*_secrets.yml` file committed to `ansible/inventory/group_vars/`.
+
+```bash
+# Edit encrypted secrets safely
+sops ansible/inventory/group_vars/sso_secrets.yml
+sops ansible/inventory/group_vars/tailscale_secrets.yml
+
+# Docker secrets (never committed)
+# Production: ~/nas_docker/.env
+# Staging:    ~/nas_docker_staging/.env
+```
+
+⚠️ **Never create plaintext staging files for secrets.** If you need to work with values before encrypting, do it in memory or use `sops` directly.
+
+See **SECRETS_MANAGEMENT.md** for full setup and rotation instructions.
+
+## Backup
+
+Automated daily backups run at 04:00 AM via launchd (deployed by the Ansible role).
+
 ```bash
 # Manual backup
 ~/Scripts/backup-onprem.sh
 
-# View backup logs
+# Dry run (preview without executing)
+~/Scripts/backup-onprem.sh --dry-run
+
+# View logs
 tail -f ~/Backups/wilkesliberty/logs/backup.log
 ```
 
-## Security Configuration
+Backed up: PostgreSQL databases (prod + staging), Drupal files, configuration.
 
-### Access Control
-- Admin access restricted to specified CIDR ranges
-- VPN required for internal network access
-- SSH key-based authentication only
-- Fail2ban for intrusion prevention
+## Monitoring
 
-### Network Security
-- Internal services communicate via private network
-- External access only through reverse proxy
-- SSL/TLS encryption for all public endpoints
-- Firewall rules limiting service exposure
+Access on the on-prem server:
+- **Grafana**: http://localhost:3001 — dashboards for all services
+- **Prometheus**: http://localhost:9090 — metrics and alert rules (16 rules configured)
+- **Alertmanager**: http://localhost:9093 — email + Slack routing
 
-## Drupal-Specific Configuration
+Staging containers are automatically discovered via Docker labels on the shared `wl_monitoring` network.
 
-### Features Supported
-- **Multilingual**: English, Spanish, Russian
-- **Headless API**: GraphQL and JSON:API endpoints
-- **Content Types**: Article, Basic Page, Career, Case Study, Event, Landing Page, Person, Resource, Service
-- **Media Management**: Audio, Document, Image, Video, SVG support
-- **SEO Optimization**: Metatags, XML sitemaps, structured data
-- **Translation Management**: TMGMT integration
+## Ansible Role: wl-onprem
 
-### Performance Features
-- **Caching**: Redis/Memcached for object caching
-- **CDN Integration**: Asset optimization and delivery
-- **Search**: Apache Solr with multilingual support
-- **Image Processing**: Automated optimization and responsive images
+The `wl-onprem` role fully automates on-prem server setup in a single playbook run:
 
-## Monitoring & Maintenance
-
-### Observability
-- Application performance monitoring
-- Server health monitoring  
-- Database performance metrics
-- Search index health
-- Uptime monitoring
-
-### Backup Strategy
-- Automated daily database backups
-- File system snapshots
-- Configuration backup to git
-- Offsite backup storage
-
-## Development Workflow
-
-### Local Development
-This infrastructure supports local development using ddev:
-```bash
-# In the Drupal application directory
-ddev start
-ddev drush cr
-```
-
-### Staging Deployment
-1. Test changes locally with ddev
-2. Commit configuration changes
-3. Deploy to staging environment
-4. Run automated tests
-5. Deploy to production
-
-## Infrastructure Status (March 2026)
-
-### ✅ Production Ready
-This infrastructure is production-ready with enterprise-grade capabilities:
-
-- **Docker Compose Stack**: 11 containers with health checks
-- **Enterprise Monitoring**: Prometheus/Grafana/Alertmanager with 16 alert rules
-- **Automated Backups**: Daily backups with 90-day retention
-- **Single-Command Deployment**: Fully automated via Ansible
-- **Network Segmentation**: Three-tier Docker network isolation
-- **Secrets Management**: SOPS/AGE encryption
-- **Documentation**: Comprehensive 677-line deployment checklist
-
-### Recent Improvements
-- Simplified inventory from 9 hosts to 2
-- Removed 9 conflicting Ansible roles
-- Created comprehensive Docker Compose stack
-- Implemented enterprise monitoring
-- Automated backup system with retention management
-- Enhanced wl-onprem role for fully automated deployment
-- Updated documentation to reflect Docker-first architecture
+1. Creates all directory structures (`~/nas_docker/`, `~/nas_docker_staging/`, `~/Scripts/`, etc.)
+2. Installs Docker Desktop, Tailscale, Proton VPN via Homebrew
+3. Copies production docker-compose.yml and monitoring configuration
+4. Renders Alertmanager config from Jinja2 template (Ansible vars → config.yml)
+5. Deploys launchd backup plist (daily 04:00 AM)
+6. Clones `staging` branch of webcms and ui repos into `~/Repositories/staging/`
+7. Renders and starts staging docker-compose
+8. Starts production Docker stack
 
 ## Troubleshooting
 
-### Common Issues
+**Ansible SOPS decryption fails**
+```bash
+# Verify key file is present
+ls $SOPS_AGE_KEY_FILE
+# Test decryption manually
+sops -d ansible/inventory/group_vars/sso_secrets.yml
+```
 
-**SSH Access Issues**
-- Verify VPN connection
-- Check SSH key permissions  
-- Confirm server IP addresses
+**Docker service unhealthy**
+```bash
+docker compose logs <service>     # Check logs
+docker compose ps                 # See health status
+docker inspect wl_<service>       # Detailed container info
+```
 
-**Ansible Failures**
-- Ensure SOPS_AGE_KEY_FILE points to your AGE key file and your key is available
-- Confirm community.sops is installed (ansible-galaxy collection install community.sops)
-- Verify inventory configuration
-- Ensure target servers are accessible
+**Drupal not starting**
+```bash
+docker compose logs drupal        # Check for DB connection errors
+# Ensure DRUPAL_DB_PASSWORD in .env matches POSTGRES_PASSWORD
+```
 
-**Variable Resolution Issues** 
-- Check ansible/README.md for variable precedence documentation
-- Use `ansible-inventory --host [hostname]` to debug variable conflicts
-- Verify SOPS decryption is working for encrypted files
+**Alertmanager not receiving alerts**
+```bash
+# Check the rendered config (Ansible must have run first)
+cat ~/nas_docker/alertmanager/config.yml
+# Re-render by running the Ansible role
+```
 
-**Application Issues**
-- Check logs: `tail -f /var/log/nginx/error.log`
-- Drupal logs: `ddev drush watchdog:show` 
-- Clear caches: `ddev drush cr`
+## Documentation
 
-### Support Contacts
-- Infrastructure: [Your team contact]
-- Application: [Drupal team contact]
-- Security: [Security team contact]
-
-## Contributing
-
-1. Fork this repository
-2. Create feature branch: `git checkout -b feature/new-role`
-3. Test changes in staging environment
-4. Submit pull request with detailed description
-5. Ensure all checks pass before merge
-
-## License
-
-Private repository for Wilkes Liberty infrastructure. Unauthorized access prohibited.
+- **CLAUDE.md** — AI assistant context and command reference
+- **DEPLOYMENT_CHECKLIST.md** — Step-by-step deployment guide
+- **SECRETS_MANAGEMENT.md** — SOPS/AGE encryption setup and rotation
+- **TAILSCALE_SETUP.md** — Tailscale mesh VPN configuration
+- **DNS_RECORDS.md** — Public DNS configuration reference
+- **LETSENCRYPT_SSL_GUIDE.md** — SSL certificates for the Njalla VPS
+- **GITHUB_ACTIONS_STRATEGY.md** — CI/CD pipeline roadmap (future)
+- **ansible/README.md** — Variable precedence and configuration structure
+- **docs/** — DNS, Terraform, and SOPS workflow quick references
 
 ---
 
-**Last Updated**: March 2026  
-**Version**: 3.0 (Docker-First Architecture)  
-**Maintainer**: Wilkes Liberty Infrastructure Team
-
-## Quick Reference
-
-### Validation Commands
-```bash
-# Verify infrastructure health
-ansible-inventory -i ansible/inventory/hosts.ini --graph
-ansible -i ansible/inventory/hosts.ini all -m ping
-./scripts/backup-onprem.sh --dry-run
-```
-
-### Deployment Commands  
-```bash
-# Deploy complete stack (automated)
-ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/onprem.yml
-
-# Manual Docker operations
-cd ~/nas_docker
-docker compose up -d        # Start services
-docker compose ps           # Check status
-docker compose logs -f      # View logs
-docker compose down         # Stop services
-```
-
-### Terraform DNS Management
-```bash
-# Terraform files are in project root (single environment pattern)
-terraform plan       # Plan DNS changes
-terraform apply      # Apply DNS records
-terraform show       # View current state
-```
-
-### Documentation
-- **DEPLOYMENT_CHECKLIST.md**: Step-by-step deployment guide (677 lines)
-- **WARP.md**: Complete infrastructure guide and architecture
-- **IMPLEMENTATION_STATUS.md**: Current implementation progress
-- **SECRETS_MANAGEMENT.md**: SOPS/AGE encryption setup and usage guide
-- **TAILSCALE_SETUP.md**: Tailscale mesh VPN deployment guide
-- **ansible/README.md**: Variable precedence and configuration structure  
-- **DNS_RECORDS.md**: Public DNS configuration reference
+**Last Updated**: March 2026
