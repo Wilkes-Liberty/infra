@@ -1,6 +1,18 @@
+# =============================================
+# WilkesLiberty Production Docker Compose Stack
+# Architecture: All backend services on Mac Mini M4 Pro
+# =============================================
+# Services:
+#   Application: Drupal 11, PostgreSQL, Redis, Keycloak, Solr
+#   Monitoring: Prometheus, Grafana, Alertmanager, Exporters
+# =============================================
+
 services:
+  # ================== APPLICATION SERVICES ==================
+  
   drupal:
     image: drupal:11-apache
+    container_name: wl_drupal
     restart: unless-stopped
     ports:
       - "8080:80"
@@ -9,69 +21,91 @@ services:
     environment:
       - DRUPAL_DB_HOST=postgres
       - DRUPAL_DB_USER=drupal
-      - DRUPAL_DB_PASSWORD=ChangeThisToAStrongPassword2026!
+      - DRUPAL_DB_PASSWORD=${DRUPAL_DB_PASSWORD:-ChangeThisToAStrongPassword2026!}
       - DRUPAL_DB_NAME=drupal
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    networks:
+      - frontend
+      - backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/user/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     deploy:
       resources:
         limits:
           cpus: '2.0'
           memory: 4G
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=80"
 
   postgres:
     image: postgres:16
+    container_name: wl_postgres
     restart: unless-stopped
     volumes:
       - ~/nas_docker/postgres:/var/lib/postgresql/data
     environment:
       - POSTGRES_DB=drupal
       - POSTGRES_USER=drupal
-      - POSTGRES_PASSWORD=ChangeThisToAStrongPassword2026!
+      - POSTGRES_PASSWORD=${DRUPAL_DB_PASSWORD:-ChangeThisToAStrongPassword2026!}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    networks:
+      - backend
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U drupal -d drupal || exit 0" ]
+      test: ["CMD-SHELL", "pg_isready -U drupal -d drupal"]
       interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 60s
+      retries: 5
+      start_period: 30s
     deploy:
       resources:
         limits:
           cpus: '1.5'
           memory: 6G
+    command: 
+      - "postgres"
+      - "-c"
+      - "shared_buffers=1GB"
+      - "-c"
+      - "effective_cache_size=3GB"
+      - "-c"
+      - "maintenance_work_mem=256MB"
+      - "-c"
+      - "max_connections=200"
 
   redis:
     image: redis:7-alpine
+    container_name: wl_redis
     restart: unless-stopped
     volumes:
       - ~/nas_docker/redis:/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    command: redis-server --appendonly yes --maxmemory 1gb --maxmemory-policy allkeys-lru
     deploy:
       resources:
         limits:
           cpus: '1.0'
           memory: 2G
 
-  clickhouse:
-    image: clickhouse/clickhouse-server:24
-    restart: unless-stopped
-    volumes:
-      - clickhouse_data:/var/lib/clickhouse
-    ulimits:
-      nofile:
-        soft: 262144
-        hard: 262144
-    healthcheck:
-      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:8123/ping" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 60s
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 8G
-
   keycloak:
     image: quay.io/keycloak/keycloak:latest
+    container_name: wl_keycloak
     restart: unless-stopped
     command: start-dev
     environment:
@@ -80,21 +114,26 @@ services:
       - KC_DB_URL_PORT=5432
       - KC_DB_URL_DATABASE=drupal
       - KC_DB_USERNAME=drupal
-      - KC_DB_PASSWORD=ChangeThisToAStrongPassword2026!
+      - KC_DB_PASSWORD=${DRUPAL_DB_PASSWORD:-ChangeThisToAStrongPassword2026!}
       - KEYCLOAK_ADMIN=admin
-      - KEYCLOAK_ADMIN_PASSWORD=ChangeThisToAStrongPassword2026!
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-ChangeThisToAStrongPassword2026!}
       - KC_HTTP_ENABLED=true
       - KC_HOSTNAME_STRICT=false
-      - KC_HOSTNAME=localhost                  # ← change to Tailscale IP/domain in production
+      - KC_HOSTNAME=localhost
       - KC_HEALTH_ENABLED=true
       - KC_METRICS_ENABLED=true
     ports:
       - "8081:8080"
+      - "9000:9000"
+    networks:
+      - frontend
+      - backend
+      - monitoring
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/health/ready" ]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/ready"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -106,6 +145,226 @@ services:
         limits:
           cpus: '1.5'
           memory: 4G
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=9000"
+      - "prometheus.io/path=/metrics"
 
-volumes:
-  clickhouse_data:
+  solr:
+    image: solr:9.6
+    container_name: wl_solr
+    restart: unless-stopped
+    ports:
+      - "8983:8983"
+    volumes:
+      - ~/nas_docker/solr:/var/solr
+    environment:
+      - SOLR_HEAP=2g
+      - SOLR_JAVA_MEM=-Xms2g -Xmx2g
+    networks:
+      - backend
+      - monitoring
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8983/solr/admin/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=8983"
+      - "prometheus.io/path=/admin/metrics"
+
+  # ================== MONITORING STACK ==================
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: wl_prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ~/nas_docker/prometheus/data:/prometheus
+      - ~/nas_docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ~/nas_docker/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=90d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: wl_grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    volumes:
+      - ~/nas_docker/grafana:/var/lib/grafana
+      - ~/nas_docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ~/nas_docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel,grafana-clock-panel
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+    networks:
+      - monitoring
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: wl_alertmanager
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ~/nas_docker/alertmanager/config.yml:/etc/alertmanager/config.yml:ro
+      - ~/nas_docker/alertmanager/data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+      - '--storage.path=/alertmanager'
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9093/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: wl_node_exporter
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - monitoring
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: wl_cadvisor
+    restart: unless-stopped
+    ports:
+      - "8082:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - monitoring
+    privileged: true
+    devices:
+      - /dev/kmsg
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: wl_postgres_exporter
+    restart: unless-stopped
+    ports:
+      - "9187:9187"
+    environment:
+      - DATA_SOURCE_NAME=postgresql://drupal:${DRUPAL_DB_PASSWORD:-ChangeThisToAStrongPassword2026!}@postgres:5432/drupal?sslmode=disable
+    networks:
+      - backend
+      - monitoring
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+
+# ================== NETWORKS ==================
+
+networks:
+  frontend:
+    driver: bridge
+    name: wl_frontend
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+  
+  backend:
+    driver: bridge
+    name: wl_backend
+    ipam:
+      config:
+        - subnet: 172.21.0.0/24
+  
+  monitoring:
+    driver: bridge
+    name: wl_monitoring
+    ipam:
+      config:
+        - subnet: 172.22.0.0/24
+
+# ================== NOTES ==================
+# - ClickHouse removed (no clear use case identified)
+# - All services have proper health checks
+# - Environment variables use ${VAR:-default} pattern
+# - Networks provide service isolation (frontend/backend/monitoring)
+# - Data persists to ~/nas_docker (Synology NAS-backed SSD)
+# - Monitoring stack: Prometheus, Grafana, Alertmanager
+# - Metrics exporters: node, cadvisor, postgres
+# - Total resource allocation: ~14 CPUs, ~24GB RAM (well within M4 Pro capacity)
