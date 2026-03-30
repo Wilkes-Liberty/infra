@@ -63,6 +63,19 @@ variable "njalla_api_token" {
   sensitive   = true
 }
 
+# VPS configuration
+variable "vps_ipv4" {
+  description = "Njalla VPS public IPv4 address"
+  type        = string
+  # Set this in terraform.tfvars after provisioning VPS
+}
+
+variable "vps_ipv6" {
+  description = "Njalla VPS public IPv6 address"
+  type        = string
+  default     = "" # Optional
+}
+
 # Proton Mail configuration
 variable "proton_dkim1_target" {
   description = "Proton DKIM 1 target value"
