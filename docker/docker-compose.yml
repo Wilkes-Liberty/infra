@@ -4,30 +4,41 @@
 # =============================================
 # Services:
 #   Application: Drupal 11, PostgreSQL, Redis, Keycloak, Solr
-#   Monitoring: Prometheus, Grafana, Alertmanager, Exporters
+#   Frontend:    Next.js (dev only — production runs on Njalla VPS)
+#   Monitoring:  Prometheus, Grafana, Alertmanager, Exporters
+# =============================================
+# Usage:
+#   Dev:  docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#   Prod: docker compose up (builds images from webcms/ui repos)
 # =============================================
 
 services:
   # ================== APPLICATION SERVICES ==================
-  
+
   drupal:
-    image: drupal:11-apache
+    build:
+      context: ../..           # ~/Repositories/ — parent of both infra and webcms repos
+      dockerfile: infra/docker/drupal/Dockerfile.prod
     container_name: wl_drupal
     restart: unless-stopped
     ports:
       - "8080:80"
     volumes:
-      - ~/nas_docker/drupal:/opt/drupal/web
+      - ~/nas_docker/drupal/files:/opt/drupal/web/sites/default/files
+      - ~/nas_docker/drupal/private:/opt/drupal/private
     environment:
       - DRUPAL_DB_HOST=postgres
       - DRUPAL_DB_USER=drupal
-      - DRUPAL_DB_PASSWORD=${DRUPAL_DB_PASSWORD:-ChangeThisToAStrongPassword2026!}
+      - DRUPAL_DB_PASSWORD=${DRUPAL_DB_PASSWORD:?DRUPAL_DB_PASSWORD is required}
       - DRUPAL_DB_NAME=drupal
+      - DRUPAL_HASH_SALT=${DRUPAL_HASH_SALT:?DRUPAL_HASH_SALT is required}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - DRUPAL_ENVIRONMENT=production
     networks:
       - frontend
       - backend
+      - monitoring
     depends_on:
       postgres:
         condition: service_healthy
@@ -38,7 +49,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 90s
     deploy:
       resources:
         limits:
@@ -47,6 +58,7 @@ services:
     labels:
       - "prometheus.io/scrape=true"
       - "prometheus.io/port=80"
+      - "prometheus.io/path=/metrics"
 
   postgres:
     image: postgres:16
@@ -75,7 +87,7 @@ services:
         limits:
           cpus: '1.5'
           memory: 6G
-    command: 
+    command:
       - "postgres"
       - "-c"
       - "shared_buffers=1GB"
@@ -99,7 +111,14 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-    command: redis-server --appendonly yes --maxmemory 1gb --maxmemory-policy allkeys-lru
+    # Pure object cache: allkeys-lru eviction with RDB snapshots, no AOF
+    # AOF removed — it logs every eviction, causing unnecessary disk I/O for cache workloads
+    command: >
+      redis-server
+      --maxmemory 1gb
+      --maxmemory-policy allkeys-lru
+      --save 300 1
+      --save 60 10000
     deploy:
       resources:
         limits:
@@ -107,22 +126,29 @@ services:
           memory: 2G
 
   keycloak:
-    image: quay.io/keycloak/keycloak:latest
+    image: quay.io/keycloak/keycloak:25.0
     container_name: wl_keycloak
     restart: unless-stopped
-    command: start-dev
+    # Use production 'start' mode — NOT 'start-dev' (dev mode disables security features)
+    command: start
     environment:
+      # PostgreSQL backend — dedicated keycloak database, not shared with Drupal
       - KC_DB=postgres
       - KC_DB_URL_HOST=postgres
       - KC_DB_URL_PORT=5432
-      - KC_DB_URL_DATABASE=drupal
-      - KC_DB_USERNAME=drupal
-      - KC_DB_PASSWORD=${DRUPAL_DB_PASSWORD:-ChangeThisToAStrongPassword2026!}
+      - KC_DB_URL_DATABASE=keycloak
+      - KC_DB_USERNAME=keycloak
+      - KC_DB_PASSWORD=${KEYCLOAK_DB_PASSWORD:?KEYCLOAK_DB_PASSWORD is required}
+      # Admin credentials
       - KEYCLOAK_ADMIN=admin
-      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-ChangeThisToAStrongPassword2026!}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}
+      # HTTP configuration (TLS handled by reverse proxy)
       - KC_HTTP_ENABLED=true
       - KC_HOSTNAME_STRICT=false
-      - KC_HOSTNAME=localhost
+      - KC_HOSTNAME_STRICT_HTTPS=false
+      # Proxy mode: Keycloak trusts X-Forwarded-* headers from the reverse proxy
+      - KC_PROXY=edge
+      # Enable health and metrics endpoints
       - KC_HEALTH_ENABLED=true
       - KC_METRICS_ENABLED=true
     ports:
@@ -168,7 +194,8 @@ services:
       - backend
       - monitoring
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8983/solr/admin/ping"]
+      # Ping the admin endpoint — note: this 404s until a core is created, which is expected
+      test: ["CMD-SHELL", "curl -sf http://localhost:8983/solr/ > /dev/null || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -183,10 +210,48 @@ services:
       - "prometheus.io/port=8983"
       - "prometheus.io/path=/admin/metrics"
 
+  # ================== FRONTEND (DEV — overridden by docker-compose.dev.yml) ==================
+  # In production, Next.js runs on the Njalla VPS, not here.
+  # For Mac Mini development, this service is activated via docker-compose.dev.yml.
+  nextjs:
+    build:
+      context: ../..           # ~/Repositories/ — parent of both infra and ui repos
+      dockerfile: infra/docker/nextjs/Dockerfile.prod
+    container_name: wl_nextjs
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      # Drupal is on the same Docker network — use internal hostname for SSR fetches
+      - NEXT_PUBLIC_DRUPAL_BASE_URL=http://drupal:80
+      - NEXT_IMAGE_DOMAIN=${NEXT_IMAGE_DOMAIN:-drupal}
+      - DRUPAL_CLIENT_ID=${DRUPAL_CLIENT_ID:?DRUPAL_CLIENT_ID is required}
+      - DRUPAL_CLIENT_SECRET=${DRUPAL_CLIENT_SECRET:?DRUPAL_CLIENT_SECRET is required}
+      - DRUPAL_REVALIDATE_SECRET=${DRUPAL_REVALIDATE_SECRET:?DRUPAL_REVALIDATE_SECRET is required}
+    networks:
+      - frontend
+    depends_on:
+      drupal:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+    profiles:
+      - frontend
+
   # ================== MONITORING STACK ==================
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.53.0
     container_name: wl_prometheus
     restart: unless-stopped
     ports:
@@ -195,6 +260,8 @@ services:
       - ~/nas_docker/prometheus/data:/prometheus
       - ~/nas_docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ~/nas_docker/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      # Docker socket required for docker_sd_configs dynamic service discovery
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -216,7 +283,7 @@ services:
           memory: 2G
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.1.0
     container_name: wl_grafana
     restart: unless-stopped
     ports:
@@ -227,7 +294,8 @@ services:
       - ~/nas_docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      # No default — must be set in .env to force intentional password choice
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
       - GF_SERVER_ROOT_URL=http://localhost:3001
       - GF_INSTALL_PLUGINS=grafana-piechart-panel,grafana-clock-panel
       - GF_USERS_ALLOW_SIGN_UP=false
@@ -249,7 +317,7 @@ services:
           memory: 2G
 
   alertmanager:
-    image: prom/alertmanager:latest
+    image: prom/alertmanager:v0.27.0
     container_name: wl_alertmanager
     restart: unless-stopped
     ports:
@@ -274,7 +342,7 @@ services:
           memory: 512M
 
   node-exporter:
-    image: prom/node-exporter:latest
+    image: prom/node-exporter:v1.8.1
     container_name: wl_node_exporter
     restart: unless-stopped
     ports:
@@ -285,6 +353,8 @@ services:
       - '--path.rootfs=/rootfs'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
     volumes:
+      # On macOS+Docker Desktop these mount the Linux VM filesystem, not host Mac hardware.
+      # Metrics represent the Docker VM environment, which is what matters for container workloads.
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /:/rootfs:ro
@@ -297,7 +367,7 @@ services:
           memory: 256M
 
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
     container_name: wl_cadvisor
     restart: unless-stopped
     ports:
@@ -310,8 +380,7 @@ services:
     networks:
       - monitoring
     privileged: true
-    devices:
-      - /dev/kmsg
+    # Note: /dev/kmsg removed — not available in macOS Docker Desktop environment
     deploy:
       resources:
         limits:
@@ -319,13 +388,13 @@ services:
           memory: 512M
 
   postgres-exporter:
-    image: prometheuscommunity/postgres-exporter:latest
+    image: prometheuscommunity/postgres-exporter:v0.15.0
     container_name: wl_postgres_exporter
     restart: unless-stopped
     ports:
       - "9187:9187"
     environment:
-      - DATA_SOURCE_NAME=postgresql://drupal:${DRUPAL_DB_PASSWORD:-ChangeThisToAStrongPassword2026!}@postgres:5432/drupal?sslmode=disable
+      - DATA_SOURCE_NAME=postgresql://drupal:${DRUPAL_DB_PASSWORD:?DRUPAL_DB_PASSWORD is required}@postgres:5432/drupal?sslmode=disable
     networks:
       - backend
       - monitoring
@@ -347,14 +416,14 @@ networks:
     ipam:
       config:
         - subnet: 172.20.0.0/24
-  
+
   backend:
     driver: bridge
     name: wl_backend
     ipam:
       config:
         - subnet: 172.21.0.0/24
-  
+
   monitoring:
     driver: bridge
     name: wl_monitoring
@@ -363,11 +432,18 @@ networks:
         - subnet: 172.22.0.0/24
 
 # ================== NOTES ==================
-# - ClickHouse removed (no clear use case identified)
-# - All services have proper health checks
-# - Environment variables use ${VAR:-default} pattern
-# - Networks provide service isolation (frontend/backend/monitoring)
-# - Data persists to ~/nas_docker (Synology NAS-backed SSD)
-# - Monitoring stack: Prometheus, Grafana, Alertmanager
-# - Metrics exporters: node, cadvisor, postgres
-# - Total resource allocation: ~14 CPUs, ~24GB RAM (well within M4 Pro capacity)
+# Pinned image versions (update intentionally, not automatically):
+#   postgres:16, redis:7-alpine, solr:9.6 — stable major versions
+#   quay.io/keycloak/keycloak:25.0        — verify at https://quay.io/keycloak/keycloak
+#   prom/prometheus:v2.53.0               — verify at https://github.com/prometheus/prometheus/releases
+#   grafana/grafana:11.1.0                — verify at https://github.com/grafana/grafana/releases
+#   prom/alertmanager:v0.27.0             — verify at https://github.com/prometheus/alertmanager/releases
+#   prom/node-exporter:v1.8.1             — verify at https://github.com/prometheus/node_exporter/releases
+#   gcr.io/cadvisor/cadvisor:v0.49.1      — verify at https://github.com/google/cadvisor/releases
+#   prometheuscommunity/postgres-exporter:v0.15.0
+#
+# Keycloak uses its own 'keycloak' PostgreSQL database (not shared with Drupal)
+# Keycloak runs in production 'start' mode (not dev mode)
+# Redis is configured as a pure cache (allkeys-lru, no AOF)
+# Next.js runs with profile 'frontend' — activate with --profile frontend or docker-compose.dev.yml
+# Drupal and Keycloak are on wl_monitoring network so Prometheus can scrape them
