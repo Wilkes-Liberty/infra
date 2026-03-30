@@ -11,6 +11,12 @@ terraform.tfstate.backup
 *.tfstate*
 *.tfvars
 
+# Unencrypted secret staging files — NEVER commit plaintext secrets
+# Always encrypt with SOPS before committing: sops -e file.yml > encrypted.yml
+temp_secrets.yml
+*_unencrypted.yml
+*.secrets.plain.yml
+
 # Backup files (prevent accidental commits)
 *.bak
 *.bak.*
