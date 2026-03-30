@@ -45,6 +45,7 @@ COPY ui/ .
 # Override at runtime via environment variables in docker-compose.yml
 ARG NEXT_PUBLIC_DRUPAL_BASE_URL
 ARG NEXT_IMAGE_DOMAIN
+ARG NEXT_PUBLIC_SITE_URL=https://wilkesliberty.com
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production

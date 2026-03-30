@@ -217,6 +217,9 @@ services:
     build:
       context: {{ ansible_env.HOME }}/Repositories/staging
       dockerfile: infra/docker/nextjs/Dockerfile.prod
+      args:
+        NEXT_PUBLIC_DRUPAL_BASE_URL: http://drupal:80
+        NEXT_PUBLIC_SITE_URL: https://staging.wilkesliberty.com
     container_name: wl_stg_nextjs
     restart: unless-stopped
     ports:
@@ -228,6 +231,7 @@ services:
       - DRUPAL_CLIENT_ID=${STG_DRUPAL_CLIENT_ID:?STG_DRUPAL_CLIENT_ID is required}
       - DRUPAL_CLIENT_SECRET=${STG_DRUPAL_CLIENT_SECRET:?STG_DRUPAL_CLIENT_SECRET is required}
       - DRUPAL_REVALIDATE_SECRET=${STG_DRUPAL_REVALIDATE_SECRET:?STG_DRUPAL_REVALIDATE_SECRET is required}
+      - DRUPAL_PREVIEW_SECRET=${STG_DRUPAL_PREVIEW_SECRET}
     networks:
       - frontend
     depends_on:
