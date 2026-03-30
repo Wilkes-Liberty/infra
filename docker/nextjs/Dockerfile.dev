@@ -1,0 +1,28 @@
+# =============================================
+# Next.js Development Image
+# =============================================
+# Thin image that adds Node.js dev tooling.
+# Source code is mounted via volumes in docker-compose.dev.yml.
+#
+# After starting for the first time:
+#   docker compose exec nextjs npm install
+#   docker compose exec nextjs npm run dev
+#
+# The dev server runs on port 3000 with hot module replacement.
+# =============================================
+
+FROM node:20-alpine
+
+# Install system dependencies
+RUN apk add --no-cache libc6-compat curl
+
+WORKDIR /app
+
+# The node_modules directory is a named volume in docker-compose.dev.yml,
+# so it persists between restarts without masking the mounted source.
+# Run 'docker compose exec nextjs npm install' after first start.
+
+EXPOSE 3000
+
+# Start Next.js dev server with Turbopack
+CMD ["npm", "run", "dev"]

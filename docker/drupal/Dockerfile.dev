@@ -1,0 +1,41 @@
+# =============================================
+# Drupal Development Image
+# =============================================
+# Built FROM the official drupal:11-apache image which already includes
+# all required PHP extensions including pdo_pgsql, gd, intl, etc.
+#
+# This image only adds Composer and dev tooling.
+# Source code is mounted via volumes in docker-compose.dev.yml —
+# this image does NOT bake in the webcms repo.
+#
+# After starting for the first time:
+#   docker compose exec drupal composer install
+# =============================================
+
+FROM drupal:11-apache
+
+# Add Composer from official image
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+# Install additional dev tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Reconfigure Apache DocumentRoot for webcms repo structure
+# webcms has web/ as the docroot (standard Drupal composer project)
+ENV APACHE_DOCUMENT_ROOT=/opt/drupal/web
+RUN sed -ri -e 's!/opt/drupal/web!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
+    && sed -ri -e 's!/opt/drupal!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf || true
+
+# Ensure AllowOverride All for .htaccess support
+RUN sed -ri -e 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf || true
+
+WORKDIR /opt/drupal
+
+# Expose port
+EXPOSE 80
+
+# Settings.local.php is mounted via volume in docker-compose.dev.yml
+# No COPY needed here — see docker-compose.dev.yml volumes section

@@ -1,0 +1,94 @@
+# =============================================
+# WilkesLiberty Development Overrides
+# =============================================
+# Extends docker-compose.yml for local development.
+# Mounts the webcms and ui repos as live volumes so code changes
+# are reflected immediately without rebuilding images.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+# First-time setup (after starting):
+#   docker compose exec drupal composer install
+#   docker compose exec nextjs npm install
+#
+# Repo layout assumed (relative to this file at infra/docker/):
+#   ../../webcms/   →  ~/Repositories/webcms/
+#   ../../ui/       →  ~/Repositories/ui/
+# =============================================
+
+services:
+
+  # ── Drupal: live code from webcms repo ──────────────────────────────────────
+  drupal:
+    build:
+      context: ../..
+      dockerfile: infra/docker/drupal/Dockerfile.dev
+    environment:
+      - DRUPAL_ENVIRONMENT=development
+    volumes:
+      # Mount entire webcms repo as the Drupal application root
+      - ../../webcms:/opt/drupal
+      # Named volume for vendor/ so it survives re-mounts and composer install persists
+      - drupal_vendor:/opt/drupal/vendor
+      # Named volume for web/core/ (installed by composer)
+      - drupal_core:/opt/drupal/web/core
+      # Named volume for contrib modules (installed by composer)
+      - drupal_contrib:/opt/drupal/web/modules/contrib
+      # Named volume for contrib themes (installed by composer)
+      - drupal_themes_contrib:/opt/drupal/web/themes/contrib
+      # Mount Docker-specific settings as settings.local.php
+      - ./drupal/settings.docker.php:/opt/drupal/web/sites/default/settings.local.php:ro
+      # Persistent user-uploaded files
+      - ~/nas_docker/drupal/files:/opt/drupal/web/sites/default/files
+      - ~/nas_docker/drupal/private:/opt/drupal/private
+
+  # ── Next.js: live code from ui repo ─────────────────────────────────────────
+  nextjs:
+    build:
+      context: ../..
+      dockerfile: infra/docker/nextjs/Dockerfile.dev
+    environment:
+      - NODE_ENV=development
+      # In dev, browser can reach Drupal at localhost:8080
+      # SSR fetches also use localhost:8080 since Next.js runs outside Docker networking in dev
+      # If running Next.js inside Docker, use http://drupal:80 for SSR
+      - NEXT_PUBLIC_DRUPAL_BASE_URL=http://localhost:8080
+      - NEXT_IMAGE_DOMAIN=${NEXT_IMAGE_DOMAIN:-localhost}
+      - DRUPAL_CLIENT_ID=${DRUPAL_CLIENT_ID:-}
+      - DRUPAL_CLIENT_SECRET=${DRUPAL_CLIENT_SECRET:-}
+      - DRUPAL_REVALIDATE_SECRET=${DRUPAL_REVALIDATE_SECRET:-}
+    volumes:
+      # Mount entire ui repo
+      - ../../ui:/app
+      # Named volume for node_modules so it persists and doesn't get masked
+      - nextjs_modules:/app/node_modules
+      # Named volume for .next build cache
+      - nextjs_build:/app/.next
+    # Override profile so nextjs starts in dev mode without --profile flag
+    profiles: []
+    # Override healthcheck for dev server (slower to start)
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 120s
+
+# Named volumes for dependency directories
+# These persist between docker compose down/up cycles so you don't
+# have to re-run composer install / npm install every time.
+volumes:
+  drupal_vendor:
+    name: wl_drupal_vendor
+  drupal_core:
+    name: wl_drupal_core
+  drupal_contrib:
+    name: wl_drupal_contrib
+  drupal_themes_contrib:
+    name: wl_drupal_themes_contrib
+  nextjs_modules:
+    name: wl_nextjs_modules
+  nextjs_build:
+    name: wl_nextjs_build
