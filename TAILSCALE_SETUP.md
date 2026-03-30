@@ -10,6 +10,7 @@ The Tailscale role automatically installs and configures Tailscale on all hosts,
 
 1. **Tailscale Account**: Create a free account at https://tailscale.com
 2. **SOPS/age**: Ensure you have your AGE key configured (`SOPS_AGE_KEY_FILE` environment variable)
+   - See `SECRETS_MANAGEMENT.md` for complete SOPS/AGE setup guide
 3. **SSH Access**: SSH access to all target hosts
 
 ## Setup Steps
