@@ -182,80 +182,58 @@ The following roles were removed as their functionality is now provided by Docke
 - API tokens stored in terraform.tfvars (not committed)
 - Proton Mail DKIM configuration variables
 
-## Infrastructure Status (Updated October 2025)
+## Infrastructure Status (Updated March 2026)
 
-### ✅ RESOLVED ISSUES (All Critical Issues Fixed)
+### ✅ COMPLETED (Production Ready)
 
-#### Inventory Structure
-- ✅ **Fixed duplicate [cache] group entries** - Removed duplications from hosts.ini
-- ✅ **Standardized hostname format** - All hosts now use consistent FQDN format with ansible_host
-- ✅ **Organized group structure** - Clean separation between individual service groups and logical fleet group
-- ✅ **Added DNS infrastructure** - dns1.prod.wilkesliberty.com properly configured
+#### Phase 1-2: Infrastructure Modernization
+- ✅ **Simplified inventory** - Reduced from 9 hosts to 2 (wl-onprem + njalla-vps)
+- ✅ **Removed conflicting roles** - Eliminated 9 roles now handled by Docker Compose
+- ✅ **Docker Compose stack** - 11 containers with health checks and monitoring
+- ✅ **Enterprise monitoring** - Prometheus, Grafana, Alertmanager with 16 alert rules
+- ✅ **Automated backups** - Daily backups with 90-day retention via launchd
+- ✅ **Network segmentation** - Three Docker networks for security isolation
+- ✅ **Comprehensive documentation** - 677-line deployment checklist
 
-#### Variable Configuration  
-- ✅ **Consolidated duplicate variables** - Single authoritative definitions for all variables
-- ✅ **Organized variable sections** - Clear categorization with descriptive headers
-- ✅ **Added DNS host variables** - dns_int_ip (10.10.0.10) included consistently
-- ✅ **Backward compatibility** - Legacy aliases maintained (solr_int_ip)
+#### Phase 3-4: Operational Readiness
+- ✅ **Backup automation** - backup-onprem.sh with encryption and retention
+- ✅ **Alert configuration** - 16 rules (5 critical, 7 warning, 4 info)
+- ✅ **Grafana integration** - Prometheus datasource and dashboard provisioning
+- ✅ **Environment templating** - .env.example with secure defaults
 
-#### Missing Files and Scripts
-- ✅ **Created deploy-app.yml** - Comprehensive application deployment playbook
-- ✅ **Created backup-db.sh** - Full-featured database backup script with dry-run, help, and error handling
-- ✅ **Fixed Makefile** - Corrected tab indentation and verified all targets
-
-#### Infrastructure Cleanup
-- ✅ **Removed Terraform artifacts** - Deleted .bak files and enhanced .gitignore
-- ✅ **Improved .gitignore** - Added comprehensive patterns for backup files, logs, temp files
-- ✅ **Created documentation** - ansible/README.md explaining variable precedence and structure
-
-### Current Infrastructure Health: ✅ PRODUCTION READY
+### Current Infrastructure Health: ✅ READY TO DEPLOY
 
 ## Current Operational Status
 
 ### ✅ Production-Ready Components
-- **Infrastructure Management**: Clean inventory, consolidated variables, comprehensive documentation
-- **Cache Layer**: Varnish + Caddy edge caching (production-ready)
-- **DNS Infrastructure**: CoreDNS internal DNS with forward/reverse resolution
-- **VPN Mesh**: Tailscale connecting all services securely
-- **Backup System**: Automated database backup script with retention management
-- **Deployment Pipeline**: Application deployment playbook with health checks
+- **Docker Compose Stack**: 11 containers (Drupal, PostgreSQL, Redis, Keycloak, Solr, monitoring)
+- **Enterprise Monitoring**: Prometheus/Grafana/Alertmanager with 16 alert rules
+- **Automated Backups**: Daily backups with 90-day retention via launchd
+- **Automated Deployment**: Single playbook deploys entire stack
+- **Network Security**: Three-tier Docker network isolation
+- **Secrets Management**: SOPS/AGE encryption for sensitive variables
 
 ### ⚠️ Functional Notes
-- **Cache PURGE**: Available in cache role (via Caddyfile) but disabled by default; restrict to admin CIDRs if enabling
-- **Application separation**: The Drupal application is not in this repo; local dev uses ddev in separate app codebase
-- **Role implementation**: tailscale, common, cache, coredns, and resolved roles are functional; app, db, solr, analytics_obs are stubs
+- **Application separation**: Drupal application is not in this repo; local dev uses ddev in separate app codebase
 - **Tailscale Setup**: Generate auth key at https://login.tailscale.com/admin/settings/keys and store in SOPS-encrypted tailscale_secrets.yml
-- **Secrets management**: SOPS/age encryption properly configured for sensitive variables
+- **VPS Deployment**: Njalla VPS (Next.js frontend) is future Phase 2 work
+- **DNS Management**: External DNS via Terraform/Njalla (optional for initial deployment)
 
 ## Development Roadmap
 
-### Phase 1: Production Infrastructure (Current Focus)
-1. **Complete application role** (app)
-   - Drupal 11 installation and configuration
-   - PHP 8.3 and Nginx setup
-   - Database connectivity
-   - File permissions and security
+### Phase 1: On-Premises Production (COMPLETE ✅)
+1. ✅ **Docker Compose stack** - 11 containers deployed
+2. ✅ **Monitoring** - Prometheus, Grafana, Alertmanager configured
+3. ✅ **Backups** - Automated with retention management
+4. ✅ **Deployment automation** - Single command deployment
+5. ✅ **Documentation** - Comprehensive guides created
 
-2. **Implement database role** (db)
-   - MySQL/MariaDB installation
-   - Database user management
-   - Backup integration
-   - Performance tuning
-
-3. **Deploy search infrastructure** (solr)
-   - Apache Solr 9.6.1 installation
-   - Drupal integration configuration
-   - Multilingual search setup
-
-4. **Set up monitoring** (analytics_obs)
-   - Application performance monitoring
-   - Infrastructure health checks
-   - Log aggregation and alerting
-
-5. **Finalize SSO** (authentik)
-   - Complete Authentik role implementation
-   - Docker Compose deployment
-   - LDAP/SAML configuration
+### Phase 1.5: Final Pre-Production Tasks (NEXT)
+1. **Grafana Dashboards** - Import community dashboards for infrastructure/application monitoring
+2. **Test Restore** - Create test-restore.sh script for disaster recovery validation
+3. **Performance Baseline** - Run for 7 days and document normal operating metrics
+4. **Operational Runbooks** - Service restart, troubleshooting, security incident procedures
+5. **Terraform DNS** - Simplify for single-environment pattern (optional)
 
 ### Phase 2: Multi-Environment Infrastructure (Future)
 Once production is stable, expand to staging and development environments:
