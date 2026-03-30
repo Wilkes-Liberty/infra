@@ -1,0 +1,198 @@
+# =============================================
+# WilkesLiberty Production Caddyfile
+# Njalla VPS Reverse Proxy Configuration
+# =============================================
+# All services proxy to Mac Mini via Tailscale
+# SSL certificates automatically managed by Caddy
+# =============================================
+
+# Global options
+{
+    email {{ letsencrypt_email | default('admin@wilkesliberty.com') }}
+    
+    # Production settings
+    admin off
+    
+    # Security headers
+    servers {
+        protocols h1 h2 h3
+    }
+}
+
+# ================== PUBLIC SERVICES ==================
+
+# Root domain redirect to www
+wilkesliberty.com {
+    redir https://www.wilkesliberty.com{uri} permanent
+}
+
+# Main website (Next.js frontend)
+www.wilkesliberty.com {
+    # Next.js runs locally on VPS
+    reverse_proxy localhost:3000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+    
+    # Security headers
+    header {
+        # Enable HSTS
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        
+        # Prevent clickjacking
+        X-Frame-Options "SAMEORIGIN"
+        
+        # XSS protection
+        X-Content-Type-Options "nosniff"
+        X-XSS-Protection "1; mode=block"
+        
+        # Remove server signature
+        -Server
+    }
+    
+    # Logging
+    log {
+        output file /var/log/caddy/www.log
+        format json
+    }
+}
+
+# Drupal GraphQL API (headless CMS)
+api.wilkesliberty.com {
+    # Proxy to Mac Mini Drupal via Tailscale
+    reverse_proxy {{ mac_mini_tailscale_ip | default('100.82.73.91') }}:8080 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        
+        # Health check
+        health_uri /user/login
+        health_interval 30s
+        health_timeout 10s
+    }
+    
+    # CORS headers for API access
+    header {
+        Access-Control-Allow-Origin "https://www.wilkesliberty.com"
+        Access-Control-Allow-Methods "GET, POST, OPTIONS"
+        Access-Control-Allow-Headers "Content-Type, Authorization"
+        Access-Control-Max-Age "86400"
+        
+        # Security headers
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        -Server
+    }
+    
+    # Handle preflight requests
+    @options {
+        method OPTIONS
+    }
+    respond @options 204
+    
+    # Rate limiting (optional)
+    # rate_limit {
+    #     zone api {
+    #         key {remote_host}
+    #         events 100
+    #         window 1m
+    #     }
+    # }
+    
+    log {
+        output file /var/log/caddy/api.log
+        format json
+    }
+}
+
+# Keycloak SSO/Auth
+auth.wilkesliberty.com {
+    # Proxy to Mac Mini Keycloak via Tailscale
+    reverse_proxy {{ mac_mini_tailscale_ip | default('100.82.73.91') }}:8081 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        
+        # Keycloak-specific headers
+        header_up X-Forwarded-Host {host}
+        header_up X-Forwarded-Port 443
+        
+        # Health check
+        health_uri /health/ready
+        health_interval 30s
+        health_timeout 10s
+    }
+    
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        -Server
+    }
+    
+    log {
+        output file /var/log/caddy/auth.log
+        format json
+    }
+}
+
+# ================== OPTIONAL: MONITORING ==================
+# Uncomment to expose Grafana analytics dashboard (recommended: keep private via Tailscale)
+
+# analytics.wilkesliberty.com {
+#     # Proxy to Mac Mini Grafana via Tailscale
+#     reverse_proxy {{ mac_mini_tailscale_ip | default('100.82.73.91') }}:3001 {
+#         header_up Host {host}
+#         header_up X-Real-IP {remote_host}
+#         header_up X-Forwarded-For {remote_host}
+#         header_up X-Forwarded-Proto {scheme}
+#     }
+#     
+#     # Require authentication (basic auth)
+#     # Generate password with: caddy hash-password
+#     basicauth {
+#         admin $2a$14$your_hashed_password_here
+#     }
+#     
+#     # Security headers
+#     header {
+#         Strict-Transport-Security "max-age=31536000; includeSubDomains"
+#         X-Frame-Options "DENY"
+#         X-Content-Type-Options "nosniff"
+#         -Server
+#     }
+#     
+#     log {
+#         output file /var/log/caddy/analytics.log
+#         format json
+#     }
+# }
+
+# ================== CATCH-ALL (404) ==================
+:443 {
+    respond "Not Found" 404
+}
+
+# =============================================
+# NOTES:
+# =============================================
+# 1. SSL certificates are automatically obtained from Let's Encrypt
+# 2. Certificates auto-renew before expiration
+# 3. HTTP traffic automatically redirects to HTTPS
+# 4. All backend services stay private on Mac Mini
+# 5. Only Njalla VPS is publicly accessible
+# 6. Tailscale provides encrypted tunnel to Mac Mini
+# 7. Update {{ mac_mini_tailscale_ip }} with actual Tailscale IP
+#
+# Security Best Practices:
+# - Mac Mini has NO public ports open
+# - Only Tailscale VPN can reach Mac Mini
+# - Caddy handles SSL termination
+# - Security headers on all responses
+# - Rate limiting available (uncomment if needed)
+# - Basic auth available for sensitive services
+# =============================================
