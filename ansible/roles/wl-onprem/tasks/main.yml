@@ -228,7 +228,107 @@
     var: docker_status.stdout_lines
 
 # ============================================================================
-# PHASE 7: POST-DEPLOYMENT VALIDATION
+# PHASE 7: STAGING ENVIRONMENT
+# ============================================================================
+# Staging runs on the same Mac Mini alongside production.
+# Source branch: 'staging'
+# Repos: ~/Repositories/staging/{infra,webcms,ui}
+# Stack:  ~/nas_docker_staging/
+
+- name: Create staging directory structure
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ ansible_env.HOME }}/Repositories/staging"
+    - "{{ ansible_env.HOME }}/nas_docker_staging"
+    - "{{ ansible_env.HOME }}/nas_docker_staging/drupal/files"
+    - "{{ ansible_env.HOME }}/nas_docker_staging/drupal/private"
+    - "{{ ansible_env.HOME }}/nas_docker_staging/postgres"
+    - "{{ ansible_env.HOME }}/nas_docker_staging/redis"
+    - "{{ ansible_env.HOME }}/nas_docker_staging/keycloak"
+    - "{{ ansible_env.HOME }}/nas_docker_staging/solr"
+
+# Clone repos at the 'staging' branch into ~/Repositories/staging/
+# If the repo already exists, switch to the staging branch and pull.
+- name: Clone or update webcms repo at staging branch
+  git:
+    repo: "{{ webcms_repo_url }}"
+    dest: "{{ ansible_env.HOME }}/Repositories/staging/webcms"
+    version: "staging"
+    update: true
+    force: false
+  when: webcms_repo_url is defined
+
+- name: Clone or update ui repo at staging branch
+  git:
+    repo: "{{ ui_repo_url }}"
+    dest: "{{ ansible_env.HOME }}/Repositories/staging/ui"
+    version: "staging"
+    update: true
+    force: false
+  when: ui_repo_url is defined
+
+- name: Symlink infra repo into staging directory (shared — not branched separately)
+  file:
+    src: "{{ ansible_env.HOME }}/Repositories/infra"
+    dest: "{{ ansible_env.HOME }}/Repositories/staging/infra"
+    state: link
+    force: false
+
+- name: Check if staging .env already exists
+  stat:
+    path: "{{ ansible_env.HOME }}/nas_docker_staging/.env"
+  register: staging_env_file
+
+- name: Copy staging .env.example if .env doesn't exist
+  copy:
+    src: ../../../../docker/.env.staging.example
+    dest: "{{ ansible_env.HOME }}/nas_docker_staging/.env"
+    mode: '0600'
+  when: not staging_env_file.stat.exists
+
+- name: Display staging .env reminder
+  debug:
+    msg:
+      - "⚠️  IMPORTANT: Configure staging passwords in ~/nas_docker_staging/.env"
+      - "   All variables are prefixed STG_ — see docker/.env.staging.example"
+  when: not staging_env_file.stat.exists
+
+- name: Render staging docker-compose from template
+  template:
+    src: ../../../../docker/docker-compose.staging.yml.j2
+    dest: "{{ ansible_env.HOME }}/nas_docker_staging/docker-compose.yml"
+    mode: '0644'
+
+- name: Pull staging Docker images
+  command: docker compose pull
+  args:
+    chdir: "{{ ansible_env.HOME }}/nas_docker_staging"
+  when: webcms_repo_url is defined
+
+- name: Start staging Docker Compose stack
+  command: docker compose up -d --build
+  args:
+    chdir: "{{ ansible_env.HOME }}/nas_docker_staging"
+  when: webcms_repo_url is defined
+
+- name: Check staging Docker service status
+  command: docker compose ps
+  args:
+    chdir: "{{ ansible_env.HOME }}/nas_docker_staging"
+  register: staging_docker_status
+  changed_when: false
+  when: webcms_repo_url is defined
+
+- name: Display staging Docker service status
+  debug:
+    var: staging_docker_status.stdout_lines
+  when: webcms_repo_url is defined
+
+# ============================================================================
+# PHASE 8: POST-DEPLOYMENT VALIDATION
 # ============================================================================
 
 - name: Display deployment summary
