@@ -10,7 +10,7 @@
 
 ### ✅ **Prerequisites** (Verify Before Starting)
 
-- [ ] **Mac Mini M4 Pro** is operational
+- [ ] **on-prem server** is operational
 - [ ] **Docker Desktop** installed and running
 - [ ] **Homebrew** installed (`/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`)
 - [ ] **Git** repository cloned to `/Users/jcerda/Repositories/infra`
@@ -279,14 +279,14 @@ launchctl start com.wilkesliberty.backup
 tail -f ~/Backups/wilkesliberty/logs/backup.log
 ```
 
-### Step 4.3: Configure Mac Mini Wake Schedule (Optional)
+### Step 4.3: Configure on-prem server Wake Schedule (Optional)
 
 1. **System Settings** → **Battery** (or Energy Saver)
 2. Click **Options**
 3. Enable **"Wake for network access"**
 4. Enable **"Start up automatically after power failure"**
 
-This ensures backups run even if Mac Mini sleeps.
+This ensures backups run even if on-prem server sleeps.
 
 ---
 
@@ -411,7 +411,7 @@ open http://localhost:8081
 
 ## 🌐 **PHASE 8: NETWORKING (FUTURE - NJALLA VPS)**
 
-### Step 8.1: Tailscale Setup (On Mac Mini)
+### Step 8.1: Tailscale Setup (On on-prem server)
 
 ```bash
 # Install Tailscale
@@ -437,7 +437,7 @@ tailscale ip -4
 2. Install Tailscale on VPS
 3. Connect to same Tailnet
 4. Deploy Next.js frontend (from `ui` repo)
-5. Configure Caddy reverse proxy to Mac Mini Tailscale IP
+5. Configure Caddy reverse proxy to on-prem server Tailscale IP
 
 See `ansible/playbooks/vps.yml` for automation.
 
@@ -497,7 +497,7 @@ launchctl list | grep wilkesliberty
 # Check Docker resource usage
 docker stats --no-stream
 
-# Check Mac Mini resources
+# Check on-prem server resources
 top -l 1 | head -10
 ```
 
@@ -629,7 +629,7 @@ docker stats
 # Identify heavy container
 docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"
 
-# Check Mac Mini resources
+# Check on-prem server resources
 top -o cpu
 ```
 
@@ -667,7 +667,7 @@ You've successfully deployed when:
 **Next Steps**:
 1. Deploy Next.js frontend to Njalla VPS (see `ui` repo)
 2. Configure Drupal content types and GraphQL schema
-3. Set up Tailscale VPN mesh between Mac Mini and Njalla
+3. Set up Tailscale VPN mesh between on-prem server and Njalla
 4. Establish performance baselines (run for 7 days)
 5. Create operational runbooks for team
 

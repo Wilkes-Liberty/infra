@@ -217,6 +217,9 @@ services:
     build:
       context: ../..           # ~/Repositories/ — parent of both infra and ui repos
       dockerfile: infra/docker/nextjs/Dockerfile.prod
+      args:
+        NEXT_PUBLIC_DRUPAL_BASE_URL: http://drupal:80
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://wilkesliberty.com}
     container_name: wl_nextjs
     restart: unless-stopped
     ports:
@@ -229,6 +232,7 @@ services:
       - DRUPAL_CLIENT_ID=${DRUPAL_CLIENT_ID:?DRUPAL_CLIENT_ID is required}
       - DRUPAL_CLIENT_SECRET=${DRUPAL_CLIENT_SECRET:?DRUPAL_CLIENT_SECRET is required}
       - DRUPAL_REVALIDATE_SECRET=${DRUPAL_REVALIDATE_SECRET:?DRUPAL_REVALIDATE_SECRET is required}
+      - DRUPAL_PREVIEW_SECRET=${DRUPAL_PREVIEW_SECRET}
     networks:
       - frontend
     depends_on:

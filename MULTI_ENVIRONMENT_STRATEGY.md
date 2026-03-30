@@ -1,314 +1,170 @@
 # Multi-Environment Strategy
 
-This document outlines the planned progression from single production environment to a comprehensive multi-environment infrastructure supporting development, staging, and production workflows.
+**Status**: Production and staging environments are operational. This document describes the current architecture and the path forward for CI/CD automation.
 
-## Environment Strategy Overview
+## Current Architecture
 
-### Current State: Production Focus
-- **Status**: Single production environment using root-level Terraform files
-- **Rationale**: Get production working and stable before adding complexity
-- **Benefits**: Simple state management, rapid iteration, cost control
+### Environment Overview
 
-### Future State: Three-Environment Pipeline
+| Environment | Backend (Drupal) | Frontend (Next.js) | Where |
+|-------------|-----------------|-------------------|-------|
+| **Local dev** | DDEV | `npm run dev` | Developer machine |
+| **Staging** | Docker on on-prem server | Docker on on-prem server | `~/nas_docker_staging/` |
+| **Production** | Docker on on-prem server | Docker on Njalla VPS | `~/nas_docker/` + VPS |
+
+Developers never need to touch the staging or production Docker stacks directly — they work locally and push to the appropriate branch.
+
+### on-prem server Co-location
+
+Production and staging run side by side on the on-prem server with no resource conflict:
+
 ```
-Development → Staging → Production
-     ↓           ↓         ↓
-   Feature    Full Stack  Blue/Green
-   Testing    Validation   Deployment
-```
-
-## Environment Definitions
-
-### 🚀 **Production Environment**
-**Purpose**: Live production infrastructure serving real users
-
-**Characteristics**:
-- Full infrastructure stack with all services
-- Production DNS records (*.wilkesliberty.com)
-- High-availability configuration
-- Production security settings
-- Full monitoring and alerting
-- Automated backups with long retention (30+ days)
-- Blue/green deployment capability
-
-**Infrastructure**:
-- Full-sized instances for performance
-- Redundant services where applicable
-- Production-grade security hardening
-- Comprehensive monitoring and alerting
-- Automated failover capabilities
-
-### 🔍 **Staging Environment**
-**Purpose**: Production-like testing environment for deployment validation
-
-**Characteristics**:
-- Production-like configuration for realistic testing
-- Staging DNS subdomain (*.staging.wilkesliberty.com)
-- Similar instance sizes to production
-- Production security model (but network-isolated)
-- Full monitoring for deployment validation
-- Shorter backup retention (7-14 days)
-- Blue/green deployment testing
-
-**Infrastructure**:
-- Production-scale instances (slightly smaller acceptable)
-- Full service stack deployment
-- Production security configuration
-- Comprehensive monitoring
-- Database migration testing
-- Load and performance testing
-
-**Testing Focus**:
-- Full stack integration testing
-- Database migration validation
-- Performance and load testing
-- Security scanning in prod-like environment
-- Automated deployment pipeline testing
-- Rollback procedure validation
-
-### 💻 **Development Environment**
-**Purpose**: Rapid development and feature testing
-
-**Characteristics**:
-- Development DNS subdomain (*.dev.wilkesliberty.com)
-- Smaller instance sizes for cost optimization
-- Relaxed security settings for debugging
-- Shared services where appropriate
-- Basic monitoring
-- Minimal backup requirements (1-3 days)
-
-**Infrastructure**:
-- Cost-optimized instance sizes
-- Shared services (single DB for multiple features)
-- Development-friendly security settings
-- Basic monitoring and logging
-- Quick deployment and teardown
-
-**Development Focus**:
-- Individual developer environments
-- Feature branch deployments
-- Integration testing
-- Database migration testing
-- API development and testing
-- Frontend integration testing
-
-## Migration Timeline
-
-### Phase 1: Production Stabilization (Current)
-**Timeline**: Ongoing until production is stable
-**Focus**: Complete production infrastructure roles and deployment
-
-**Activities**:
-1. ✅ Complete infrastructure audit (completed)
-2. 🔄 Implement app role (Drupal 11)
-3. 🔄 Implement database role (MySQL/MariaDB)
-4. 🔄 Implement search role (Apache Solr)
-5. 🔄 Implement monitoring role (analytics_obs)
-6. 🔄 Finalize SSO role (Authentik)
-
-**Success Criteria**:
-- Production deployment working end-to-end
-- All services operational and monitored
-- Backup and recovery procedures tested
-- Documentation complete and accurate
-
-### Phase 2a: Staging Environment (Next Priority)
-**Timeline**: After production is stable
-**Prerequisites**: Staging servers provisioned
-
-**Activities**:
-1. Run migration script: `./scripts/migrate-to-multi-env.sh`
-2. Configure staging-specific variables
-3. Deploy staging environment
-4. Set up CI/CD pipeline: main branch → staging
-5. Validate deployment procedures
-6. Test rollback procedures
-
-**Success Criteria**:
-- Staging environment mirrors production functionality
-- Automated deployment from main branch working
-- Performance testing pipeline established
-- Security validation procedures in place
-
-### Phase 2b: Development Environment (Final Phase)
-**Timeline**: After staging is operational
-**Prerequisites**: Development servers provisioned
-
-**Activities**:
-1. Configure development-specific variables
-2. Deploy development environment
-3. Set up feature branch deployments
-4. Configure developer access and workflows
-5. Implement cost controls and resource limits
-
-**Success Criteria**:
-- Individual developer environments functional
-- Feature branch deployment automation
-- Development workflow documentation
-- Cost monitoring and controls in place
-
-## Infrastructure Considerations
-
-### Network Architecture
-```
-Production:  10.10.0.0/24  (current)
-Staging:     10.10.0.0/24  (isolated network, same IPs)
-Development: 10.20.0.0/24  (different network range)
+on-prem server (24 GB RAM, ~13 CPUs)
+├── Production Stack:  ~/nas_docker/          ~8-10 GB RAM allocated
+├── Staging Stack:     ~/nas_docker_staging/  ~4-6 GB RAM allocated
+├── Monitoring (shared): Prometheus/Grafana   ~2 GB RAM allocated
+└── Headroom remaining: ~6-10 GB for OS + overhead
 ```
 
-### DNS Strategy
-```
-Production:  *.wilkesliberty.com
-Staging:     *.staging.wilkesliberty.com  
-Development: *.dev.wilkesliberty.com
-```
+### Port Assignments
 
-### Security Model
-- **Production**: Full security hardening, strict access controls
-- **Staging**: Production security model, network-isolated
-- **Development**: Relaxed security for debugging, developer access
+| Service | Production | Staging |
+|---------|-----------|---------|
+| Drupal | 8080 | 8090 |
+| Keycloak | 8081 / 9000 | 8091 / 9001 |
+| Solr | 8983 | 8993 |
+| Next.js | — (on VPS) | 3010 |
+| Prometheus | 9090 | shared |
+| Grafana | 3001 | shared |
+
+### Source Branches
+
+| Environment | webcms branch | ui branch |
+|-------------|-------------|---------|
+| Staging | `staging` | `staging` |
+| Production | `main` | `main` |
+
+Staging repos live at `~/Repositories/staging/{webcms,ui}` (separate clones from production at `~/Repositories/{webcms,ui}`).
 
 ### Monitoring Strategy
-- **Production**: Full monitoring, alerting, and observability
-- **Staging**: Full monitoring for validation, shorter retention
-- **Development**: Basic monitoring, minimal alerting
 
-### Backup Strategy
-- **Production**: Daily backups, 30+ day retention, offsite storage
-- **Staging**: Daily backups, 7-14 day retention
-- **Development**: Minimal backups, 1-3 day retention
+A single Prometheus/Grafana/Alertmanager stack (production ports) monitors both environments. Staging containers join the shared `wl_monitoring` Docker network and are auto-discovered via container labels.
 
-## Cost Management
+Staging alerts are labeled with `environment=staging` so they can be filtered or routed differently in Alertmanager if needed.
 
-### Resource Optimization
-- **Development**: Smaller instances, shared services, scheduled shutdowns
-- **Staging**: Right-sized for testing, shutdown during off-hours
-- **Production**: Appropriately sized for performance requirements
+## Development Workflow
 
-### Monitoring and Alerts
-- Set up cost monitoring across all environments
-- Alert on unexpected resource usage
-- Regular cost review and optimization
+### Branch Strategy
 
-## Deployment Pipeline
-
-### Git Workflow and CI/CD Pipeline
-
-#### Branch Strategy
 ```
-Feature Branches → development → staging → master (main)
-        ↓              ↓          ↓         ↓
-   Pull Request    Auto Deploy  Auto Deploy Manual Deploy
-   Unit Tests     to Dev Env   to Staging   to Production
+feature/* ──→ main ──→ staging branch ──→ (Ansible redeploy)
+                │
+                └──→ Direct to production (after staging validation)
 ```
 
-#### GitHub Actions Triggers
-- **Development Environment**: Push to `development` branch
-- **Staging Environment**: Merge `development` → `staging` branch  
-- **Production Environment**: Merge `staging` → `master` branch (with manual approval)
+For the current team size, the workflow is:
+1. Feature branches → pull request → merge to `main`
+2. Periodically sync `staging` branch from `main` and redeploy staging
+3. After staging validation, production redeploy via Ansible playbook
 
-### Deployment Pipeline (GitHub Actions)
+No CI/CD automation yet — all deployments are manual Ansible runs. See the roadmap section below.
 
-#### Development Pipeline
-**Trigger**: `push` to `development` branch
-```yaml
-on:
-  push:
-    branches: [development]
+### Developer Local Setup
+
+**Drupal (webcms)**:
+```bash
+cd webcms
+ddev start
+ddev composer install
+ddev drush cim -y  # Import config from config/sync/
 ```
-**Actions**:
-1. Run unit tests and linting
-2. Deploy to development environment
-3. Run basic smoke tests
-4. Notify team of deployment status
 
-#### Staging Pipeline  
-**Trigger**: `push` to `staging` branch (from dev merge)
-```yaml
-on:
-  push:
-    branches: [staging]
+**Next.js (ui)**:
+```bash
+cd ui
+cp .env.example .env.local
+# Edit .env.local with local Drupal URL
+npm install
+npm run dev
 ```
-**Actions**:
-1. Run full test suite
-2. Deploy to staging environment
-3. Run integration tests
-4. Performance testing
-5. Security scanning
-6. Generate deployment report
 
-#### Production Pipeline
-**Trigger**: `push` to `master` branch (from staging merge) + manual approval
-```yaml
-on:
-  push:
-    branches: [master]
-environment:
-  name: production
-  approval_required: true
+### Deploying to Staging
+
+```bash
+# On on-prem server: update staging repos and rebuild
+cd ~/Repositories/staging/webcms && git pull origin staging
+cd ~/Repositories/staging/ui && git pull origin staging
+
+cd ~/nas_docker_staging
+docker compose up -d --build
+
+# Or via Ansible (re-runs entire role, handles everything)
+ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/onprem.yml
 ```
-**Actions**:
-1. Manual approval gate
-2. Blue/green deployment to production
-3. Health checks and monitoring
-4. Rollback capability
-5. Success/failure notifications
 
-### Quality Gates
-- **Feature → Development**: Pull request review, unit tests pass
-- **Development → Staging**: Integration tests pass, code review approved
-- **Staging → Production**: Security scan clean, performance validation, manual approval
+### Deploying to Production
 
-## Risk Management
+```bash
+# Pull latest on on-prem server
+cd ~/Repositories/webcms && git pull origin main
+cd ~/Repositories/ui && git pull origin main
 
-### Deployment Risks
-- **Mitigation**: Comprehensive staging environment testing
-- **Rollback**: Automated rollback procedures tested in staging
-- **Monitoring**: Real-time monitoring with automated alerting
+# Rebuild and restart
+cd ~/nas_docker
+docker compose up -d --build
 
-### Cost Risks  
-- **Mitigation**: Resource limits, cost monitoring, scheduled shutdowns
-- **Monitoring**: Daily cost reports, budget alerts
+# Njalla VPS — Next.js rebuild (if VPS role is ready)
+ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/vps.yml
+```
 
-### Security Risks
-- **Mitigation**: Environment isolation, security scanning, access controls
-- **Monitoring**: Security event monitoring, regular vulnerability assessment
+## DNS Strategy
 
-## Success Metrics
+```
+Production:  wilkesliberty.com, www.wilkesliberty.com
+Staging:     staging.wilkesliberty.com (when external access is needed)
+API (int):   drupal.int.wilkesliberty.com (Tailscale-routed)
+```
 
-### Performance Metrics
-- Deployment frequency and success rate
-- Mean time to recovery (MTTR)
-- Lead time from development to production
+DNS is managed via Terraform + Njalla API. See `DNS_RECORDS.md` and `docs/TERRAFORM_DNS_QUICKSTART.md`.
 
-### Quality Metrics
-- Defect escape rate from staging to production
-- Test coverage across environments
-- Security vulnerability detection rate
+## Security Model
 
-### Cost Metrics
-- Cost per environment
-- Resource utilization efficiency
-- Cost trend analysis
+**Production**: Full security — Keycloak in `start` mode, Redis with allkeys-lru (no AOF), Drupal with production services YAML (`web/sites/production.services.yml`), Tailscale for VPS→on-prem server.
 
-## Migration Execution
+**Staging**: Production security model — same Keycloak config, same network isolation, reduced resource limits. Staging containers are on isolated `wl_stg_frontend` / `wl_stg_backend` networks, only the monitoring port bridges to production network.
 
-### When Ready to Migrate
-1. **Validate prerequisites**: Ensure production is stable and staging/dev servers are available
-2. **Run dry-run**: `./scripts/migrate-to-multi-env.sh --dry-run`
-3. **Execute migration**: `./scripts/migrate-to-multi-env.sh`
-4. **Configure environments**: Update variables for staging and development
-5. **Test deployments**: Validate each environment independently
-6. **Set up pipelines**: Implement CI/CD automation
-7. **Document procedures**: Update operational documentation
+**Local**: DDEV handles everything; Drupal loads `development.services.yml` (Twig debug, relaxed CORS, null cache backends).
 
-### Rollback Plan
-- Complete backup created by migration script
-- Restore from `backup-[timestamp]/` directory if needed
-- Production environment unaffected during migration
+## Backup Strategy
+
+| Environment | Automated | Retention | Storage |
+|-------------|-----------|---------|---------|
+| Production | Daily 04:00 AM (launchd) | 90 days | `~/Backups/wilkesliberty/` |
+| Staging | On-demand only | N/A | Not backed up by default |
+
+Backups cover: PostgreSQL databases (prod + staging), Drupal files, configuration.
+
+## CI/CD Roadmap
+
+Automated deployments are not yet configured — all deploys are manual Ansible runs. The target pipeline when ready:
+
+```
+Push to staging branch
+    → GitHub Actions: build Docker images
+    → Pull and rebuild on on-prem server staging stack
+    → Run smoke tests
+    → Notify team
+
+Push to main branch (after PR review)
+    → GitHub Actions: build Docker images
+    → Manual approval gate
+    → Deploy to production on-prem server + Njalla VPS
+```
+
+See **GITHUB_ACTIONS_STRATEGY.md** for the detailed pipeline design.
+
+For now, use the manual commands in the "Deploying to Staging / Production" sections above.
 
 ---
 
-**Document Status**: Planning Phase  
-**Next Review**: After production stabilization  
-**Owner**: Infrastructure Team
+**Last Updated**: March 2026

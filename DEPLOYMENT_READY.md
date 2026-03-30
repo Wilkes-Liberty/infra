@@ -110,7 +110,7 @@ ls -lh ~/Backups/wilkesliberty/daily/
 
 ## 🔒 Prerequisites (Before Running Deployment)
 
-### On Mac Mini:
+### On on-prem server:
 - [ ] **Homebrew installed** (or let Ansible install it)
 - [ ] **SOPS AGE key available**:
   ```bash
@@ -135,7 +135,7 @@ ls -lh ~/Backups/wilkesliberty/daily/
 ## 📊 Infrastructure Summary
 
 ### Current Architecture
-**Mac Mini M4 Pro** running **Docker Compose** with:
+**on-prem server** running **Docker Compose** with:
 
 #### Application Services (5):
 - Drupal 11 (port 8080)
@@ -189,7 +189,7 @@ You've deployed successfully when:
 
 ### Phase 2: Distributed Architecture (Future)
 - Deploy Njalla VPS with Next.js frontend
-- Configure Tailscale mesh between VPS and Mac Mini
+- Configure Tailscale mesh between VPS and on-prem server
 - Set up Caddy reverse proxy for public access
 - Configure Let's Encrypt SSL
 
