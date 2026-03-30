@@ -123,7 +123,7 @@
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│ Mac Mini M4 Pro (On-Premises)                            │
+│ on-prem server (On-Premises)                            │
 │ 11 Docker Containers:                                    │
 │                                                          │
 │ ┌─ APPLICATION TIER ─────────────────────────────────┐  │
@@ -240,7 +240,7 @@ launchctl load ~/Library/LaunchAgents/com.wilkesliberty.backup.plist
    - Alternative: Prometheus for infrastructure metrics, Matomo for web analytics
 
 2. **Consolidated on-prem** ✅
-   - All backend services on Mac Mini
+   - All backend services on on-prem server
    - Only Next.js frontend on Njalla VPS
    - Saves $2K+/year vs distributed VPS
    - Better performance (no inter-service network latency)
@@ -266,7 +266,7 @@ launchctl load ~/Library/LaunchAgents/com.wilkesliberty.backup.plist
 
 ### **Cost Savings**
 - **$2,052/year** saved vs distributed VPS architecture
-- **$0 additional hosting** costs (using existing Mac Mini)
+- **$0 additional hosting** costs (using existing on-prem server)
 - **Scalable** without vendor lock-in
 
 ### **Operational Improvements**
@@ -364,7 +364,7 @@ launchctl load ~/Library/LaunchAgents/com.wilkesliberty.backup.plist
 5. **Configure SMTP** for alert emails
 
 ### **Short-term (Next 2 Weeks)**
-1. **Set up Tailscale** VPN mesh between Mac Mini and Njalla
+1. **Set up Tailscale** VPN mesh between on-prem server and Njalla
 2. **Deploy Next.js frontend** to Njalla VPS (from `ui` repo)
 3. **Configure Caddy** reverse proxy on Njalla VPS
 4. **Test end-to-end flow** (frontend → API → database)

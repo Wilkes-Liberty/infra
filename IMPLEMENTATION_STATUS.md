@@ -35,7 +35,7 @@
   - `monitoring/` - Monitoring orchestration
   - `tailscale/` - VPN mesh networking
   - `vps-proxy/` - Njalla VPS reverse proxy
-  - `wl-onprem/` - Mac Mini server orchestration
+  - `wl-onprem/` - on-prem server server orchestration
 
 #### 1.3 Cleaned Up Ansible Playbooks ✅
 - **Deleted 5 obsolete playbooks**:
@@ -46,7 +46,7 @@
   - `deploy-app.yml` (app deploys via Docker Compose)
   
 - **Kept 4 functional playbooks**:
-  - `onprem.yml` - Mac Mini deployment
+  - `onprem.yml` - on-prem server deployment
   - `vps.yml` - Njalla VPS deployment
   - `letsencrypt.yml` - SSL certificate automation
   - `monitoring.yml` - Monitoring stack setup
@@ -89,7 +89,7 @@
 **Node Exporter** (Host Metrics):
 - Port: 9100
 - CPU, memory, disk, network metrics
-- Mac Mini system statistics
+- on-prem server system statistics
 
 **cAdvisor** (Container Metrics):
 - Port: 8082
@@ -138,7 +138,7 @@
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│ Mac Mini M4 Pro (On-Premises)                              │
+│ on-prem server (On-Premises)                              │
 ├────────────────────────────────────────────────────────────┤
 │ Docker Compose Stack (11 containers):                     │
 │                                                            │
@@ -175,8 +175,8 @@
 │   • Caddy Reverse Proxy         :443                       │
 │                                                            │
 │ Proxies:                                                   │
-│   /api/*   → Mac Mini Tailscale IP:8080 (Drupal)          │
-│   /auth/*  → Mac Mini Tailscale IP:8081 (Keycloak)        │
+│   /api/*   → on-prem server Tailscale IP:8080 (Drupal)          │
+│   /auth/*  → on-prem server Tailscale IP:8081 (Keycloak)        │
 │   /*       → localhost:3000 (Next.js)                      │
 └────────────────────────────────────────────────────────────┘
 ```
