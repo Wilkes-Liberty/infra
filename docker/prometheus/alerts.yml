@@ -1,0 +1,168 @@
+# =============================================
+# Prometheus Alert Rules
+# WilkesLiberty Infrastructure
+# =============================================
+
+groups:
+  # ================== CRITICAL ALERTS ==================
+  - name: critical
+    interval: 30s
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "{{ $labels.job }} has been down for more than 5 minutes."
+
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate on {{ $labels.job }}"
+          description: "Error rate is {{ $value }} req/s"
+
+      - alert: DatabaseDown
+        expr: up{job="postgres"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL database is down"
+          description: "Database has been unreachable for 2 minutes"
+
+      - alert: DiskSpaceCritical
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Disk space critically low on {{ $labels.mountpoint }}"
+          description: "Only {{ $value | humanize }}% remaining"
+
+      - alert: MemoryPressure
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Memory usage critical"
+          description: "Only {{ $value | humanize }}% memory available"
+
+      - alert: DatabaseConnectionPoolExhausted
+        expr: pg_stat_database_numbackends >= 180
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL connection pool near exhaustion"
+          description: "{{ $value }} connections (max 200)"
+
+  # ================== WARNING ALERTS ==================
+  - name: warning
+    interval: 1m
+    rules:
+      - alert: HighCPUUsage
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value | humanize }}%"
+
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 20
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Only {{ $value | humanize }}% memory available"
+
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 20
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk space low on {{ $labels.mountpoint }}"
+          description: "Only {{ $value | humanize }}% remaining"
+
+      - alert: ContainerHighMemory
+        expr: container_memory_usage_bytes / container_spec_memory_limit_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} high memory usage"
+          description: "Memory usage at {{ $value | humanizePercentage }}"
+
+      - alert: ContainerHighCPU
+        expr: rate(container_cpu_usage_seconds_total[5m]) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} high CPU usage"
+          description: "CPU usage is high"
+
+      - alert: SlowDatabaseQueries
+        expr: rate(pg_stat_statements_mean_exec_time[5m]) > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow database queries detected"
+          description: "Average query time is {{ $value }}ms"
+
+      - alert: LowDatabaseCacheHitRatio
+        expr: pg_stat_database_blks_hit / (pg_stat_database_blks_hit + pg_stat_database_blks_read) < 0.9
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low database cache hit ratio"
+          description: "Cache hit ratio is {{ $value | humanizePercentage }}"
+
+  # ================== INFO ALERTS ==================
+  - name: info
+    interval: 5m
+    rules:
+      - alert: BackupCompleted
+        expr: backup_last_success_timestamp_seconds > 0
+        labels:
+          severity: info
+        annotations:
+          summary: "Backup completed successfully"
+          description: "Last backup at {{ $value | humanizeTimestamp }}"
+
+      - alert: CertificateExpiringSoon
+        expr: (ssl_certificate_expiry_seconds - time()) / 86400 < 30
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          summary: "SSL certificate expiring soon"
+          description: "Certificate expires in {{ $value }} days"
+
+      - alert: HighDiskIO
+        expr: rate(node_disk_io_time_seconds_total[5m]) > 0.8
+        for: 15m
+        labels:
+          severity: info
+        annotations:
+          summary: "High disk I/O on {{ $labels.device }}"
+          description: "Disk I/O is elevated"
+
+      - alert: ContainerRestarted
+        expr: rate(container_last_seen[5m]) > 0
+        labels:
+          severity: info
+        annotations:
+          summary: "Container {{ $labels.name }} restarted"
+          description: "Container has restarted recently"
