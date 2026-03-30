@@ -1,0 +1,68 @@
+# =============================================
+# Drupal Production Image
+# =============================================
+# Multi-stage build:
+#   Stage 1 (build): Runs composer install with all dependencies
+#   Stage 2 (runtime): Lean production image without build tools
+#
+# Build context: ~/Repositories/ (parent of infra and webcms repos)
+# The webcms/ directory in that context is the Drupal application.
+#
+# Build from infra/docker/ with:
+#   docker buildx build \
+#     -f infra/docker/drupal/Dockerfile.prod \
+#     --tag wilkesliberty/drupal:latest \
+#     ../..
+# Or via docker compose up (context set in docker-compose.yml)
+# =============================================
+
+# ── Stage 1: Install dependencies ──────────────────────────────────────────────
+FROM composer:2 AS composer_build
+
+WORKDIR /build
+
+# Copy webcms composer files first (Docker cache layer)
+COPY webcms/composer.json webcms/composer.lock ./
+
+# Install production dependencies (no dev packages)
+RUN composer install \
+    --no-dev \
+    --no-scripts \
+    --no-interaction \
+    --optimize-autoloader \
+    --prefer-dist
+
+# Copy remaining source code
+COPY webcms/ .
+
+# Run composer scripts that don't require a full Drupal bootstrap
+RUN composer run-script post-install-cmd --no-interaction 2>/dev/null || true
+
+
+# ── Stage 2: Production runtime ────────────────────────────────────────────────
+FROM drupal:11-apache AS runtime
+
+# Set docroot to webcms/web/
+ENV APACHE_DOCUMENT_ROOT=/opt/drupal/web
+
+# Reconfigure Apache for the webcms project structure
+RUN sed -ri -e 's!/opt/drupal/web!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
+    && sed -ri -e 's!/opt/drupal!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf || true
+
+# Copy built application from Stage 1
+COPY --from=composer_build /build /opt/drupal
+
+# Install Docker-specific settings as settings.local.php
+# This configures database, Redis, trusted hosts from environment variables
+COPY infra/docker/drupal/settings.docker.php /opt/drupal/web/sites/default/settings.local.php
+
+# Create required directories
+RUN mkdir -p /opt/drupal/web/sites/default/files \
+    && mkdir -p /opt/drupal/private \
+    && chown -R www-data:www-data /opt/drupal \
+    && chmod -R 755 /opt/drupal \
+    && chmod 644 /opt/drupal/web/sites/default/settings.local.php
+
+WORKDIR /opt/drupal
+
+EXPOSE 80
