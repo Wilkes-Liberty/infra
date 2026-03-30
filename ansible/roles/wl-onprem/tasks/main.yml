@@ -147,11 +147,20 @@
     dest: "{{ ansible_env.HOME }}/nas_docker/prometheus/"
     mode: '0644'
 
-- name: Copy Alertmanager configuration
-  copy:
-    src: ../../../../docker/alertmanager/
-    dest: "{{ ansible_env.HOME }}/nas_docker/alertmanager/"
-    mode: '0644'
+- name: Create alertmanager data directory
+  file:
+    path: "{{ ansible_env.HOME }}/nas_docker/alertmanager/data"
+    state: directory
+    mode: '0755'
+
+- name: Render Alertmanager configuration from template
+  # The config.yml.j2 template uses Ansible variables for SMTP/Slack settings.
+  # Shell-style ${VAR} syntax is NOT supported by Alertmanager directly.
+  # Variables are defined in group_vars/all.yml and encrypted sso_secrets.yml.
+  template:
+    src: ../../../../docker/alertmanager/config.yml.j2
+    dest: "{{ ansible_env.HOME }}/nas_docker/alertmanager/config.yml"
+    mode: '0640'
 
 # ============================================================================
 # PHASE 4: BACKUP AUTOMATION
