@@ -69,97 +69,105 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 
 ## High-level Architecture and Orchestration
 
-### Infrastructure Components
-- **DNS Server** (dns1 - 10.10.0.10): CoreDNS for internal domain resolution
-- **Application Server** (app1 - 10.10.0.2): Drupal 11 application (planned)
-- **Database Server** (db1 - 10.10.0.3): MySQL/MariaDB (planned)
-- **Search Server** (search1 - 10.10.0.4): Apache Solr (planned)
-- **Analytics Server** (analytics1 - 10.10.0.7): Monitoring and observability (planned)
-- **SSO Server** (sso1 - 10.10.0.8): Authentik identity provider (partial)
-- **Cache Server** (cache1 - 10.10.0.9): Varnish + Caddy edge caching (functional)
+### Current Infrastructure (Phase 1 - On-Premises)
+**Mac Mini M4 Pro** running **Docker Compose** with 11 containers:
+
+**Application Services:**
+- **Drupal 11** (port 8080): Headless CMS with GraphQL API
+- **PostgreSQL 16** (internal): Primary database
+- **Redis 7** (internal): Object caching
+- **Keycloak** (port 8081): SSO and authentication
+- **Apache Solr 9.6** (port 8983): Search engine
+
+**Monitoring Stack:**
+- **Prometheus** (port 9090): Metrics collection and alerting
+- **Grafana** (port 3001): Dashboards and visualization
+- **Alertmanager** (port 9093): Alert routing and notifications
+- **Node Exporter** (port 9100): Host system metrics
+- **cAdvisor** (port 8082): Container resource metrics
+- **Postgres Exporter** (port 9187): Database performance metrics
+
+**Resources:** ~13 CPUs, ~25GB RAM (well within M4 Pro capacity)
+
+### Future Infrastructure (Phase 2 - Distributed)
+- **Njalla VPS**: Next.js frontend, Caddy reverse proxy
+- **Tailscale Mesh**: Secure tunnel between VPS and Mac Mini
+- **Public DNS**: Managed via Terraform/Njalla
 
 ### Inventory Structure
-**ansible/inventory/hosts.ini** contains multiple group formats:
-- **Individual service groups**: app, db, solr, analytics, sso, cache
-- **Logical groups**: dns (dedicated DNS), fleet (all application services)
-- **Global Python interpreter**: Set via ansible_python_interpreter
+**ansible/inventory/hosts.ini** contains:
+- **wl-onprem**: Mac Mini M4 Pro (localhost) - primary backend server
+- **njalla-vps**: Future frontend server (not yet provisioned)
+
+All services run as Docker containers on wl-onprem, managed via docker-compose.yml
 
 ### Play Orchestration (ansible/playbooks)
-- **bootstrap.yml**: Applies common role to all hosts with become
-- **site.yml**: Main orchestration playbook running in sequence:
-  - all hosts: common role
-  - app group: app role
-  - db group: db role
-  - solr group: solr role
-  - analytics group: analytics_obs role
-  - sso group: authentik role
-  - cache group: cache role
-- **coredns.yml**: Deploys CoreDNS to DNS servers
-- **resolved.yml**: Configures fleet to use internal DNS
+- **onprem.yml**: Deploys complete Mac Mini stack (wl-onprem role)
+  - Creates all required directories
+  - Installs Docker Desktop, Tailscale, Proton VPN
+  - Deploys docker-compose.yml and monitoring configs
+  - Sets up automated backups via launchd
+  - Starts Docker Compose stack
+- **vps.yml**: Future Njalla VPS deployment (Next.js + Caddy)
+- **letsencrypt.yml**: SSL certificate automation
+- **monitoring.yml**: Monitoring stack configuration
 
-### Roles Implementation Status (ansible/roles)
+### Ansible Roles (ansible/roles)
 
-#### Fully Implemented
-- **tailscale**: Mesh VPN configuration
-  - Automatic installation on all hosts
-  - Connects nodes to Tailscale mesh network
+#### Active Roles
+- **wl-onprem**: Mac Mini deployment orchestration
+  - Installs Docker Desktop, Tailscale, Proton VPN
+  - Creates all required directory structures
+  - Deploys docker-compose.yml and monitoring configs
+  - Sets up automated backups via launchd
+  - Starts Docker Compose stack with 11 containers
+- **common**: Base system configuration (for future VPS use)
+  - System hardening and security
+  - User management
+  - Base package installation
+- **tailscale**: Mesh VPN configuration (for future VPS→Mac Mini connectivity)
+  - Automatic installation on hosts
   - Configurable auth keys, routes, hostnames
   - Supports subnet routing and exit nodes
-  - See ansible/roles/tailscale/README.md for setup
-- **common**: UFW firewall policy (tasks/firewall.yml)
-  - Default deny inbound/allow outbound, allow SSH from admin_allow_cidrs and tailscale_network_cidr
-  - Public HTTP/HTTPS on app/analytics/sso/cache groups
-  - MySQL 3306 allowed from app/analytics to db
-  - Solr 8983 allowed from app to solr
-  - Cache-specific: Varnish (6081) bound to 127.0.0.1 with Caddy front-end
-- **cache**: HTTP edge caching (Varnish + Caddy)
-  - Caddy terminates TLS/HTTP/2/3 for public hosts (cache_public_hosts)
-  - Reverse proxies to Varnish on 127.0.0.1:6081
-  - Uses app.int.wilkesliberty.com:80 as backend (configurable)
-  - Default VCL caches static assets, bypasses session/admin traffic
-  - Sets X-Cache=HIT/MISS headers
-  - PURGE support exists but disabled by default
-  - Tunables in ansible/roles/cache/defaults/main.yml
-- **coredns**: Internal DNS server
-  - Serves int.wilkesliberty.com zone
-  - Forward and reverse DNS resolution
-  - Templates for Corefile and zone files
-- **resolved**: DNS client configuration
-  - Configures systemd-resolved to use internal DNS
+  - See TAILSCALE_SETUP.md for setup
+- **vps-proxy**: Njalla VPS reverse proxy (future)
+  - Caddy configuration for Next.js + backend proxying
+  - Let's Encrypt SSL automation
+- **letsencrypt**: SSL certificate management (future)
+- **monitoring**: Monitoring orchestration (currently integrated in Docker Compose)
 
-#### Partially Implemented
-- **authentik**: SSO/Identity provider
-  - Has defaults (images, domain, secrets)
-  - Templates for docker-compose and nginx config
-  - Tasks not fully implemented
-
-#### Stub Implementations
-- **app**: Drupal application server (placeholder)
-- **db**: Database server (placeholder)
-- **solr**: Search server (placeholder)
-- **analytics_obs**: Monitoring/observability (placeholder)
+#### Removed Roles (Phase 1 Cleanup)
+The following roles were removed as their functionality is now provided by Docker Compose:
+- ~~app~~ (Drupal now in Docker)
+- ~~db~~ (PostgreSQL now in Docker)
+- ~~solr~~ (Solr now in Docker)
+- ~~authentik~~ (using Keycloak in Docker instead)
+- ~~analytics_obs~~ (monitoring now in Docker)
+- ~~cache~~ (edge caching deferred to Phase 2)
+- ~~coredns~~ (using external DNS)
+- ~~resolved~~ (not needed)
+- ~~wireguard~~ (using Tailscale)
 
 ### Networking and DNS Architecture
-- **Internal Network**: 10.10.0.0/24 (defined in group_vars/all.yml)
-- **Internal DNS**: CoreDNS on 10.10.0.10 serves int.wilkesliberty.com
-  - Forward zone: host.int.wilkesliberty.com → 10.10.0.x
-  - Reverse zone: 10.10.0.x → host.int.wilkesliberty.com
-  - Upstream DNS: 1.1.1.1, 9.9.9.9
-- **Public DNS**: Managed via Terraform/Njalla
-  - cache1.prod.wilkesliberty.com fronts www and api subdomains
-  - Individual host records for each service
-  - IPv4 and IPv6 A/AAAA records
-  - CNAME records for service aliases
-- **VPN Mesh**: Tailscale connecting all services
-  - Mesh network for secure inter-service communication
+- **Docker Networks** (internal):
+  - `wl_frontend` (172.20.0.0/24): Public-facing services (Drupal, Keycloak)
+  - `wl_backend` (172.21.0.0/24): Internal services (PostgreSQL, Redis, Solr)
+  - `wl_monitoring` (172.22.0.0/24): Monitoring stack isolation
+- **Public DNS**: Managed via Terraform/Njalla (future)
+  - Domain: wilkesliberty.com
+  - A/AAAA records for services
+  - CNAME records for aliases
+- **VPN Layers**:
+  - **Outer**: Proton VPN (kill-switch, always-on)
+  - **Inner**: Tailscale mesh (100.64.0.0/10) for future VPS↔Mac Mini connectivity
   - Automatic peer discovery and NAT traversal
 
 ## Configuration Management
 
 ### Variable Structure
 - **Primary group_vars**: ansible/inventory/group_vars/all.yml
-- **CoreDNS-specific**: ansible/group_vars/all/coredns.yml
-- **Host-specific**: ansible/inventory/host_vars/[hostname].yml
+- **Host-specific**: ansible/inventory/host_vars/wl-onprem.yml (if needed)
+- **Docker environment**: docker/.env (passwords, SMTP, backup settings)
 
 ### Secrets Management (SOPS/age)
 - Ansible configured to load SOPS-encrypted vars (ansible/ansible.cfg: vars_plugins_enabled includes community.sops)
@@ -370,40 +378,29 @@ gh workflow run "Deploy to Production" --field confirm_deployment=deploy --field
 ansible-inventory -i ansible/inventory/hosts.ini --graph
 
 # Test variable resolution for specific host
-ansible-inventory -i ansible/inventory/hosts.ini --host app1.prod.wilkesliberty.com
+ansible-inventory -i ansible/inventory/hosts.ini --host wl-onprem
 
-# Test connectivity to all hosts
+# Test connectivity
 ansible -i ansible/inventory/hosts.ini all -m ping
 
-# Dry-run deployment
-make --dry-run deploy
-
 # Test backup script
-./scripts/backup-db.sh --dry-run
+./scripts/backup-onprem.sh --dry-run
 ```
 
 ### Infrastructure Deployment
 ```bash
-# Initial infrastructure setup
-make bootstrap
+# Deploy complete on-prem stack (automated)
+ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/onprem.yml
 
-# Deploy all services
-make site  
-
-# Deploy DNS infrastructure
-ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/coredns.yml
-
-# Configure DNS clients
-ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/resolved.yml
-
-# Application deployment
-make deploy
-
-# Database backup
-make backup-db
+# Manual Docker operations
+cd ~/nas_docker
+docker compose up -d        # Start all services
+docker compose ps           # Check status
+docker compose logs -f      # View logs
+docker compose down         # Stop all services
 ```
 
-### Terraform DNS Management
+### Terraform DNS Management (Optional)
 ```bash
 # Plan DNS changes
 terraform plan
@@ -415,19 +412,20 @@ terraform apply
 terraform show
 ```
 
-## Recent Improvements (October 2025)
+## Recent Improvements (March 2026)
 
 ### Infrastructure Fixes Completed
-- ✅ Resolved all inventory duplications and inconsistencies
-- ✅ Consolidated variable definitions and eliminated conflicts
-- ✅ Created comprehensive backup and deployment automation
-- ✅ Enhanced documentation with variable precedence guides
-- ✅ Implemented proper .gitignore to prevent artifact commits
-- ✅ Fixed Makefile formatting and verified all target references
+- ✅ Simplified inventory from 9 hosts to 2 (wl-onprem + njalla-vps)
+- ✅ Removed 9 conflicting Ansible roles (now handled by Docker Compose)
+- ✅ Created comprehensive Docker Compose stack with 11 containers
+- ✅ Implemented enterprise monitoring (Prometheus/Grafana/Alertmanager)
+- ✅ Automated backup system with 90-day retention
+- ✅ Enhanced wl-onprem role for fully automated deployment
+- ✅ Updated all documentation to reflect Docker-first architecture
 
 ### Repository Health
 - **Technical Debt**: Eliminated
 - **Documentation**: Comprehensive and current
 - **Infrastructure**: Production-ready foundation
-- **Automation**: Functional deployment and backup systems
+- **Automation**: Single-command deployment
 - **Security**: SOPS encryption properly configured

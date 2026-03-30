@@ -109,29 +109,35 @@ infra/
 
 ## Common Tasks
 
-### Bootstrap New Environment
+### Deploy Complete On-Prem Stack (Recommended)
 ```bash
-make bootstrap
+ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/onprem.yml
 ```
-Runs initial server setup, security hardening, and user configuration.
+Automatically creates directories, installs dependencies, deploys Docker Compose, and starts all services.
 
-### Deploy Full Site
+### Manual Docker Operations
 ```bash
-make site
-```
-Configures all services according to their roles.
+# Start all services
+cd ~/nas_docker && docker compose up -d
 
-### Application Deployment
-```bash
-make deploy
-```
-Deploys application updates to app servers only.
+# Stop all services
+docker compose down
 
-### Database Backup
-```bash
-make backup-db
+# View logs
+docker compose logs -f
+
+# Check service status
+docker compose ps
 ```
-Creates database backup using the provided script.
+
+### Backup Operations
+```bash
+# Manual backup
+~/Scripts/backup-onprem.sh
+
+# View backup logs
+tail -f ~/Backups/wilkesliberty/logs/backup.log
+```
 
 ## Security Configuration
 
@@ -267,17 +273,21 @@ Private repository for Wilkes Liberty infrastructure. Unauthorized access prohib
 ```bash
 # Verify infrastructure health
 ansible-inventory -i ansible/inventory/hosts.ini --graph
-make --dry-run bootstrap
-./scripts/backup-db.sh --dry-run
+ansible -i ansible/inventory/hosts.ini all -m ping
+./scripts/backup-onprem.sh --dry-run
 ```
 
 ### Deployment Commands  
 ```bash
-# Deploy infrastructure
-make bootstrap    # Initial setup
-make site        # Full deployment
-make deploy      # Application only
-make backup-db   # Database backup
+# Deploy complete stack (automated)
+ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/onprem.yml
+
+# Manual Docker operations
+cd ~/nas_docker
+docker compose up -d        # Start services
+docker compose ps           # Check status
+docker compose logs -f      # View logs
+docker compose down         # Stop services
 ```
 
 ### Terraform DNS Management
