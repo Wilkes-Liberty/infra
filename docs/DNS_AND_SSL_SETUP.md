@@ -24,15 +24,15 @@
          │     Encrypt)           │
          ├────────────────────────┤
          │ www → localhost:3000   │  (Next.js local)
-         │ api → Tailscale:8080   │  (Drupal on Mac Mini)
-         │ auth → Tailscale:8081  │  (Keycloak on Mac Mini)
+         │ api → Tailscale:8080   │  (Drupal on on-prem server)
+         │ auth → Tailscale:8081  │  (Keycloak on on-prem server)
          └────────────────────────┘
                      │
                      │ Tailscale VPN (100.x.x.x)
                      │ Encrypted Tunnel
                      ▼
          ┌────────────────────────┐
-         │   Mac Mini M4 Pro      │  ← Private, no public ports
+         │   on-prem server      │  ← Private, no public ports
          │   ALL Backend Services │
          │   • Drupal :8080       │
          │   • Keycloak :8081     │
@@ -46,8 +46,8 @@
 ```
 
 **Key Security Points:**
-- ✅ **Mac Mini has ZERO public ports** - completely private
-- ✅ **Only Tailscale can reach Mac Mini** - no direct internet access
+- ✅ **on-prem server has ZERO public ports** - completely private
+- ✅ **Only Tailscale can reach on-prem server** - no direct internet access
 - ✅ **Njalla VPS is the only public server** - minimal attack surface
 - ✅ **Caddy auto-manages SSL** - no manual certificate management
 - ✅ **HTTPS everywhere** - HTTP auto-redirects to HTTPS
@@ -282,7 +282,7 @@ journalctl -u caddy -f
 Replace these placeholders:
 
 ```bash
-# Get Mac Mini Tailscale IP
+# Get on-prem server Tailscale IP
 # Run this ON MAC MINI:
 tailscale ip -4
 
@@ -465,10 +465,10 @@ curl -I https://www.wilkesliberty.com | grep -i "x-frame-options"
 
 ## 🔒 **Security Best Practices**
 
-### **Mac Mini Firewall** (On-Prem)
+### **on-prem server Firewall** (On-Prem)
 
 ```bash
-# On Mac Mini - verify NO public ports are open
+# On on-prem server - verify NO public ports are open
 # Your firewall should ONLY allow:
 # - Tailscale (100.64.0.0/10)
 # - Local network if needed
@@ -603,16 +603,16 @@ tailscale ping <mac-mini-tailscale-ip>
 curl http://<mac-mini-tailscale-ip>:8080
 
 # If fails:
-# 1. Verify Tailscale is running on Mac Mini
-# 2. Verify Mac Mini services are running (docker compose ps)
-# 3. Check Mac Mini firewall allows Tailscale
+# 1. Verify Tailscale is running on on-prem server
+# 2. Verify on-prem server services are running (docker compose ps)
+# 3. Check on-prem server firewall allows Tailscale
 ```
 
 ### **Issue: 502 Bad Gateway**
 
 ```bash
 # Service is down or unreachable
-# On Mac Mini:
+# On on-prem server:
 cd /Users/jcerda/Repositories/infra/docker
 docker compose ps
 
@@ -676,7 +676,7 @@ Now access Grafana at: `https://grafana.wilkesliberty.com`
 
 - [ ] **DNS Records Created** at Njalla (www, api, auth)
 - [ ] **Njalla VPS Provisioned** (Ubuntu 24.04, 1GB RAM)
-- [ ] **Tailscale Installed** on VPS and Mac Mini
+- [ ] **Tailscale Installed** on VPS and on-prem server
 - [ ] **Caddy Installed** on VPS
 - [ ] **Firewall Configured** (ports 22, 80, 443 only)
 - [ ] **Caddyfile Deployed** with correct Tailscale IP
@@ -696,7 +696,7 @@ You now have:
 
 ✅ **Professional DNS setup**: www, api, auth subdomains  
 ✅ **Automatic SSL**: Let's Encrypt with auto-renewal  
-✅ **Secure architecture**: Only VPS is public, Mac Mini is private  
+✅ **Secure architecture**: Only VPS is public, on-prem server is private  
 ✅ **HTTPS everywhere**: HTTP auto-redirects to HTTPS  
 ✅ **Zero certificate management**: Caddy handles everything  
 ✅ **Production-ready**: A+ SSL score, security headers, monitoring  
