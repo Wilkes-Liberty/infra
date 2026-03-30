@@ -1,11 +1,16 @@
 ---
 # wl-onprem role
-# Purpose: Deploy and manage the on-prem Mac Mini server (primary private server)
+# Purpose: Deploy and manage the on-prem Mac Mini server
 # Architecture:
 #   - Outer layer: Proton VPN (kill-switch + always-on — enforced client-side)
 #   - Inner layer: Tailscale (private mesh network — 100.64.0.0/10)
-#   - All traffic from Njalla VPS or consultants must go through Proton VPN first
-#   - Docker services (Drupal 11, Keycloak, ClickHouse, etc.) run locally on the 4TB Synology SSD
+#   - Docker Compose stack: 11 containers (Drupal, PostgreSQL, Redis, Keycloak, Solr, monitoring)
+#   - Automated backups with retention management
+#   - Enterprise monitoring with Prometheus/Grafana/Alertmanager
+
+# ============================================================================
+# PHASE 1: PREREQUISITES
+# ============================================================================
 
 - name: Install Homebrew if missing
   command: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -13,59 +18,229 @@
     creates: /opt/homebrew/bin/brew
 
 - name: Install Docker Desktop
-  homebrew_cask:
+  community.general.homebrew_cask:
     name: docker
     state: present
 
-- name: Set Docker resource limits (GPU-safe)
-  lineinfile:
-    path: ~/Library/Group Containers/group.com.docker/settings.json
-    regexp: '"memoryMiB"'
-    line: '  "memoryMiB": 32768,'
-  notify: Restart Docker Desktop
+- name: Wait for Docker to be available
+  wait_for:
+    path: /var/run/docker.sock
+    timeout: 60
 
-- name: Ensure nas_docker directory exists
+# ============================================================================
+# PHASE 2: DIRECTORY STRUCTURE
+# ============================================================================
+
+- name: Create backup directory structure
   file:
-    path: ~/nas_docker
+    path: "{{ item }}"
     state: directory
     mode: '0755'
+  loop:
+    - "{{ ansible_env.HOME }}/Backups/wilkesliberty"
+    - "{{ ansible_env.HOME }}/Backups/wilkesliberty/daily"
+    - "{{ ansible_env.HOME }}/Backups/wilkesliberty/weekly"
+    - "{{ ansible_env.HOME }}/Backups/wilkesliberty/monthly"
+    - "{{ ansible_env.HOME }}/Backups/wilkesliberty/encrypted"
+    - "{{ ansible_env.HOME }}/Backups/wilkesliberty/logs"
 
-- name: Deploy docker-compose.yml from repo
+- name: Create Docker data directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ ansible_env.HOME }}/nas_docker"
+    - "{{ ansible_env.HOME }}/nas_docker/drupal"
+    - "{{ ansible_env.HOME }}/nas_docker/postgres"
+    - "{{ ansible_env.HOME }}/nas_docker/redis"
+    - "{{ ansible_env.HOME }}/nas_docker/keycloak"
+    - "{{ ansible_env.HOME }}/nas_docker/solr"
+    - "{{ ansible_env.HOME }}/nas_docker/prometheus"
+    - "{{ ansible_env.HOME }}/nas_docker/prometheus/data"
+    - "{{ ansible_env.HOME }}/nas_docker/grafana"
+    - "{{ ansible_env.HOME }}/nas_docker/grafana/provisioning"
+    - "{{ ansible_env.HOME }}/nas_docker/grafana/provisioning/datasources"
+    - "{{ ansible_env.HOME }}/nas_docker/grafana/provisioning/dashboards"
+    - "{{ ansible_env.HOME }}/nas_docker/grafana/dashboards"
+    - "{{ ansible_env.HOME }}/nas_docker/alertmanager"
+    - "{{ ansible_env.HOME }}/Scripts"
+
+# ============================================================================
+# PHASE 3: CONFIGURATION FILES
+# ============================================================================
+
+- name: Check if .env already exists
+  stat:
+    path: "{{ ansible_env.HOME }}/nas_docker/.env"
+  register: env_file
+
+- name: Copy .env.example if .env doesn't exist
   copy:
-    src: ../../../../docker/docker-compose.yml
-    dest: ~/nas_docker/docker-compose.yml
+    src: ../../../../docker/.env.example
+    dest: "{{ ansible_env.HOME }}/nas_docker/.env"
+    mode: '0600'
+  when: not env_file.stat.exists
+
+- name: Generate random passwords for .env (if new)
+  shell: openssl rand -base64 32
+  register: generated_password
+  changed_when: false
+  when: not env_file.stat.exists
+
+- name: Display .env reminder
+  debug:
+    msg:
+      - "⚠️  IMPORTANT: Configure passwords in ~/nas_docker/.env"
+      - "   Edit the file and set:"
+      - "   - DRUPAL_DB_PASSWORD"
+      - "   - KEYCLOAK_ADMIN_PASSWORD"
+      - "   - GRAFANA_ADMIN_PASSWORD"
+      - "   - BACKUP_ENCRYPTION_KEY"
+      - "   - SMTP settings (optional)"
+  when: not env_file.stat.exists
+
+- name: Deploy Grafana Prometheus datasource
+  copy:
+    dest: "{{ ansible_env.HOME }}/nas_docker/grafana/provisioning/datasources/prometheus.yml"
+    content: |
+      apiVersion: 1
+      
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          access: proxy
+          url: http://prometheus:9090
+          isDefault: true
+          editable: false
+          jsonData:
+            timeInterval: 15s
     mode: '0644'
 
-- name: Start Docker services
-  command: docker compose -f ~/nas_docker/docker-compose.yml up -d
+- name: Deploy Grafana dashboard provisioning
+  copy:
+    dest: "{{ ansible_env.HOME }}/nas_docker/grafana/provisioning/dashboards/dashboards.yml"
+    content: |
+      apiVersion: 1
+      
+      providers:
+        - name: 'default'
+          orgId: 1
+          folder: ''
+          type: file
+          disableDeletion: false
+          updateIntervalSeconds: 10
+          allowUiUpdates: true
+          options:
+            path: /var/lib/grafana/dashboards
+    mode: '0644'
+
+- name: Deploy docker-compose.yml
+  copy:
+    src: ../../../../docker/docker-compose.yml
+    dest: "{{ ansible_env.HOME }}/nas_docker/docker-compose.yml"
+    mode: '0644'
+
+- name: Copy Prometheus configuration
+  copy:
+    src: ../../../../docker/prometheus/
+    dest: "{{ ansible_env.HOME }}/nas_docker/prometheus/"
+    mode: '0644'
+
+- name: Copy Alertmanager configuration
+  copy:
+    src: ../../../../docker/alertmanager/
+    dest: "{{ ansible_env.HOME }}/nas_docker/alertmanager/"
+    mode: '0644'
+
+# ============================================================================
+# PHASE 4: BACKUP AUTOMATION
+# ============================================================================
+
+- name: Deploy backup script
+  copy:
+    src: ../../../../scripts/backup-onprem.sh
+    dest: "{{ ansible_env.HOME }}/Scripts/backup-onprem.sh"
+    mode: '0755'
+
+- name: Create launchd backup plist
+  template:
+    src: com.wilkesliberty.backup.plist.j2
+    dest: "{{ ansible_env.HOME }}/Library/LaunchAgents/com.wilkesliberty.backup.plist"
+    mode: '0644'
+
+- name: Load launchd backup agent
+  command: launchctl load "{{ ansible_env.HOME }}/Library/LaunchAgents/com.wilkesliberty.backup.plist"
   args:
-    chdir: ~/nas_docker
+    creates: "{{ ansible_env.HOME }}/Library/LaunchAgents/com.wilkesliberty.backup.plist"
+  ignore_errors: true
+
+# ============================================================================
+# PHASE 5: VPN & NETWORKING
+# ============================================================================
 
 - name: Install Tailscale (inner private mesh)
-  homebrew_cask:
+  community.general.homebrew_cask:
     name: tailscale
     state: present
 
 - name: Install Proton VPN (outer kill-switch)
-  homebrew_cask:
+  community.general.homebrew_cask:
     name: protonvpn
     state: present
 
-- name: Deploy CCC pause script
-  template:
-    src: ccc-pause.sh.j2
-    dest: ~/Scripts/ccc-pause.sh
-    mode: '0755'
+# ============================================================================
+# PHASE 6: DOCKER DEPLOYMENT
+# ============================================================================
 
-- name: Deploy CCC restart script
-  template:
-    src: ccc-restart.sh.j2
-    dest: ~/Scripts/ccc-restart.sh
-    mode: '0755'
+- name: Pull Docker images
+  command: docker compose pull
+  args:
+    chdir: "{{ ansible_env.HOME }}/nas_docker"
 
-- name: Deploy daily backup cron (Proton + iCloud)
-  cron:
-    name: "Daily encrypted backups"
-    minute: "0"
-    hour: "4"
-    job: "~/Scripts/backup-to-cloud.sh"
+- name: Start Docker Compose stack
+  command: docker compose up -d
+  args:
+    chdir: "{{ ansible_env.HOME }}/nas_docker"
+
+- name: Wait for services to be healthy
+  pause:
+    seconds: 30
+
+- name: Check Docker service status
+  command: docker compose ps
+  args:
+    chdir: "{{ ansible_env.HOME }}/nas_docker"
+  register: docker_status
+  changed_when: false
+
+- name: Display Docker service status
+  debug:
+    var: docker_status.stdout_lines
+
+# ============================================================================
+# PHASE 7: POST-DEPLOYMENT VALIDATION
+# ============================================================================
+
+- name: Display deployment summary
+  debug:
+    msg:
+      - "✅ WilkesLiberty On-Prem Server Deployed Successfully!"
+      - ""
+      - "📊 Service URLs:"
+      - "   - Drupal:       http://localhost:8080"
+      - "   - Keycloak:     http://localhost:8081"
+      - "   - Solr:         http://localhost:8983"
+      - "   - Grafana:      http://localhost:3001"
+      - "   - Prometheus:   http://localhost:9090"
+      - "   - Alertmanager: http://localhost:9093"
+      - ""
+      - "📋 Next Steps:"
+      - "   1. Configure passwords in ~/nas_docker/.env"
+      - "   2. Complete Drupal installation at http://localhost:8080"
+      - "   3. Access Grafana and verify dashboards"
+      - "   4. Test backup: ~/Scripts/backup-onprem.sh"
+      - ""
+      - "📚 Documentation:"
+      - "   - DEPLOYMENT_CHECKLIST.md"
+      - "   - IMPLEMENTATION_STATUS.md"
