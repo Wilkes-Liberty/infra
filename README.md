@@ -209,12 +209,14 @@ Backed up: PostgreSQL databases (prod + staging), Drupal files, configuration.
 
 ## Monitoring
 
-Access on the on-prem server:
-- **Grafana**: http://localhost:3001 — dashboards for all services
-- **Prometheus**: http://localhost:9090 — metrics and alert rules (16 rules configured)
-- **Alertmanager**: http://localhost:9093 — email + Slack routing
+Monitoring UIs are accessible **only over Tailscale** via `*.int.wilkesliberty.com`. They are not exposed to the public internet.
 
-Staging containers are automatically discovered via Docker labels on the shared `wl_monitoring` network.
+- **Grafana**: https://monitor.int.wilkesliberty.com — dashboards for all services
+- **Prometheus**: https://prometheus.int.wilkesliberty.com — metrics and alert rules (16 rules configured)
+- **Alertmanager**: https://alerts.int.wilkesliberty.com — email + Slack routing
+- **Uptime Kuma**: https://uptime.int.wilkesliberty.com — uptime monitoring
+
+Staging containers are automatically discovered via Docker labels on the shared `wl_monitoring` network. Internal Caddy (deployed by Ansible, bound on Tailscale IP) handles TLS for all `*.int.wilkesliberty.com` vhosts using the Let's Encrypt wildcard certificate.
 
 ## Ansible Role: wl-onprem
 

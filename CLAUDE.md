@@ -129,8 +129,23 @@ Staging containers join the shared `wl_monitoring` network — Prometheus auto-d
 - `wl_monitoring` (172.22.0.0/24) — all monitoring; staging containers join this
 - `wl_stg_frontend` / `wl_stg_backend` — staging isolation
 
+### Public URLs (via Njalla VPS)
+- `https://www.wilkesliberty.com` — Next.js frontend (served directly on VPS)
+- `https://api.wilkesliberty.com` — Drupal CMS / JSON:API (proxied to on-prem via Tailscale)
+- `https://auth.wilkesliberty.com` — Keycloak SSO (proxied to on-prem via Tailscale)
+- `https://search.wilkesliberty.com` — Solr (proxied, admin-CIDR restricted)
+- `https://network.wilkesliberty.com` — CNAME to `login.tailscale.com` (VPN admin)
+
+### Internal URLs (Tailscale required — *.int.wilkesliberty.com)
+- `https://app.int.wilkesliberty.com` — Drupal admin (via internal Caddy)
+- `https://sso.int.wilkesliberty.com` — Keycloak admin (via internal Caddy)
+- `https://monitor.int.wilkesliberty.com` — Grafana dashboards
+- `https://prometheus.int.wilkesliberty.com` — Prometheus metrics
+- `https://alerts.int.wilkesliberty.com` — Alertmanager
+- `https://uptime.int.wilkesliberty.com` — Uptime Kuma
+
 ### VPN Layers
-- **Tailscale** (100.64.0.0/10) — on-prem server ↔ Njalla VPS mesh
+- **Tailscale** (100.64.0.0/10) — on-prem server ↔ Njalla VPS mesh; Split DNS routes `*.int.wilkesliberty.com` to CoreDNS on on-prem
 - **Proton VPN** — outer kill-switch layer on on-prem server
 
 ## File Layout
