@@ -1,5 +1,31 @@
-int.wilkesliberty.com:53 {
+# =============================================
+# CoreDNS — Internal Split-DNS Configuration
+# =============================================
+# Binds ONLY on the Tailscale interface IP (100.x.x.x).
+# This means:
+#   - Devices ON Tailscale get int.wilkesliberty.com resolved
+#   - Devices NOT on Tailscale cannot reach this DNS server at all
+#
+# Tailscale's Split DNS feature (configured via `tailscale set --domain`)
+# tells every device in the tailnet to send *.int.wilkesliberty.com
+# queries to this server. All other queries go to normal upstream resolvers.
+#
+# The listen address is set via the COREDNS_LISTEN_ADDR environment variable,
+# which must be the Tailscale IP of this host (e.g. 100.82.73.91).
+# Rendered by Ansible from coredns.yml -> tailscale_ip variable.
+# =============================================
+
+# Internal zone — only reachable via Tailscale
+{$COREDNS_LISTEN_ADDR}:53 {
+  bind {$COREDNS_LISTEN_ADDR}
   file zones/int.wilkesliberty.com.zone
   log
   errors
+
+  # Refuse any queries that arrive on unexpected interfaces
+  # (belt-and-suspenders alongside the bind directive)
+  acl {
+    allow net {$TAILSCALE_CIDR}
+    block
+  }
 }

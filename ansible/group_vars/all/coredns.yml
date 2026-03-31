@@ -1,14 +1,54 @@
 int_domain: "int.wilkesliberty.com."
-dns_listen_ip: "10.10.0.10"
+
+# CoreDNS binds on the Tailscale IP, NOT the LAN IP.
+# This means the DNS server is only reachable when connected via Tailscale.
+# Set this to the actual Tailscale IP of the on-prem server.
+# Find it by running: tailscale ip -4
+# TODO: Update with your actual Tailscale IP before deploying.
+coredns_listen_ip: "{{ onprem_tailscale_ip }}"   # e.g. 100.82.73.91
+tailscale_cidr: "100.64.0.0/10"                   # Tailscale address space (do not change)
+
 upstream_dns: ["1.1.1.1","9.9.9.9"]
+
 internal_hosts:
+  # Application services
   app: "10.10.0.2"
+  sso: "10.10.0.8"
+
+  # Data services (not proxied — DNS only)
   db: "10.10.0.3"
   search: "10.10.0.4"
-  analytics: "10.10.0.7"
-  sso: "10.10.0.8"
   cache: "10.10.0.9"
+
+  # Monitoring
   monitor: "10.10.0.7"
+  prometheus: "10.10.0.7"
+  alerts: "10.10.0.7"
   uptime: "10.10.0.7"
+
+  # Admin devices
+  # TODO: Replace placeholder IPs with actual LAN IPs.
+  # Assign static/reserved DHCP leases so these never change.
+  nas: "10.10.0.20"      # NAS storage (Synology, TrueNAS, etc.)
+  router: "10.10.0.1"    # Router/gateway admin UI
+  switch: "10.10.0.2"    # TP-Link managed switch — TODO: set actual IP
+  printer: "10.10.0.30"  # Network printer — TODO: set actual IP
+
+# Caddy admin port variables — used in Caddyfile.internal.j2
+nas_int_ip: "{{ internal_hosts.nas }}"
+nas_admin_port: "5000"       # Synology DSM default; change to 443 if using HTTPS internally
+
+router_int_ip: "{{ internal_hosts.router }}"
+router_admin_port: "80"      # Most routers default to port 80 for admin
+
+switch_int_ip: "{{ internal_hosts.switch }}"
+switch_admin_port: "80"      # TP-Link smart switch defaults to port 80
+
+printer_int_ip: "{{ internal_hosts.printer }}"
+printer_admin_port: "80"     # Most printers default to port 80 for admin
+
+uptime_int_ip: "{{ internal_hosts.uptime }}"
+uptime_admin_port: "3002"    # Uptime Kuma default port
+
 reverse_cidr: "10.10.0.0/24"
 reverse_zone: "0.10.10.in-addr.arpa."
