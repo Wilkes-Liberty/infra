@@ -1,158 +1,48 @@
 ---
 # Let's Encrypt Certificate Management Playbook for Wilkes Liberty Infrastructure
+#
+# Deploys the wildcard certificate (wilkesliberty.com + *.wilkesliberty.com) to the
+# Njalla VPS. The same certificate is also copied to the on-prem server for use by
+# internal Caddy (*.int.wilkesliberty.com vhosts).
+#
+# NOTE: Certificate must first be obtained manually on the VPS:
+#   certbot certonly --manual --preferred-challenges dns \
+#     -d "wilkesliberty.com" -d "*.wilkesliberty.com"
+# See LETSENCRYPT_SSL_GUIDE.md for full instructions.
 
-- name: Deploy Let's Encrypt certificates for cache servers
-  hosts: cache
+- name: Deploy and renew Let's Encrypt wildcard certificate (Njalla VPS)
+  hosts: vps
   become: yes
   gather_facts: yes
-  
+
   vars:
     # Load Njalla API token from existing terraform secrets
     njalla_api_token: "{{ lookup('community.sops.sops', '../../terraform_secrets.yml') | from_yaml | json_query('njalla_api_token') }}"
-    # Cache server specific certificates
     letsencrypt_certificates:
-      - name: "internal_wildcard"
-        domains: ["*.int.wilkesliberty.com"]
+      - name: "wilkesliberty_wildcard"
+        domains:
+          - "wilkesliberty.com"
+          - "*.wilkesliberty.com"
         challenge: "dns-01"
-        services_to_restart: []  # No services installed yet
-        description: "Internal services SSL certificate"
-      - name: "main_domain"
-        domains: ["wilkesliberty.com", "www.wilkesliberty.com"]
-        challenge: "dns-01"
-        services_to_restart: []  # No services installed yet
-        description: "Main website SSL certificate"
-      - name: "api_certificate"
-        domains: ["api.wilkesliberty.com"]
-        challenge: "dns-01"
-        services_to_restart: []  # No services installed yet
-        description: "API endpoint SSL certificate"
-  
+        services_to_restart:
+          - caddy
+        deploy_hook: "/etc/letsencrypt/renewal-hooks/deploy/reload-caddy.sh"
+        description: "Wildcard certificate — all wilkesliberty.com subdomains"
+
   pre_tasks:
-    - name: Verify required variables are defined
+    - name: Verify Njalla API token is defined
       assert:
         that:
           - njalla_api_token is defined
           - njalla_api_token | length > 0
-        fail_msg: "Njalla API token must be defined in letsencrypt_secrets.yml"
-    
-    - name: Create ssl-cert group if it doesn't exist
+        fail_msg: "Njalla API token must be present in terraform_secrets.yml"
+
+    - name: Create ssl-cert group if it does not exist
       group:
         name: ssl-cert
         state: present
-    
-    - name: Display target hosts for certificate deployment
-      debug:
-        msg: "Deploying certificates to: {{ inventory_hostname }} ({{ ansible_host }})"
 
-  roles:
-    - role: letsencrypt
-
-- name: Deploy Let's Encrypt certificates for SSO servers  
-  hosts: sso
-  become: yes
-  gather_facts: yes
-  
-  vars:
-    # Load Njalla API token from existing terraform secrets
-    njalla_api_token: "{{ lookup('community.sops.sops', '../../terraform_secrets.yml') | from_yaml | json_query('njalla_api_token') }}"
-    # SSO server specific certificates
-    letsencrypt_certificates:
-      - name: "internal_wildcard"
-        domains: ["*.int.wilkesliberty.com"]
-        challenge: "dns-01"
-        services_to_restart: []  # No services installed yet
-        description: "Internal services SSL certificate"
-      - name: "sso_certificate"
-        domains: ["sso.wilkesliberty.com"]
-        challenge: "dns-01"
-        services_to_restart: []  # No services installed yet
-        description: "SSO service SSL certificate"
-  
-  pre_tasks:
-    - name: Verify required variables are defined
-      assert:
-        that:
-          - njalla_api_token is defined
-          - njalla_api_token | length > 0
-        fail_msg: "Njalla API token must be defined in letsencrypt_secrets.yml"
-    
-    - name: Create ssl-cert group if it doesn't exist
-      group:
-        name: ssl-cert
-        state: present
-    
-    - name: Display target hosts for certificate deployment
-      debug:
-        msg: "Deploying certificates to: {{ inventory_hostname }} ({{ ansible_host }})"
-
-  roles:
-    - role: letsencrypt
-
-- name: Deploy Let's Encrypt certificates for analytics servers
-  hosts: analytics
-  become: yes
-  gather_facts: yes
-  
-  vars:
-    # Load Njalla API token from existing terraform secrets
-    njalla_api_token: "{{ lookup('community.sops.sops', '../../terraform_secrets.yml') | from_yaml | json_query('njalla_api_token') }}"
-    # Analytics server specific certificates
-    letsencrypt_certificates:
-      - name: "internal_wildcard"
-        domains: ["*.int.wilkesliberty.com"]
-        challenge: "dns-01"
-        services_to_restart: []  # No services installed yet
-        description: "Internal services SSL certificate"
-      - name: "stats_certificate"
-        domains: ["stats.wilkesliberty.com"]
-        challenge: "dns-01"
-        services_to_restart: []  # No services installed yet
-        description: "Analytics/stats SSL certificate"
-  
-  pre_tasks:
-    - name: Verify required variables are defined
-      assert:
-        that:
-          - njalla_api_token is defined
-          - njalla_api_token | length > 0
-        fail_msg: "Njalla API token must be defined in letsencrypt_secrets.yml"
-    
-    - name: Create ssl-cert group if it doesn't exist
-      group:
-        name: ssl-cert
-        state: present
-    
-    - name: Display target hosts for certificate deployment
-      debug:
-        msg: "Deploying certificates to: {{ inventory_hostname }} ({{ ansible_host }})"
-
-  roles:
-    - role: letsencrypt
-
-- name: Deploy Let's Encrypt certificates for other servers (app, db, search)
-  hosts: app:db:search
-  become: yes
-  gather_facts: yes
-  
-  vars:
-    # Load Njalla API token from existing terraform secrets
-    njalla_api_token: "{{ lookup('community.sops.sops', '../../terraform_secrets.yml') | from_yaml | json_query('njalla_api_token') }}"
-    # Default certificates (from role defaults)
-  
-  pre_tasks:
-    - name: Verify required variables are defined
-      assert:
-        that:
-          - njalla_api_token is defined
-          - njalla_api_token | length > 0
-        fail_msg: "Njalla API token must be defined in letsencrypt_secrets.yml"
-    
-    - name: Create ssl-cert group if it doesn't exist
-      group:
-        name: ssl-cert
-        state: present
-    
-    - name: Display target hosts for certificate deployment
+    - name: Display target host
       debug:
         msg: "Deploying certificates to: {{ inventory_hostname }} ({{ ansible_host }})"
 
@@ -160,67 +50,24 @@
     - role: letsencrypt
 
   post_tasks:
-    - name: Verify certificate files exist
+    - name: Verify wildcard certificate file exists
       stat:
-        path: "/etc/letsencrypt/live/{{ cert.domains[0] }}/fullchain.pem"
-      register: cert_verification
-      loop: "{{ letsencrypt_certificates }}"
-      loop_control:
-        loop_var: cert
-    
-    - name: Report certificate deployment status
-      debug:
-        msg: "Certificate {{ cert.item.name }} for {{ cert.item.domains[0] }}: {{ 'DEPLOYED' if cert.stat.exists else 'FAILED' }}"
-      loop: "{{ cert_verification.results }}"
-      loop_control:
-        loop_var: cert
-    
-    - name: Test HTTPS connectivity (ignore certificate validation for internal)
-      uri:
-        url: "https://{{ ansible_fqdn | default(inventory_hostname) }}"
-        method: GET
-        validate_certs: no
-        timeout: 10
-        status_code: [200, 301, 302, 404]  # Accept redirects and not found (service might not be configured yet)
-      register: https_test
-      ignore_errors: yes
-      when: 
-        - ansible_fqdn is defined
-        - not ansible_fqdn.endswith('.int.wilkesliberty.com')  # Only test external domains
-    
-    - name: Report HTTPS test results
-      debug:
-        msg: "HTTPS test for {{ ansible_fqdn | default(inventory_hostname) }}: {{ https_test.status | default('Failed') }}"
-      when: https_test is defined
+        path: "/etc/letsencrypt/live/wilkesliberty.com/fullchain.pem"
+      register: cert_stat
 
-# Final verification and reporting
-- name: Certificate deployment summary
-  hosts: fleet
-  become: yes
-  gather_facts: no
-  
-  tasks:
-    - name: Generate deployment summary
-      shell: |
-        echo "=== Certificate Deployment Summary for {{ inventory_hostname }} ==="
-        echo "Date: $(date)"
-        echo "Host: {{ inventory_hostname }} ({{ ansible_host | default('Unknown') }})"
-        echo ""
-        echo "Certificates:"
-        if command -v certbot &> /dev/null; then
-          certbot certificates 2>/dev/null || echo "No certificates found"
-        else
-          echo "Certbot not installed"
-        fi
-        echo ""
-        echo "Certificate files:"
-        ls -la /etc/letsencrypt/live/ 2>/dev/null || echo "No certificate directories found"
-        echo ""
-        echo "Recent certificate activity:"
-        tail -5 /var/log/letsencrypt/certificate-management.log 2>/dev/null || echo "No certificate management log found"
-      register: deployment_summary
-      ignore_errors: yes
-    
-    - name: Display deployment summary
+    - name: Report certificate status
       debug:
-        var: deployment_summary.stdout_lines
+        msg: "Wildcard cert: {{ 'DEPLOYED' if cert_stat.stat.exists else 'MISSING' }}"
+
+    - name: Verify HTTPS connectivity
+      uri:
+        url: "https://www.wilkesliberty.com"
+        method: GET
+        validate_certs: yes
+        timeout: 10
+      ignore_errors: yes
+      register: https_check
+
+    - name: Report HTTPS check result
+      debug:
+        msg: "HTTPS check for www.wilkesliberty.com: {{ https_check.status | default('Failed') }}"

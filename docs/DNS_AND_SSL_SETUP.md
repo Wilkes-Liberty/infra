@@ -46,11 +46,12 @@
 ```
 
 **Key Security Points:**
-- ✅ **on-prem server has ZERO public ports** - completely private
-- ✅ **Only Tailscale can reach on-prem server** - no direct internet access
-- ✅ **Njalla VPS is the only public server** - minimal attack surface
-- ✅ **Caddy auto-manages SSL** - no manual certificate management
-- ✅ **HTTPS everywhere** - HTTP auto-redirects to HTTPS
+- ✅ **on-prem server has ZERO public ports** — completely private
+- ✅ **Only Tailscale can reach on-prem server** — no direct internet access
+- ✅ **Njalla VPS is the only public server** — minimal attack surface
+- ✅ **Wildcard TLS cert** — certbot DNS-01 challenge for `*.wilkesliberty.com`; Caddy uses `auto_https off` and reads the certbot-managed cert directly
+- ✅ **TLS 1.2+ enforced** — TLS 1.0/1.1 rejected in Caddy global block
+- ✅ **Security headers** — HSTS, CSP, X-Frame-Options, Referrer-Policy, Permissions-Policy on all vhosts
 
 ---
 
@@ -105,62 +106,57 @@ terraform apply
 **Terraform will create:**
 
 | Record | Type | Name | Target | Purpose |
-|--------|------|------|--------|----------|
-| ✅ | A | `@` | `vps_ipv4` | Root domain (redirects to www) |
-| ✅ | A | `www` | `vps_ipv4` | Next.js frontend |
-| ✅ | A | `api` | `vps_ipv4` | Drupal GraphQL API |
-| ✅ | A | `auth` | `vps_ipv4` | Keycloak SSO |
-| ✅ | CAA | `@` | `letsencrypt.org` | SSL certificate authority |
-| 📝 | A | `analytics` | `vps_ipv4` | Grafana (commented out) |
+|--------|------|------|--------|---------|
+| ✅ | A / AAAA | `@` | `vps_ipv4` / `vps_ipv6` | Root domain |
+| ✅ | A / AAAA | `www` | VPS IP | Next.js frontend |
+| ✅ | A / AAAA | `api` | VPS IP | Drupal CMS / GraphQL (webcms repo) |
+| ✅ | A / AAAA | `auth` | VPS IP | Keycloak SSO |
+| ✅ | A / AAAA | `search` | VPS IP | Solr search (admin-CIDR restricted) |
+| ✅ | CNAME | `network` | `login.tailscale.com.` | VPN/network admin console |
+| 📝 | A / AAAA | `analytics` | VPS IP | Grafana (commented out — use internal URL instead) |
 
-**Optional IPv6 records** (if `vps_ipv6` is set):
-- AAAA records for `@`, `www`, `api`, `auth`
+**AAAA records** are conditional: only created when `vps_ipv6` variable is non-empty.
 
-**Benefits:**
-- ✅ Infrastructure as Code - DNS tracked in git
-- ✅ No manual web UI clicks - repeatable deployments
-- ✅ CAA records enforce Let's Encrypt certificates
-- ✅ Easy rollback with `terraform destroy`
-- ✅ Preview changes before applying
+> **CAA records are NOT managed by Terraform** — the Njalla provider (v0.10.0) doesn't support CAA. Add them manually in the Njalla web UI. See `DNS_RECORDS.md` for the exact values and verification command.
 
-### **Services NOT in DNS** (Private Only)
+### **Services NOT in Public DNS** (Internal / Tailscale-only)
 
-These services are accessed only via Tailscale VPN:
+These services use `*.int.wilkesliberty.com` (CoreDNS, Tailscale Split DNS):
 
-- **Prometheus** - `http://<onprem-tailscale-ip>:9090`
-- **Grafana/Analytics** - `http://<onprem-tailscale-ip>:3001` (or expose as `analytics.wilkesliberty.com`)
-- **Solr** - `http://<onprem-tailscale-ip>:8983` (Drupal talks to it directly)
-- **PostgreSQL** - Never publicly accessible
-- **Redis** - Never publicly accessible
+- **Grafana** — `https://monitor.int.wilkesliberty.com`
+- **Prometheus** — `https://prometheus.int.wilkesliberty.com`
+- **Alertmanager** — `https://alerts.int.wilkesliberty.com`
+- **PostgreSQL, Redis** — never externally accessible
+- **Internal Drupal / Keycloak admin** — `https://app.int.wilkesliberty.com`, `https://sso.int.wilkesliberty.com`
 
 ---
 
 ## 🔐 **Step 2: SSL Certificate Strategy**
 
-### **Automatic SSL with Caddy** (Recommended)
+### **Wildcard Certificate via certbot (DNS-01 challenge)**
 
-Caddy automatically obtains and renews SSL certificates from Let's Encrypt:
+Caddy is configured with `auto_https off` and uses a wildcard certificate obtained manually via certbot. This covers all subdomains with a single cert.
 
-**Advantages:**
-- ✅ Zero configuration required
-- ✅ Automatic renewal (no expiration issues)
-- ✅ HTTP → HTTPS automatic redirect
-- ✅ Perfect SSL Labs score (A+)
-- ✅ Supports HTTP/2 and HTTP/3
+**Obtain the certificate** (run on Njalla VPS):
 
-**How it works:**
-1. Caddy detects domain names in Caddyfile
-2. Requests certificates from Let's Encrypt
-3. Stores certificates in `/var/lib/caddy`
-4. Auto-renews 30 days before expiration
-5. Zero downtime during renewal
+```bash
+certbot certonly \
+  --manual \
+  --preferred-challenges dns \
+  -d "wilkesliberty.com" \
+  -d "*.wilkesliberty.com"
+```
 
-**Requirements:**
-- DNS must point to VPS (A records created)
-- Port 80 and 443 open (Caddy needs both)
-- Valid email address in Caddyfile
+certbot will prompt you to add a `_acme-challenge` TXT record in Njalla. Add it via the web UI, wait ~60 seconds, then press Enter.
 
-**No manual work needed!** Caddy handles everything.
+**Certificate location**: `/etc/letsencrypt/live/wilkesliberty.com/`
+
+**Renewal**: Run `certbot renew` and reload Caddy. Set up a cron job or systemd timer for automatic renewal. See `LETSENCRYPT_SSL_GUIDE.md` for full renewal instructions.
+
+**Verify certificate**:
+```bash
+openssl x509 -in /etc/letsencrypt/live/wilkesliberty.com/fullchain.pem -noout -dates
+```
 
 ---
 
@@ -674,43 +670,30 @@ Now access Grafana at: `https://grafana.wilkesliberty.com`
 
 ## 📋 **Summary Checklist**
 
-- [ ] **DNS Records Created** at Njalla (www, api, auth)
-- [ ] **Njalla VPS Provisioned** (Ubuntu 24.04, 1GB RAM)
-- [ ] **Tailscale Installed** on VPS and on-prem server
-- [ ] **Caddy Installed** on VPS
-- [ ] **Firewall Configured** (ports 22, 80, 443 only)
-- [ ] **Caddyfile Deployed** with correct Tailscale IP
-- [ ] **Next.js Frontend** deployed on VPS (PM2)
-- [ ] **DNS Propagated** (check with dig)
-- [ ] **SSL Certificates Issued** (automatic via Caddy)
-- [ ] **HTTPS Working** for all subdomains
-- [ ] **Backend Services Reachable** via Tailscale
-- [ ] **Security Headers** enabled (check with curl)
-- [ ] **Monitoring Configured** (Prometheus alert for cert expiry)
+- [ ] DNS records created via Terraform (www, api, auth, search, network CNAME, apex)
+- [ ] CAA records added manually in Njalla web UI (3 records)
+- [ ] Njalla VPS provisioned (Ubuntu 24.04, 1+ GB RAM)
+- [ ] Tailscale installed and connected on VPS and on-prem server
+- [ ] Subnet route `10.10.0.0/24` approved in Tailscale admin
+- [ ] Tailscale Split DNS configured for `int.wilkesliberty.com`
+- [ ] Caddy installed on VPS
+- [ ] Firewall configured (ports 22, 80, 443 only + Tailscale interface)
+- [ ] Wildcard cert obtained via certbot (`*.wilkesliberty.com`)
+- [ ] Caddyfile deployed (from `Caddyfile.production.j2` via Ansible)
+- [ ] Next.js frontend deployed on VPS (built from `ui` repo)
+- [ ] DNS propagated — `dig www.wilkesliberty.com` returns VPS IP
+- [ ] HTTPS working for all subdomains
+- [ ] TLS 1.1 rejected (TLS 1.2+ enforced)
+- [ ] Security headers present on all vhosts
+- [ ] Internal `*.int.wilkesliberty.com` resolves only on Tailscale
+- [ ] `dig CAA wilkesliberty.com` returns 3 records
 
 ---
 
-## 🎉 **Result**
+## Related Documentation
 
-You now have:
-
-✅ **Professional DNS setup**: www, api, auth subdomains  
-✅ **Automatic SSL**: Let's Encrypt with auto-renewal  
-✅ **Secure architecture**: Only VPS is public, on-prem server is private  
-✅ **HTTPS everywhere**: HTTP auto-redirects to HTTPS  
-✅ **Zero certificate management**: Caddy handles everything  
-✅ **Production-ready**: A+ SSL score, security headers, monitoring  
-
-**Total setup time**: ~2 hours  
-**Monthly cost**: ~$5-15 (Njalla VPS only)
-
----
-
-**Next Steps:**
-1. Deploy this setup (follow steps 1-6)
-2. Configure Drupal for GraphQL API
-3. Update Next.js to use `https://api.wilkesliberty.com`
-4. Test end-to-end flow (frontend → API → database)
-5. Monitor with Grafana dashboard
-
-**All your services are now secure, professional, and production-ready!** 🚀
+- `DNS_RECORDS.md` — Full DNS record reference
+- `TAILSCALE_SETUP.md` — Tailscale mesh and Split DNS
+- `LETSENCRYPT_SSL_GUIDE.md` — Certificate renewal procedures
+- `docs/TERRAFORM_DNS_QUICKSTART.md` — Terraform quick reference
+- `DEPLOYMENT_CHECKLIST.md` — Full deployment guide

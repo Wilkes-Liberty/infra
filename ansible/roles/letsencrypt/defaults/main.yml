@@ -7,65 +7,24 @@ letsencrypt_key_size: 2048
 letsencrypt_cert_dir: "/etc/letsencrypt"
 letsencrypt_webroot_path: "/var/www/html"
 
-# Challenge method (dns-01 recommended for wildcard certs)
-letsencrypt_challenge_method: "dns-01"  # or "http-01" for individual certs
+# Challenge method
+letsencrypt_challenge_method: "dns-01"  # DNS-01 required for wildcard certs
 letsencrypt_dns_plugin: "njalla"        # Custom DNS plugin for Njalla
 
-# Certificate types to manage
+# Certificate configuration
+# Single wildcard certificate covers all public subdomains and internal services.
+# Obtained on the Njalla VPS via: certbot certonly --manual --preferred-challenges dns
+#   -d "wilkesliberty.com" -d "*.wilkesliberty.com"
 letsencrypt_certificates:
-  # Internal wildcard certificate for service-to-service communication
-  - name: "internal_wildcard"
-    domains:
-      - "*.int.wilkesliberty.com"
-    challenge: "dns-01"
-    services_to_restart:
-      - nginx
-      - apache2
-      - caddy
-    deploy_hook: "/etc/letsencrypt/renewal-hooks/deploy/restart-internal-services.sh"
-    description: "Internal services SSL certificate"
-  
-  # Main domain certificate for public website
-  - name: "main_domain"
+  - name: "wilkesliberty_wildcard"
     domains:
       - "wilkesliberty.com"
-      - "www.wilkesliberty.com"
+      - "*.wilkesliberty.com"
     challenge: "dns-01"
     services_to_restart:
-      - nginx
       - caddy
-    deploy_hook: "/etc/letsencrypt/renewal-hooks/deploy/restart-web-services.sh"
-    description: "Main website SSL certificate"
-  
-  # Public API and services certificates
-  - name: "api_certificate"
-    domains:
-      - "api.wilkesliberty.com"
-    challenge: "dns-01"
-    services_to_restart:
-      - nginx
-      - caddy
-    deploy_hook: "/etc/letsencrypt/renewal-hooks/deploy/restart-api-services.sh"
-    description: "API endpoint SSL certificate"
-  
-  - name: "sso_certificate"
-    domains:
-      - "sso.wilkesliberty.com"
-    challenge: "dns-01"
-    services_to_restart:
-      - nginx
-      - authentik-server
-    deploy_hook: "/etc/letsencrypt/renewal-hooks/deploy/restart-sso-services.sh"
-    description: "SSO service SSL certificate"
-  
-  - name: "stats_certificate"
-    domains:
-      - "stats.wilkesliberty.com"
-    challenge: "dns-01"
-    services_to_restart:
-      - nginx
-    deploy_hook: "/etc/letsencrypt/renewal-hooks/deploy/restart-analytics-services.sh"
-    description: "Analytics/stats SSL certificate"
+    deploy_hook: "/etc/letsencrypt/renewal-hooks/deploy/reload-caddy.sh"
+    description: "Wildcard certificate for all wilkesliberty.com subdomains"
 
 # Renewal configuration
 letsencrypt_renewal_frequency: "daily"

@@ -124,17 +124,21 @@ terraform apply
 
 | Subdomain | Record Type | Points To | Purpose |
 |-----------|-------------|-----------|---------|
-| `@` (root) | A + AAAA | VPS IP | Redirects to www |
+| `@` (root) | A + AAAA | VPS IP | Root domain |
 | `www` | A + AAAA | VPS IP | Next.js frontend |
-| `api` | A + AAAA | VPS IP | Drupal GraphQL |
+| `api` | A + AAAA | VPS IP | Drupal CMS / GraphQL (webcms repo) |
 | `auth` | A + AAAA | VPS IP | Keycloak SSO |
-| `@` | CAA x3 | Let's Encrypt | SSL enforcement |
+| `search` | A + AAAA | VPS IP | Solr search (admin-CIDR restricted) |
+| `network` | CNAME | `login.tailscale.com.` | VPN/network admin console |
+
+> **Note**: AAAA records are conditional — only created when `vps_ipv6` is non-empty.
+> **CAA records** are NOT managed by Terraform (provider limitation). Add them manually in Njalla web UI. See `DNS_RECORDS.md`.
 
 ### **Available (Commented Out):**
 
 | Subdomain | Status | Purpose |
 |-----------|--------|---------|
-| `analytics` | 📝 Commented | Grafana dashboard (uncomment in records.tf) |
+| `analytics` | Commented | Grafana (use `monitor.int.wilkesliberty.com` instead) |
 
 ---
 
@@ -198,12 +202,18 @@ git check-ignore terraform.tfvars
 # Should output: terraform.tfvars
 ```
 
-### **CAA Records Enabled**
+### **CAA Records (Manual)**
 
-Terraform automatically enforces CAA records:
-- ✅ Only Let's Encrypt can issue certificates
-- ✅ Prevents rogue certificate authorities
-- ✅ Email notifications to `security@wilkesliberty.com`
+CAA records are **not** managed by Terraform — the Njalla provider (v0.10.0) doesn't support them. Add them manually in the Njalla web UI:
+
+| Tag | Value |
+|-----|-------|
+| `issue` | `"letsencrypt.org"` |
+| `issuewild` | `"letsencrypt.org"` |
+| `iodef` | `"mailto:admin@wilkesliberty.com"` |
+
+Verify: `dig CAA wilkesliberty.com`
+Monitor: https://crt.sh/?q=wilkesliberty.com
 
 ---
 

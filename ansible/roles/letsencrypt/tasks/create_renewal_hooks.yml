@@ -1,167 +1,36 @@
 ---
-# Create renewal hooks for different service types
-
-- name: Create internal services restart hook
-  copy:
-    content: |
-      #!/bin/bash
-      # Internal services restart hook for Let's Encrypt
-      # Restarts services that use internal certificates
-      
-      LOG="/var/log/letsencrypt/renewal.log"
-      
-      echo "$(date): Internal services certificate renewed, restarting services..." >> $LOG
-      
-      # Restart web servers if they exist
-      for service in nginx apache2 caddy; do
-          if systemctl is-active --quiet $service; then
-              echo "$(date): Restarting $service..." >> $LOG
-              systemctl reload $service && echo "$(date): $service reloaded successfully" >> $LOG || echo "$(date): Failed to reload $service" >> $LOG
-          fi
-      done
-      
-      # Update file permissions
-      if [ -d "/etc/letsencrypt/live" ]; then
-          find /etc/letsencrypt/live -name "fullchain.pem" -exec chmod 644 {} \;
-          find /etc/letsencrypt/live -name "privkey.pem" -exec chmod 600 {} \;
-          chgrp -R ssl-cert /etc/letsencrypt/live
-      fi
-      
-      echo "$(date): Internal services restart hook completed" >> $LOG
-    dest: /etc/letsencrypt/renewal-hooks/deploy/restart-internal-services.sh
-    mode: '0755'
-    owner: root
-    group: root
-  become: yes
-
-- name: Create web services restart hook  
-  copy:
-    content: |
-      #!/bin/bash
-      # Web services restart hook for Let's Encrypt
-      # Restarts services for main website
-      
-      LOG="/var/log/letsencrypt/renewal.log"
-      
-      echo "$(date): Web services certificate renewed, restarting services..." >> $LOG
-      
-      # Restart web servers
-      for service in nginx caddy; do
-          if systemctl is-active --quiet $service; then
-              echo "$(date): Restarting $service..." >> $LOG
-              systemctl reload $service && echo "$(date): $service reloaded successfully" >> $LOG || echo "$(date): Failed to reload $service" >> $LOG
-          fi
-      done
-      
-      # Restart Varnish cache if it exists
-      if systemctl is-active --quiet varnish; then
-          echo "$(date): Restarting varnish..." >> $LOG
-          systemctl reload varnish && echo "$(date): varnish reloaded successfully" >> $LOG || echo "$(date): Failed to reload varnish" >> $LOG
-      fi
-      
-      echo "$(date): Web services restart hook completed" >> $LOG
-    dest: /etc/letsencrypt/renewal-hooks/deploy/restart-web-services.sh
-    mode: '0755'
-    owner: root
-    group: root
-  become: yes
-
-- name: Create API services restart hook
-  copy:
-    content: |
-      #!/bin/bash
-      # API services restart hook for Let's Encrypt
-      # Restarts services for API endpoints
-      
-      LOG="/var/log/letsencrypt/renewal.log"
-      
-      echo "$(date): API services certificate renewed, restarting services..." >> $LOG
-      
-      # Restart web servers
-      for service in nginx caddy; do
-          if systemctl is-active --quiet $service; then
-              echo "$(date): Restarting $service..." >> $LOG
-              systemctl reload $service && echo "$(date): $service reloaded successfully" >> $LOG || echo "$(date): Failed to reload $service" >> $LOG
-          fi
-      done
-      
-      echo "$(date): API services restart hook completed" >> $LOG
-    dest: /etc/letsencrypt/renewal-hooks/deploy/restart-api-services.sh
-    mode: '0755'
-    owner: root
-    group: root
-  become: yes
-
-- name: Create SSO services restart hook
-  copy:
-    content: |
-      #!/bin/bash
-      # SSO services restart hook for Let's Encrypt
-      # Restarts Authentik and related services
-      
-      LOG="/var/log/letsencrypt/renewal.log"
-      
-      echo "$(date): SSO services certificate renewed, restarting services..." >> $LOG
-      
-      # Restart web servers
-      for service in nginx; do
-          if systemctl is-active --quiet $service; then
-              echo "$(date): Restarting $service..." >> $LOG
-              systemctl reload $service && echo "$(date): $service reloaded successfully" >> $LOG || echo "$(date): Failed to reload $service" >> $LOG
-          fi
-      done
-      
-      # Restart Authentik services
-      for service in authentik-server authentik-worker; do
-          if systemctl is-active --quiet $service; then
-              echo "$(date): Restarting $service..." >> $LOG
-              systemctl restart $service && echo "$(date): $service restarted successfully" >> $LOG || echo "$(date): Failed to restart $service" >> $LOG
-          fi
-      done
-      
-      # If using Docker Compose for Authentik
-      if [ -f "/opt/authentik/docker-compose.yml" ]; then
-          echo "$(date): Restarting Authentik via Docker Compose..." >> $LOG
-          cd /opt/authentik && docker-compose restart && echo "$(date): Authentik Docker services restarted" >> $LOG || echo "$(date): Failed to restart Authentik Docker services" >> $LOG
-      fi
-      
-      echo "$(date): SSO services restart hook completed" >> $LOG
-    dest: /etc/letsencrypt/renewal-hooks/deploy/restart-sso-services.sh
-    mode: '0755'
-    owner: root
-    group: root
-  become: yes
-
-- name: Create analytics services restart hook
-  copy:
-    content: |
-      #!/bin/bash
-      # Analytics services restart hook for Let's Encrypt
-      # Restarts services for analytics/monitoring
-      
-      LOG="/var/log/letsencrypt/renewal.log"
-      
-      echo "$(date): Analytics services certificate renewed, restarting services..." >> $LOG
-      
-      # Restart web servers
-      for service in nginx; do
-          if systemctl is-active --quiet $service; then
-              echo "$(date): Restarting $service..." >> $LOG
-              systemctl reload $service && echo "$(date): $service reloaded successfully" >> $LOG || echo "$(date): Failed to reload $service" >> $LOG
-          fi
-      done
-      
-      echo "$(date): Analytics services restart hook completed" >> $LOG
-    dest: /etc/letsencrypt/renewal-hooks/deploy/restart-analytics-services.sh
-    mode: '0755'
-    owner: root
-    group: root
-  become: yes
+# Create renewal hooks for Let's Encrypt certificate deployment
 
 - name: Create log directory for renewal hooks
   file:
     path: /var/log/letsencrypt
     state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  become: yes
+
+- name: Create Caddy reload hook
+  copy:
+    content: |
+      #!/bin/bash
+      # Renewal deploy hook: reload Caddy after certificate renewal
+      # Installed at /etc/letsencrypt/renewal-hooks/deploy/reload-caddy.sh
+
+      LOG="/var/log/letsencrypt/renewal.log"
+
+      echo "$(date): Certificate renewed, reloading Caddy..." >> "$LOG"
+
+      if systemctl is-active --quiet caddy; then
+          systemctl reload caddy \
+              && echo "$(date): Caddy reloaded successfully" >> "$LOG" \
+              || echo "$(date): ERROR: Failed to reload Caddy" >> "$LOG"
+      else
+          echo "$(date): WARNING: Caddy is not running, skipping reload" >> "$LOG"
+      fi
+
+      echo "$(date): Renewal hook completed" >> "$LOG"
+    dest: /etc/letsencrypt/renewal-hooks/deploy/reload-caddy.sh
     mode: '0755'
     owner: root
     group: root

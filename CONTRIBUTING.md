@@ -506,7 +506,7 @@ resource "njalla_record" "www_cname" {
   domain = var.domain_name
   type   = "CNAME" 
   name   = "www"
-  value  = "cache1.prod.${var.domain_name}."
+  value  = var.vps_ip
   ttl    = 3600
 }
 

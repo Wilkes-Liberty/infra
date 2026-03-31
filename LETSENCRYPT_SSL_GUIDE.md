@@ -1,411 +1,228 @@
 # Let's Encrypt SSL Certificate Management for Wilkes Liberty
 
-This guide covers comprehensive SSL/TLS certificate management for your infrastructure using Let's Encrypt with both internal and external domains.
+SSL/TLS certificate management for the two-host infrastructure: Njalla VPS (public ingress) and on-prem server (internal services via Tailscale).
 
-## 📋 Certificate Strategy
+## Certificate Strategy
 
-### ✅ Hybrid Certificate Approach
-1. **Internal Wildcard**: `*.int.wilkesliberty.com` - For service-to-service communication
-2. **External Individual**: Separate certs for public services
-3. **DNS-01 Challenge**: Uses Njalla API for all certificates
+### Single Wildcard Certificate (Current Approach)
 
-### 🌟 Certificate Coverage
+We use **one wildcard certificate** obtained via certbot DNS-01 challenge, covering all subdomains:
 
-| Certificate | Domains | Purpose | Challenge |
-|-------------|---------|---------|-----------|
-| **internal_wildcard** | `*.int.wilkesliberty.com` | Internal services | DNS-01 |
-| **main_domain** | `wilkesliberty.com`, `www.wilkesliberty.com` | Main website | DNS-01 |
-| **api_certificate** | `api.wilkesliberty.com` | API endpoints | DNS-01 |
-| **sso_certificate** | `sso.wilkesliberty.com` | Authentik SSO | DNS-01 |
-| **stats_certificate** | `stats.wilkesliberty.com` | Analytics | DNS-01 |
+| Certificate | Domains | Where Used |
+|-------------|---------|------------|
+| `wilkesliberty_wildcard` | `wilkesliberty.com`, `*.wilkesliberty.com` | VPS Caddy (public vhosts) |
 
-## 🚀 Quick Start
+This single cert covers `www`, `api`, `auth`, `search`, and any future subdomains. Caddy is configured with `auto_https off` and reads the certbot-managed certificate directly.
 
-### 1. Verify Njalla API Token in Existing Secrets
+> **Internal services** (`*.int.wilkesliberty.com`) are served by the internal Caddy instance on the on-prem server, which also uses this wildcard cert (deployed to on-prem via Ansible).
+
+---
+
+## Quick Start: Obtain Wildcard Certificate (on Njalla VPS)
 
 ```bash
-# Check your existing terraform secrets file (already contains njalla_api_token)
-sops -d terraform_secrets.yml | grep njalla_api_token
+certbot certonly \
+  --manual \
+  --preferred-challenges dns \
+  -d "wilkesliberty.com" \
+  -d "*.wilkesliberty.com"
 ```
 
-**✅ Good news**: Your existing `terraform_secrets.yml` already contains the required `njalla_api_token`!
+certbot will prompt you to add a `_acme-challenge` TXT record in Njalla. Add it via the Njalla web UI, wait ~60 seconds for DNS propagation, then press Enter to continue.
 
-No additional setup needed - the Let's Encrypt playbook will use your existing secrets file.
-
-### 2. Deploy Certificates to All Servers
+### Verify Certificate
 
 ```bash
-# Deploy to all hosts that need certificates
-ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/letsencrypt.yml
-
-# Or deploy to specific services
-ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/letsencrypt.yml --limit cache
-```
-
-### 3. Verify Certificate Installation
-
-```bash
-# Check certificate status
-ansible -i ansible/inventory/hosts.ini fleet -m shell -a "certbot certificates"
-
-# Check certificate expiration
-ansible -i ansible/inventory/hosts.ini fleet -m shell -a "cat /var/log/letsencrypt/certificate-status.md"
-```
-
-## 📁 File Structure
-
-```
-ansible/roles/letsencrypt/
-├── defaults/main.yml           # Certificate configuration
-├── tasks/
-│   ├── main.yml               # Main orchestration
-│   ├── install_njalla_plugin.yml  # Custom Njalla DNS plugin
-│   ├── generate_certificate.yml   # Individual cert generation
-│   ├── create_renewal_hooks.yml   # Service restart hooks
-│   └── verify_certificates.yml    # Health checking
-└── templates/
-    └── njalla-credentials.ini.j2   # API credentials template
-```
-
-## 🔧 Configuration
-
-### Per-Host Certificate Selection
-
-You can customize which certificates each host gets by overriding the `letsencrypt_certificates` variable in host_vars:
-
-```yaml
-# ansible/inventory/host_vars/app1.prod.wilkesliberty.com.yml
-letsencrypt_certificates:
-  - name: "internal_wildcard"
-    domains: ["*.int.wilkesliberty.com"]
-    challenge: "dns-01"
-    services_to_restart: ["nginx"]
-  - name: "main_domain" 
-    domains: ["wilkesliberty.com", "www.wilkesliberty.com"]
-    challenge: "dns-01"
-    services_to_restart: ["nginx", "caddy"]
-```
-
-### Service-Specific Configuration
-
-```yaml
-# For cache server (cache1.prod.wilkesliberty.com)
-letsencrypt_certificates:
-  - name: "internal_wildcard"
-    domains: ["*.int.wilkesliberty.com"]
-    challenge: "dns-01"
-    services_to_restart: ["nginx", "caddy", "varnish"]
-
-# For SSO server (sso1.prod.wilkesliberty.com)  
-letsencrypt_certificates:
-  - name: "internal_wildcard"
-    domains: ["*.int.wilkesliberty.com"]
-    challenge: "dns-01"
-    services_to_restart: ["nginx"]
-  - name: "sso_certificate"
-    domains: ["sso.wilkesliberty.com"]
-    challenge: "dns-01"
-    services_to_restart: ["nginx", "authentik-server"]
-```
-
-## 🔄 Certificate Usage
-
-### Internal Service Communication
-
-```bash
-# Services can now communicate securely using internal domains:
-curl https://app.int.wilkesliberty.com/api/health
-curl https://db.int.wilkesliberty.com:3306  # If MySQL has SSL enabled
-curl https://search.int.wilkesliberty.com:8983/solr/admin/ping
-```
-
-### External Access
-
-```bash
-# Public services with individual certificates:
-curl https://wilkesliberty.com
-curl https://api.wilkesliberty.com/v1/status
-curl https://sso.wilkesliberty.com/application/o/authorize/
-curl https://stats.wilkesliberty.com/dashboard
+ls /etc/letsencrypt/live/wilkesliberty.com/
+openssl x509 -in /etc/letsencrypt/live/wilkesliberty.com/fullchain.pem -noout -dates
 ```
 
 ### Certificate File Locations
 
-After deployment, certificates are available at:
-
 ```bash
-# Primary locations (managed by certbot)
-/etc/letsencrypt/live/wilkesliberty.com/fullchain.pem
-/etc/letsencrypt/live/wilkesliberty.com/privkey.pem
-/etc/letsencrypt/live/*.int.wilkesliberty.com/fullchain.pem
-/etc/letsencrypt/live/*.int.wilkesliberty.com/privkey.pem
-
-# Convenience symlinks (created by Ansible)
-/etc/ssl/certs/internal_wildcard_fullchain.pem
-/etc/ssl/private/internal_wildcard_privkey.pem
-/etc/ssl/certs/main_domain_fullchain.pem
-/etc/ssl/private/main_domain_privkey.pem
+/etc/letsencrypt/live/wilkesliberty.com/fullchain.pem   # Certificate + chain
+/etc/letsencrypt/live/wilkesliberty.com/privkey.pem     # Private key
+/etc/letsencrypt/live/wilkesliberty.com/cert.pem        # Certificate only
+/etc/letsencrypt/live/wilkesliberty.com/chain.pem       # Intermediate chain
 ```
 
-## 🔁 Automatic Renewal
+---
 
-### Renewal Schedule
-- **Frequency**: Daily at 2:30 AM (randomized ±1 hour)
-- **Method**: DNS-01 challenge via Njalla API
-- **Actions**: Automatic service restarts via hooks
+## Caddy TLS Configuration
 
-### Manual Renewal
+Caddy on the VPS uses `auto_https off` and references the certbot cert directly:
+
+```caddyfile
+{
+    auto_https off
+    tls {
+        protocols tls1.2 tls1.3
+    }
+}
+
+www.wilkesliberty.com {
+    tls /etc/letsencrypt/live/wilkesliberty.com/fullchain.pem \
+        /etc/letsencrypt/live/wilkesliberty.com/privkey.pem
+    # ... routes
+}
+```
+
+---
+
+## Automatic Renewal
+
+### Renewal via certbot
 
 ```bash
 # Renew all certificates
 certbot renew
 
-# Renew specific certificate
-certbot renew --cert-name wilkesliberty.com
-
-# Force renewal (for testing)
-certbot renew --force-renewal
-
-# Dry run (test renewal process)
+# Dry run (test renewal without making changes)
 certbot renew --dry-run
+
+# Force renewal
+certbot renew --force-renewal
+```
+
+After renewal, reload Caddy to pick up the new cert:
+
+```bash
+caddy reload
+# Or
+systemctl reload caddy
+```
+
+### Set Up Automatic Renewal (cron or systemd)
+
+```bash
+# Add to crontab (runs daily at 2:30 AM)
+echo "30 2 * * * root certbot renew --quiet && systemctl reload caddy" >> /etc/cron.d/certbot-renew
+```
+
+Or use the systemd timer that certbot typically installs automatically:
+
+```bash
+systemctl status certbot.timer
+systemctl enable certbot.timer
 ```
 
 ### Renewal Logs
 
 ```bash
-# Check renewal logs
-tail -f /var/log/letsencrypt/renewal.log
-
-# Check certificate status
-cat /var/log/letsencrypt/certificate-status.md
-
-# Check certificate management log
-tail -f /var/log/letsencrypt/certificate-management.log
+tail -f /var/log/letsencrypt/letsencrypt.log
+journalctl -u certbot -f
 ```
 
-## 🛠️ Nginx Configuration Examples
+---
 
-### Internal Services
+## DNS-01 Challenge Reference
 
-```nginx
-# /etc/nginx/sites-available/internal-api
-server {
-    listen 443 ssl http2;
-    server_name app.int.wilkesliberty.com;
-    
-    # Use internal wildcard certificate
-    ssl_certificate /etc/ssl/certs/internal_wildcard_fullchain.pem;
-    ssl_certificate_key /etc/ssl/private/internal_wildcard_privkey.pem;
-    
-    # SSL configuration
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384;
-    ssl_prefer_server_ciphers off;
-    
-    location / {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
+The wildcard cert (`*.wilkesliberty.com`) requires a DNS-01 challenge — HTTP-01 cannot issue wildcards.
 
-### Public Services
+**Manual process** (what we use):
+1. Run `certbot certonly --manual --preferred-challenges dns -d "wilkesliberty.com" -d "*.wilkesliberty.com"`
+2. certbot provides a TXT record value
+3. Add `_acme-challenge.wilkesliberty.com TXT "<value>"` in Njalla web UI
+4. Verify propagation: `dig TXT _acme-challenge.wilkesliberty.com @8.8.8.8`
+5. Press Enter in certbot to complete
 
-```nginx
-# /etc/nginx/sites-available/main-site
-server {
-    listen 443 ssl http2;
-    server_name wilkesliberty.com www.wilkesliberty.com;
-    
-    # Use main domain certificate
-    ssl_certificate /etc/ssl/certs/main_domain_fullchain.pem;
-    ssl_certificate_key /etc/ssl/private/main_domain_privkey.pem;
-    
-    # SSL configuration
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384;
-    ssl_prefer_server_ciphers off;
-    
-    # HSTS header
-    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload";
-    
-    location / {
-        proxy_pass http://cache.int.wilkesliberty.com:6081;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
+**Automated renewal** can be set up with the `certbot-dns-njalla` plugin if available, or by scripting the Njalla API. For now, renewals are manual (certs are valid 90 days; renew before 30 days remaining).
 
-## 🔍 Monitoring and Alerts
+---
 
-### Certificate Expiration Monitoring
+## Monitoring Certificate Expiry
 
-The role automatically creates monitoring scripts:
+### Check Expiry Date
 
 ```bash
-# Check all certificate expiration dates
-/usr/local/bin/check-cert-expiry.sh
-
-# Get certificates expiring within 30 days
-grep "Days until expiry:" /var/log/letsencrypt/certificate-status.md | awk '$NF < 30'
+openssl x509 -in /etc/letsencrypt/live/wilkesliberty.com/fullchain.pem -noout -enddate
+# or
+certbot certificates
 ```
 
-### Integration with Existing Monitoring
+### Prometheus Alert (from alerts.yml)
 
-Add to your monitoring system:
-
-```bash
-# Prometheus metrics (if using node_exporter textfile collector)
-echo "ssl_cert_expiry_days{domain=\"wilkesliberty.com\"} $(( ($(date -d \"$(openssl x509 -enddate -noout -in /etc/letsencrypt/live/wilkesliberty.com/cert.pem | cut -d= -f2)\" +%s) - $(date +%s)) / 86400 ))" > /var/lib/node_exporter/textfile_collector/ssl_cert_expiry.prom
+```yaml
+- alert: CertificateExpiringSoon
+  expr: (ssl_certificate_expiry_seconds - time()) / 86400 < 30
+  labels:
+    severity: warning
+  annotations:
+    summary: "SSL certificate expiring in {{ $value | printf \"%.0f\" }} days"
 ```
 
-## 🚨 Troubleshooting
+### Monitor Certificate Transparency
 
-### Common Issues
+Track issued certificates at: https://crt.sh/?q=wilkesliberty.com
 
-#### 1. DNS-01 Challenge Failures
+This lets you detect any unauthorized certificate issuances (complements CAA records).
+
+---
+
+## Troubleshooting
+
+### DNS-01 Challenge Failure
+
 ```bash
-# Check Njalla API connectivity
-curl -H "Authorization: Njalla YOUR_TOKEN" \
-     --data '{"jsonrpc": "2.0", "method": "list-domains", "params": {}, "id": "1"}' \
-     https://njal.la/api/1/
-
 # Check DNS propagation
 dig TXT _acme-challenge.wilkesliberty.com @8.8.8.8
+dig TXT _acme-challenge.wilkesliberty.com @1.1.1.1
+
+# If not propagated, wait 30–60 seconds and retry
+# Njalla typically propagates in under 30 seconds
 ```
 
-#### 2. Certificate Generation Failures
+### Caddy Not Picking Up Renewed Cert
+
 ```bash
-# Check certbot logs
-tail -f /var/log/letsencrypt/letsencrypt.log
+# Reload Caddy after renewal
+systemctl reload caddy
+journalctl -u caddy -n 50
 
-# Test with staging environment
-certbot certonly --staging --dns-njalla --dns-njalla-credentials /etc/letsencrypt/njalla-credentials.ini -d test.wilkesliberty.com
-
-# Verify plugin installation
-certbot plugins
+# Verify Caddy is reading the correct cert
+echo | openssl s_client -servername www.wilkesliberty.com -connect localhost:443 2>/dev/null \
+  | openssl x509 -noout -dates
 ```
 
-#### 3. Service Restart Issues
+### Certificate Rate Limits
+
+Let's Encrypt allows 5 duplicate certificates per week. If you hit the limit:
+- Use `--staging` flag to test: `certbot certonly --staging ...`
+- Wait until the weekly window resets
+- Staging certs are not trusted by browsers but work for testing
+
+### Permission Issues
+
 ```bash
-# Check service status after certificate renewal
-systemctl status nginx
-systemctl status caddy
-systemctl status authentik-server
-
-# Manually test renewal hooks
-/etc/letsencrypt/renewal-hooks/deploy/restart-web-services.sh
-```
-
-#### 4. Permission Issues
-```bash
-# Fix certificate permissions
-chmod 644 /etc/letsencrypt/live/*/fullchain.pem
-chmod 600 /etc/letsencrypt/live/*/privkey.pem
-chgrp -R ssl-cert /etc/letsencrypt/live/
-
-# Add services to ssl-cert group
-usermod -a -G ssl-cert www-data
+chmod 644 /etc/letsencrypt/live/wilkesliberty.com/fullchain.pem
+chmod 600 /etc/letsencrypt/live/wilkesliberty.com/privkey.pem
+# Add caddy user to certificate access group if needed
 usermod -a -G ssl-cert caddy
 ```
 
-### Recovery Procedures
+### Emergency Self-Signed Certificate
 
-#### Restore from Backup
 ```bash
-# Restore certificates from backup
-cp -r /var/backups/letsencrypt/latest/* /etc/letsencrypt/
-systemctl reload nginx
-```
-
-#### Emergency Certificate Generation
-```bash
-# Generate temporary self-signed certificate
+# Temporary self-signed cert (not trusted by browsers — emergency use only)
 openssl req -x509 -nodes -days 7 -newkey rsa:2048 \
     -keyout /etc/ssl/private/emergency.key \
     -out /etc/ssl/certs/emergency.crt \
-    -subj "/C=US/ST=State/L=City/O=Organization/CN=wilkesliberty.com"
+    -subj "/CN=wilkesliberty.com"
 ```
 
-## 📝 Playbook Integration
-
-### Create Certificate Management Playbook
-
-```bash
-# Create the playbook file
-cat > ansible/playbooks/letsencrypt.yml << 'EOF'
 ---
-# Let's Encrypt Certificate Management Playbook
 
-- name: Deploy Let's Encrypt certificates
-  hosts: fleet
-  become: yes
-  vars_files:
-    - ../inventory/group_vars/letsencrypt_secrets.yml
-  
-  roles:
-    - letsencrypt
+## Security Notes
 
-  post_tasks:
-    - name: Verify web services are running with SSL
-      uri:
-        url: "https://{{ ansible_fqdn }}"
-        method: GET
-        validate_certs: no
-        timeout: 10
-      ignore_errors: yes
-      register: ssl_check
-      
-    - name: Report SSL verification results
-      debug:
-        msg: "SSL check for {{ ansible_fqdn }}: {{ ssl_check.status | default('Failed') }}"
-EOF
-```
+- **CAA records**: Manually added to Njalla — only `letsencrypt.org` can issue certificates for `wilkesliberty.com`. Run `dig CAA wilkesliberty.com` to verify.
+- **Private key permissions**: Must be `600`, owned by root (or the user running Caddy)
+- **Key storage**: Never commit private keys to git. The cert is only on the VPS filesystem.
+- **API token**: The Njalla API token is in `terraform_secrets.yml` (SOPS-encrypted). DNS-01 manual renewal doesn't require the token at renewal time — only when running certbot interactively.
 
-### Update Your Site Playbook
+---
 
-```yaml
-# Add to ansible/playbooks/site.yml
-- hosts: fleet
-  roles:
-    - common
-    - letsencrypt  # Add this after common setup
-    # ... other roles
-```
+## Related Documentation
 
-## 📊 Certificate Management Dashboard
-
-After deployment, view certificate status:
-
-```bash
-# Generate certificate status report
-ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/letsencrypt.yml --tags verify
-
-# View certificate dashboard
-cat /var/log/letsencrypt/certificate-status.md
-```
-
-## 🎯 Next Steps
-
-1. **Deploy the role**: `ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/letsencrypt.yml`
-2. **Verify certificates**: Check `/var/log/letsencrypt/certificate-status.md` on each server
-3. **Configure services**: Update Nginx/Apache configurations to use the certificates
-4. **Set up monitoring**: Integrate certificate expiry alerts with your monitoring system
-5. **Test renewal**: Run `certbot renew --dry-run` to verify automatic renewal works
-
-## 🔐 Security Best Practices
-
-- **API Token Security**: Store Njalla API token in SOPS-encrypted secrets
-- **File Permissions**: Certificates readable by ssl-cert group, private keys 600
-- **Network Security**: Internal certificates only accessible within Tailscale mesh
-- **Monitoring**: Alert on certificates expiring within 30 days
-- **Backup**: Daily backup of certificate files
-- **Rotation**: Regular API token rotation (quarterly recommended)
-
-Your infrastructure now has comprehensive SSL/TLS coverage for both internal service communication and external public access!
+- `DNS_RECORDS.md` — DNS record reference including CAA records
+- `DEPLOYMENT_CHECKLIST.md` — Full deployment guide (Section 6: Let's Encrypt)
+- `docs/DNS_AND_SSL_SETUP.md` — DNS and SSL setup walkthrough
