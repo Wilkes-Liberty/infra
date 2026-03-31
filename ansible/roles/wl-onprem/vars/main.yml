@@ -1,2 +1,6 @@
-drupal_db_password: "{{ vault_drupal_db_password }}"
-keycloak_admin_password: "{{ vault_keycloak_admin_password }}"
+# Secrets are provided directly by SOPS-encrypted group_vars files.
+# drupal_db_password    → from ansible/inventory/group_vars/all_secrets.yml (or similar)
+# keycloak_db_password  → from ansible/inventory/group_vars/sso_secrets.yml
+# keycloak_redis_password → from ansible/inventory/group_vars/sso_secrets.yml
+# keycloak_secret_key   → from ansible/inventory/group_vars/sso_secrets.yml
+# keycloak_admin_password → from ansible/inventory/group_vars/sso_secrets.yml

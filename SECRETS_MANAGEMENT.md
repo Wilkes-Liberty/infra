@@ -72,6 +72,44 @@ cat ~/.config/sops/age/keys.txt
 # AGE-SECRET-KEY-15N68T5AGGFPY7CJU9WH62CSGHEYQDU6W974SA3U7ESV7XF0V7JMSJT7J3S
 ```
 
+## Docker Environment Secrets (`.env`)
+
+Docker secrets are stored in `~/nas_docker/.env` (never committed to git). Use `docker/.env.example` as the template.
+
+```bash
+cp docker/.env.example ~/nas_docker/.env
+chmod 600 ~/nas_docker/.env   # Restrict access immediately
+nano ~/nas_docker/.env        # Fill in production values
+```
+
+### Required Docker Secrets
+
+| Variable | Description |
+|----------|-------------|
+| `DRUPAL_DB_PASSWORD` | PostgreSQL password for the `drupal` database user |
+| `REDIS_PASSWORD` | Redis authentication password — required by both Redis (`--requirepass`) and Drupal (`settings.docker.php`) |
+| `KEYCLOAK_DB_PASSWORD` | PostgreSQL password for the Keycloak database |
+| `KEYCLOAK_ADMIN_PASSWORD` | Keycloak admin console password |
+| `GRAFANA_ADMIN_PASSWORD` | Grafana admin password |
+| `BACKUP_ENCRYPTION_KEY` | AGE-compatible key for encrypting backup archives (required) |
+
+### Redis Password
+
+Redis is configured with `--requirepass` — unauthenticated connections are rejected. The `REDIS_PASSWORD` value must be set in `.env` before starting the stack. It is read by:
+
+1. **Redis container**: `command: redis-server --requirepass ${REDIS_PASSWORD}`
+2. **Drupal container**: `REDIS_PASSWORD` env var → `settings.docker.php` → `$settings['redis.connection']['password']`
+
+To rotate the Redis password:
+```bash
+# 1. Update REDIS_PASSWORD in ~/nas_docker/.env
+# 2. Restart both services
+cd ~/nas_docker
+docker compose restart redis drupal
+```
+
+---
+
 ## Working with Encrypted Files
 
 ### Current Encrypted Files
@@ -417,6 +455,6 @@ All encrypted secrets files must end with `_secrets.yml`:
 
 ## Related Documentation
 
-- `TAILSCALE_SETUP.md` - How to set up Tailscale secrets
-- `ansible/README.md` - Variable precedence and structure
-- `WARP.md` - Overall infrastructure documentation
+- `TAILSCALE_SETUP.md` — Tailscale VPN mesh and Split DNS setup
+- `ansible/README.md` — Variable precedence and structure
+- `README.md` — Architecture overview and quick start

@@ -96,9 +96,9 @@ terraform show    # View current state
 
 | Service | Container | Port | Purpose |
 |---------|-----------|------|---------|
-| Drupal 11 | wl_drupal | 8080 | Headless CMS, GraphQL/JSON:API |
+| Drupal 11 | wl_drupal | 8080 | Headless CMS, GraphQL/JSON:API — built from `webcms` repo, public at `api.wilkesliberty.com` |
 | PostgreSQL 16 | wl_postgres | internal | Primary database |
-| Redis 7 | wl_redis | internal | Object cache (allkeys-lru) |
+| Redis 7 | wl_redis | internal | Object cache (allkeys-lru, password-authenticated via REDIS_PASSWORD) |
 | Keycloak 25 | wl_keycloak | 8081/9000 | SSO, OAuth2 |
 | Solr 9.6 | wl_solr | 8983 | Full-text search |
 | Prometheus | wl_prometheus | 9090 | Metrics collection |
@@ -176,7 +176,18 @@ infra/
 - **Never** create plaintext temp files with secrets (they will be gitignored but still risky)
 - Edit secrets: `sops ansible/inventory/group_vars/sso_secrets.yml`
 - Docker env secrets: `~/nas_docker/.env` (never committed; use `.env.example` as template)
+- **`chmod 600 ~/nas_docker/.env`** — set immediately after creating
+- Key Docker secrets: `DRUPAL_DB_PASSWORD`, `REDIS_PASSWORD`, `KEYCLOAK_ADMIN_PASSWORD`, `GRAFANA_ADMIN_PASSWORD`, `BACKUP_ENCRYPTION_KEY`
 - See **SECRETS_MANAGEMENT.md** for full guide
+
+## Security Notes
+
+- **Redis** requires authentication (`REDIS_PASSWORD`) — unauthenticated connections are rejected
+- **Prometheus** does NOT have `--web.enable-lifecycle` enabled (unauthenticated reload removed); use `docker compose restart prometheus` to reload config
+- **Drupal trusted_host_patterns** uses an explicit allowlist (not a wildcard) — only `localhost`, `drupal`, `api.wilkesliberty.com`, `app.int.wilkesliberty.com`, `auth.wilkesliberty.com`, `sso.int.wilkesliberty.com` are accepted
+- **Internal services** (`*.int.wilkesliberty.com`) are triple-protected: CoreDNS binds on Tailscale IP only → Tailscale Split DNS → Caddy internal binds on Tailscale IP only
+- **TLS**: Caddy (VPS) enforces TLS 1.2+ minimum via global block; security headers (HSTS, CSP, Referrer-Policy, Permissions-Policy) on all public vhosts
+- **CAA records**: manually added in Njalla web UI (provider doesn't support CAA via Terraform)
 
 ## Build Context Pattern
 

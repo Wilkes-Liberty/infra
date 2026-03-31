@@ -6,7 +6,7 @@ set -euo pipefail  # Exit on error, undefined vars, and pipe failures
 
 # Configuration
 BACKUP_DIR="${BACKUP_DIR:-/opt/backups/db}"
-DB_HOST="${DB_HOST:-db1.prod.wilkesliberty.com}"
+DB_HOST="${DB_HOST:-postgres}"  # Docker service name (on-prem stack); override via DB_HOST env var
 DB_NAME="${DB_NAME:-drupal}"
 DB_USER="${DB_USER:-backup_user}"
 RETENTION_DAYS="${RETENTION_DAYS:-30}"

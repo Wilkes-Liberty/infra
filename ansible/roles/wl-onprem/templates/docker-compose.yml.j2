@@ -40,8 +40,11 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    command: redis-server --requirepass {{ keycloak_redis_password }}
     volumes:
       - ~/nas_docker/redis:/data
+    environment:
+      - REDIS_PASSWORD={{ keycloak_redis_password }}
     deploy:
       resources:
         limits:
@@ -82,9 +85,10 @@ services:
       - KC_DB_URL_PORT=5432
       - KC_DB_URL_DATABASE=drupal
       - KC_DB_USERNAME=drupal
-      - KC_DB_PASSWORD={{ drupal_db_password }}
+      - KC_DB_PASSWORD={{ keycloak_db_password }}
       - KEYCLOAK_ADMIN=admin
       - KEYCLOAK_ADMIN_PASSWORD={{ keycloak_admin_password }}
+      - KC_SPI_CONNECTIONS_JPA_SECRET={{ keycloak_secret_key }}
       - KC_HTTP_ENABLED=true
       - KC_HOSTNAME_STRICT=false
       - KC_HOSTNAME=localhost

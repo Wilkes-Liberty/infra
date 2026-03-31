@@ -51,9 +51,9 @@ Infrastructure automation and configuration for the Wilkes Liberty web platform 
 
 | Service | Container | Port | Notes |
 |---------|-----------|------|-------|
-| Drupal 11 | wl_drupal | 8080 | Headless CMS, GraphQL/JSON:API |
+| Drupal 11 | wl_drupal | 8080 | Headless CMS, GraphQL/JSON:API — built from `webcms` repo, public at `api.wilkesliberty.com` |
 | PostgreSQL 16 | wl_postgres | internal | Primary database |
-| Redis 7 | wl_redis | internal | Object cache (allkeys-lru) |
+| Redis 7 | wl_redis | internal | Object cache (allkeys-lru, password-authenticated) |
 | Keycloak 25 | wl_keycloak | 8081, 9000 | SSO, OAuth2 |
 | Solr 9.6 | wl_solr | 8983 | Full-text search |
 | Prometheus | wl_prometheus | 9090 | Metrics collection |
@@ -118,27 +118,31 @@ ansible-galaxy collection install community.sops community.general
 brew install sops age
 export SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt
 
-# Terraform (for DNS management — optional)
+# Terraform (for DNS management)
 brew install terraform
 ```
+
+Sibling repositories must be present before building Docker images:
+- `~/Repositories/webcms` — Drupal CMS source (Docker build context for Drupal image)
+- `~/Repositories/ui` — Next.js source (Docker build context for Next.js image)
 
 ### Deploy to on-prem server
 
 ```bash
-# 1. Configure secrets
+# 1. Configure production Docker secrets
 cp docker/.env.example ~/nas_docker/.env
-# Edit ~/nas_docker/.env with production values
+chmod 600 ~/nas_docker/.env
+# Edit with production values — set REDIS_PASSWORD, DRUPAL_DB_PASSWORD, etc.
 
 # 2. Configure staging secrets
 cp docker/.env.staging.example ~/nas_docker_staging/.env
-# Edit ~/nas_docker_staging/.env with staging values
+chmod 600 ~/nas_docker_staging/.env
 
-# 3. Set repo URLs in ansible/inventory/group_vars/all.yml
-# (uncomment webcms_repo_url and ui_repo_url)
-
-# 4. Run playbook (deploys everything)
+# 3. Run playbook (deploys Docker stack, CoreDNS, internal Caddy, backups)
 ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/onprem.yml
 ```
+
+See **DEPLOYMENT_CHECKLIST.md** for the full guide including Tailscale mesh setup, Terraform DNS, VPS deployment, and Let's Encrypt.
 
 ### Manual Docker Operations
 
@@ -248,6 +252,7 @@ docker inspect wl_<service>       # Detailed container info
 ```bash
 docker compose logs drupal        # Check for DB connection errors
 # Ensure DRUPAL_DB_PASSWORD in .env matches POSTGRES_PASSWORD
+# Ensure REDIS_PASSWORD is set (required — Redis rejects unauthenticated connections)
 ```
 
 **Alertmanager not receiving alerts**
