@@ -1,6 +1,6 @@
 $ORIGIN int.wilkesliberty.com.
 @   3600 IN SOA ns.int.wilkesliberty.com. hostmaster.wilkesliberty.com. (
-        2026033001 ; serial (YYYYMMDDNN — increment NN on same-day edits)
+        2026033002 ; serial (YYYYMMDDNN — increment NN on same-day edits)
         3600       ; refresh
         900        ; retry
         604800     ; expire
@@ -11,19 +11,25 @@ $ORIGIN int.wilkesliberty.com.
 ns         IN A 10.10.0.10
 
 ; ── Application services (on-prem server) ────────────────────────────────────
-app        IN A 10.10.0.2
-sso        IN A 10.10.0.8
+; These resolve to the on-prem server's LAN IP so internal traffic stays on-net.
+; Internal Caddy (Caddyfile.internal.j2) handles TLS and routing for these hosts.
+app        IN A 10.10.0.2   ; Drupal CMS (webcms repo) — also public: api.wilkesliberty.com
+sso        IN A 10.10.0.8   ; Keycloak SSO — also public: auth.wilkesliberty.com
 
-; ── Data services (no Caddy proxy — DNS only for internal tooling) ────────────
+; ── Data & search services (DNS only — accessed directly, no Caddy proxy) ─────
 db         IN A 10.10.0.3
-search     IN A 10.10.0.4
-cache      IN A 10.10.0.9
+search     IN A 10.10.0.4   ; Solr search (webcms repo uses this internally)
+cache      IN A 10.10.0.9   ; Redis/Varnish cache
 
 ; ── Monitoring & observability ────────────────────────────────────────────────
-monitor    IN A 10.10.0.7
-prometheus IN A 10.10.0.7
-alerts     IN A 10.10.0.7
-uptime     IN A 10.10.0.7
+monitor    IN A 10.10.0.7   ; Grafana dashboards
+prometheus IN A 10.10.0.7   ; Prometheus metrics (admin-CIDR restricted)
+alerts     IN A 10.10.0.7   ; Alertmanager (admin-CIDR restricted)
+uptime     IN A 10.10.0.7   ; Uptime Kuma
+
+; ── Network admin ─────────────────────────────────────────────────────────────
+; Generic alias for the Tailscale/VPN admin console (resolves on tailnet devices)
+network    IN CNAME login.tailscale.com.
 
 ; ── Admin devices ─────────────────────────────────────────────────────────────
 ; TODO: Replace placeholder IPs with actual LAN IPs for each device.
@@ -31,5 +37,5 @@ uptime     IN A 10.10.0.7
 ; Run `arp -a` or check your router's DHCP table to find current IPs.
 nas        IN A 10.10.0.20   ; NAS storage (e.g. Synology, TrueNAS)
 router     IN A 10.10.0.1    ; Router/gateway admin UI
-switch     IN A 10.10.0.2    ; TP-Link managed switch admin UI — TODO: set actual IP
+switch     IN A 10.10.0.2    ; TP-Link managed switch admin UI — TODO: set actual IP (conflicts with app)
 printer    IN A 10.10.0.30   ; Network printer admin UI — TODO: set actual IP
