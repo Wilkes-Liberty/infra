@@ -1,5 +1,13 @@
 #!/bin/bash
-# Development environment validation script
+# =============================================================================
+# WilkesLiberty Infrastructure — Development Environment Check
+# =============================================================================
+# Validates that the local operator environment is correctly configured.
+# Run from the infra/ repo root.
+#
+# Usage:
+#   ./scripts/dev-environment-check.sh
+# =============================================================================
 
 set -euo pipefail
 
@@ -8,115 +16,175 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-log() { echo -e "${GREEN}✅ $1${NC}"; }
-warn() { echo -e "${YELLOW}⚠️ $1${NC}"; }
-error() { echo -e "${RED}❌ $1${NC}" >&2; }
+ERRORS=0
 
-echo "=== Wilkes Liberty Infrastructure Development Environment Check ==="
+log()  { echo -e "${GREEN}✅ $1${NC}"; }
+warn() { echo -e "${YELLOW}⚠️  $1${NC}"; }
+error() { echo -e "${RED}❌ $1${NC}" >&2; ERRORS=$((ERRORS + 1)); }
 
-# Check required tools
-tools=("ansible" "terraform" "python3" "node" "sops" "age")
-for tool in "${tools[@]}"; do
-    if command -v "$tool" &> /dev/null; then
-        version=$(eval "$tool --version 2>/dev/null | head -1")
-        log "$tool is installed: $version"
+echo "=== WilkesLiberty Infrastructure — Environment Check ==="
+echo ""
+
+# ── Required CLI tools ───────────────────────────────────────────────────────
+echo "--- Required tools ---"
+declare -A TOOLS=(
+    [ansible]="ansible --version"
+    [terraform]="terraform version"
+    [sops]="sops --version"
+    [age]="age --version"
+    [python3]="python3 --version"
+    [git]="git --version"
+    [docker]="docker --version"
+)
+
+for tool in "${!TOOLS[@]}"; do
+    if command -v "$tool" &>/dev/null; then
+        version=$(${TOOLS[$tool]} 2>/dev/null | head -1)
+        log "$tool: $version"
     else
-        error "$tool is not installed"
+        error "$tool is not installed — run: ./scripts/bootstrap.sh"
     fi
 done
+echo ""
 
-# Check Python virtual environment
-if [[ "${VIRTUAL_ENV:-}" ]]; then
-    log "Python virtual environment active: $VIRTUAL_ENV"
+# ── Ansible Galaxy collections ───────────────────────────────────────────────
+echo "--- Ansible collections ---"
+for col in community.sops community.general; do
+    if ansible-galaxy collection list 2>/dev/null | grep -q "${col/\./\/}"; then
+        log "Collection installed: $col"
+    else
+        error "Missing collection: $col — run: ansible-galaxy collection install $col"
+    fi
+done
+echo ""
+
+# ── SOPS / AGE configuration ─────────────────────────────────────────────────
+echo "--- SOPS / AGE ---"
+if [[ -f "$HOME/.config/sops/age/keys.txt" ]]; then
+    log "AGE key file found: ~/.config/sops/age/keys.txt"
 else
-    warn "Python virtual environment not active. Run: source venv/bin/activate"
+    error "AGE key file missing: ~/.config/sops/age/keys.txt"
 fi
 
-# Check Ansible collections
-if ansible-galaxy collection list | grep -q community.sops; then
-    log "Ansible community.sops collection installed"
+if [[ -n "${SOPS_AGE_KEY_FILE:-}" ]]; then
+    log "SOPS_AGE_KEY_FILE set: $SOPS_AGE_KEY_FILE"
 else
-    error "Missing community.sops collection. Run: ansible-galaxy collection install community.sops"
+    error "SOPS_AGE_KEY_FILE not set — add to ~/.zshrc: export SOPS_AGE_KEY_FILE=\"\$HOME/.config/sops/age/keys.txt\""
 fi
 
-# Check SOPS configuration
-if [[ -f "$HOME/.config/sops/age/keys.txt" && -n "${SOPS_AGE_KEY_FILE:-}" ]]; then
-    log "SOPS/AGE configuration found"
+# Test decryption
+if sops -d ansible/inventory/group_vars/sso_secrets.yml &>/dev/null; then
+    log "SOPS decryption works: sso_secrets.yml"
 else
-    error "SOPS/AGE not configured. Check ~/.config/sops/age/keys.txt and SOPS_AGE_KEY_FILE"
+    error "SOPS decryption failed for sso_secrets.yml — check AGE key"
 fi
+echo ""
 
-# Check repository structure
-required_files=("ansible/inventory/hosts.ini" "main.tf" "Makefile" "WARP.md")
+# ── Repository structure ──────────────────────────────────────────────────────
+echo "--- Required files ---"
+required_files=(
+    "ansible/inventory/hosts.ini"
+    "main.tf"
+    "Makefile"
+    "CLAUDE.md"
+    ".sops.yaml"
+    "docker/.env.example"
+)
 for file in "${required_files[@]}"; do
     if [[ -f "$file" ]]; then
-        log "Required file exists: $file"
+        log "Found: $file"
     else
         error "Missing required file: $file"
     fi
 done
-
-# Validate Ansible inventory
-if ansible-inventory -i ansible/inventory/hosts.ini --graph &>/dev/null; then
-    log "Ansible inventory validation passed"
-else
-    error "Ansible inventory validation failed"
-fi
-
-# Validate Terraform
-if terraform validate &>/dev/null; then
-    log "Terraform validation passed"
-else
-    error "Terraform validation failed"
-fi
-
-# Check for common development issues
 echo ""
-echo "=== Additional Development Environment Checks ==="
 
-# Check for backup script
-if [[ -x "scripts/backup-db.sh" ]]; then
-    log "Backup script is executable"
-    if ./scripts/backup-db.sh --dry-run &>/dev/null; then
-        log "Backup script dry-run test passed"
+# ── Sibling repos ─────────────────────────────────────────────────────────────
+echo "--- Sibling repositories ---"
+REPOS_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+for repo in webcms ui; do
+    if [[ -d "$REPOS_DIR/$repo" ]]; then
+        log "Sibling repo present: $REPOS_DIR/$repo"
     else
-        warn "Backup script dry-run test failed"
+        warn "Missing sibling repo: $REPOS_DIR/$repo (required for Docker builds)"
+    fi
+done
+echo ""
+
+# ── Docker .env ───────────────────────────────────────────────────────────────
+echo "--- Docker secrets ---"
+ENV_FILE="$HOME/nas_docker/.env"
+if [[ -f "$ENV_FILE" ]]; then
+    perms=$(stat -f "%Mp%Lp" "$ENV_FILE" 2>/dev/null || stat -c "%a" "$ENV_FILE" 2>/dev/null)
+    log "Docker .env exists: $ENV_FILE (permissions: $perms)"
+    if [[ "$perms" != "600" && "$perms" != "0600" ]]; then
+        warn ".env permissions should be 600 — run: chmod 600 $ENV_FILE"
+    fi
+    for var in REDIS_PASSWORD DRUPAL_DB_PASSWORD KEYCLOAK_ADMIN_PASSWORD GRAFANA_ADMIN_PASSWORD BACKUP_ENCRYPTION_KEY; do
+        if grep -q "^${var}=" "$ENV_FILE" && ! grep -q "^${var}=$" "$ENV_FILE"; then
+            log "  $var is set"
+        else
+            error "  $var is missing or empty in $ENV_FILE"
+        fi
+    done
+else
+    warn "Docker .env not found at $ENV_FILE — run bootstrap.yml or copy docker/.env.example"
+fi
+echo ""
+
+# ── Ansible inventory ─────────────────────────────────────────────────────────
+echo "--- Ansible ---"
+if ansible-inventory -i ansible/inventory/hosts.ini --graph &>/dev/null; then
+    log "Ansible inventory valid"
+else
+    error "Ansible inventory validation failed — check ansible/inventory/hosts.ini"
+fi
+echo ""
+
+# ── Terraform ────────────────────────────────────────────────────────────────
+echo "--- Terraform ---"
+if [[ -f ".terraform.lock.hcl" ]]; then
+    if terraform validate &>/dev/null; then
+        log "Terraform configuration valid"
+    else
+        error "Terraform validation failed — run: terraform init && terraform validate"
     fi
 else
-    error "Backup script missing or not executable"
+    warn "Terraform not initialised — run: terraform init"
 fi
+echo ""
 
-# Check Git configuration
+# ── Git ───────────────────────────────────────────────────────────────────────
+echo "--- Git ---"
 if git config --get user.name &>/dev/null && git config --get user.email &>/dev/null; then
-    log "Git user configuration found"
+    log "Git user: $(git config user.name) <$(git config user.email)>"
 else
-    error "Git user not configured. Set with: git config --global user.name/user.email"
+    error "Git user not configured — run: git config --global user.name/user.email"
 fi
 
-# Check for SSH key
-if [[ -f "$HOME/.ssh/id_rsa" || -f "$HOME/.ssh/id_ed25519" ]]; then
+if [[ -f "$HOME/.ssh/id_ed25519" || -f "$HOME/.ssh/id_rsa" ]]; then
     log "SSH key found"
 else
-    warn "No SSH key found. Generate with: ssh-keygen -t ed25519 -C 'your_email@example.com'"
+    warn "No SSH key found — generate with: ssh-keygen -t ed25519 -C 'your_email@example.com'"
 fi
 
-# Check repository remotes
-if git remote -v | grep -q "origin"; then
-    log "Git origin remote configured"
+if git remote -v 2>/dev/null | grep -q "origin"; then
+    log "Git remote 'origin' configured"
 else
-    error "Git origin remote not configured"
+    error "Git remote 'origin' not configured"
 fi
-
 echo ""
-echo "=== Development Environment Check Complete ==="
 
-# Return appropriate exit code
-if [[ $(error 2>&1 | wc -l) -gt 0 ]]; then
+# ── Summary ──────────────────────────────────────────────────────────────────
+echo "========================================"
+if [[ $ERRORS -eq 0 ]]; then
+    echo -e "${GREEN}✅ All checks passed — environment is ready.${NC}"
     echo ""
-    warn "Some issues found. Please resolve them before contributing."
-    exit 1
-else
-    echo ""
-    log "Development environment is properly configured! 🚀"
+    echo "Next: source scripts/load-terraform-secrets.sh && make deploy"
     exit 0
+else
+    echo -e "${RED}❌ $ERRORS issue(s) found — resolve before deploying.${NC}"
+    echo ""
+    echo "To install missing tools: ./scripts/bootstrap.sh"
+    exit 1
 fi

@@ -2,21 +2,27 @@
 # Wilkes-Liberty Infrastructure Makefile
 # =============================================
 
-.PHONY: help bootstrap onprem monitoring vps deploy clean docker-clean
+.PHONY: help bootstrap check onprem monitoring vps deploy clean docker-clean status
 
 help:
 	@echo "Available targets:"
-	@echo "  bootstrap     - Bootstrap base tools (Homebrew, etc.)"
+	@echo "  bootstrap     - Install required local tools (sops, age, terraform, ansible)"
+	@echo "  check         - Validate local environment before deploying"
 	@echo "  onprem        - Deploy wl-onprem role (on-prem server + Docker stack)"
 	@echo "  monitoring    - Deploy Prometheus + Grafana"
-	@echo "  vps           - Deploy Njalla VPS reverse proxy (Caddy)"
+	@echo "  vps           - Deploy Njalla VPS (Let's Encrypt + Caddy)"
 	@echo "  deploy        - Full deployment (onprem + monitoring + vps)"
+	@echo "  status        - Show Docker container health"
 	@echo "  clean         - Stop Docker services"
 	@echo "  docker-clean  - Prune Docker images/cache"
 
-# Bootstrap base tools
+# Install required local operator tools (run once on a new machine)
 bootstrap:
-	ansible-playbook -i inventory/hosts.ini playbooks/bootstrap.yml
+	./scripts/bootstrap.sh
+
+# Validate local environment before deploying
+check:
+	./scripts/dev-environment-check.sh
 
 # Deploy the on-prem server (wl-onprem role)
 onprem:
