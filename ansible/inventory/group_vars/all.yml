@@ -10,20 +10,15 @@ admin_allow_cidrs:
   - 203.0.113.0/24     # Replace with your Proton Business egress or office IPs
   - 203.0.113.10/32    # Replace with your specific admin IP
 
-# ── Service Internal IP Addresses ─────────────────────────────────────
-# DNS server
-dns_int_ip: 10.10.0.10
+# ── Host Internal IP Addresses ────────────────────────────────────────
+# Two-host architecture: on-prem server + Njalla VPS.
+# All backend services run on on-prem; VPS is Caddy public ingress only.
+# Set onprem_int_ip to the LAN IP assigned by your router (check DHCP table).
+onprem_int_ip: 10.10.0.2      # On-prem server: Drupal, Postgres, Redis, Solr, Keycloak, monitoring
 
-# Application infrastructure
-app_int_ip: 10.10.0.2
-db_int_ip: 10.10.0.3
-search_int_ip: 10.10.0.4     # Solr search server
-analytics_int_ip: 10.10.0.7
-sso_int_ip: 10.10.0.8
-cache_int_ip: 10.10.0.9      # Varnish + Caddy cache node
-
-# Legacy aliases (for backward compatibility)
-solr_int_ip: "{{ search_int_ip }}"  # Alias for search_int_ip
+# CoreDNS and internal Caddy bind on the on-prem Tailscale IP.
+# Populate after first `tailscale up` on on-prem: run `tailscale ip -4`
+coredns_ts_ip: ""              # e.g. 100.64.0.1
 
 # ── Admin Device Internal IP Addresses ────────────────────────────────
 # TODO: Replace placeholders with actual LAN IPs from your router's DHCP table.

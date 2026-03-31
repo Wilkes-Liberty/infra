@@ -1,4 +1,13 @@
 ---
+# UFW firewall rules — two-host architecture
+#
+# on-prem: all services bind to localhost or Tailscale IP.
+#          No public ports needed beyond SSH from admin CIDRs.
+#          Tailscale handles all inter-host traffic.
+#
+# vps:     Public ingress (Caddy). Allows 80/443 publicly.
+#          Tailscale handles back-channel to on-prem.
+
 - name: Ensure UFW present
   apt:
     name: ufw
@@ -19,7 +28,7 @@
     direction: outgoing
     policy: allow
 
-# ── SSH ─────────────────────────────────────────────────────────────
+# ── SSH ──────────────────────────────────────────────────────────────
 - name: Allow SSH from known admin CIDRs
   ufw:
     rule: allow
@@ -35,98 +44,22 @@
     proto: tcp
     src: "{{ tailscale_network_cidr }}"
 
-# ── APP (public web, WG entry) ──────────────────────────────────────
-- name: APP | Allow HTTP/HTTPS publicly
+# ── VPS: public HTTP/HTTPS (Caddy ingress) ───────────────────────────
+- name: VPS | Allow HTTP/HTTPS publicly
   ufw:
     rule: allow
     port: "{{ item }}"
     proto: tcp
-  loop: [80, 443]
-  when: "'app' in group_names"
+  loop: ['80', '443']
+  when: "'vps' in group_names"
 
+# ── ON-PREM: no public ports needed ─────────────────────────────────
+# All services (Drupal :8080, Keycloak :8081, Solr :8983, Redis :6379,
+# Prometheus :9090, Grafana :3000, Uptime Kuma :3001) bind to
+# localhost or the Tailscale IP — UFW does not need to open them.
+# Tailscale itself uses UDP 41641 outbound (permitted by allow outgoing).
 
-# (Redis is local-only; bind to 127.0.0.1 or app_int_ip and no UFW rule needed)
-
-# ── DB (private only) ───────────────────────────────────────────────
-- name: DB | Allow MySQL from app
-  ufw:
-    rule: allow
-    port: '3306'
-    proto: tcp
-    src: "{{ app_int_ip }}"
-  when: "'db' in group_names"
-
-- name: DB | Allow MySQL from analytics (Matomo) if applicable
-  ufw:
-    rule: allow
-    port: '3306'
-    proto: tcp
-    src: "{{ analytics_int_ip }}"
-  when: "'db' in group_names"
-
-# ── CACHE (public entrypoint; backends private) ─────────────────────
-- name: CACHE | Allow HTTP/HTTPS publicly
-  ufw:
-    rule: allow
-    port: "{{ item }}"
-    proto: tcp
-  loop: [80, 443]
-  when: "'cache' in group_names"
-
-
-# No inbound to Varnish (6081); it should be bound to 127.0.0.1 with Caddy in front.
-# Outbound to app (10.10.0.2:80/443) is permitted by default "allow outgoing".
-
-# ── SOLR (private only) ─────────────────────────────────────────────
-- name: SOLR | Allow 8983 from app
-  ufw:
-    rule: allow
-    port: '8983'
-    proto: tcp
-    src: "{{ app_int_ip }}"
-  when: "'solr' in group_names"
-
-# ── ANALYTICS/OBS (Matomo public; observability private) ────────────
-- name: ANALYTICS | Allow HTTP/HTTPS publicly (Matomo)
-  ufw:
-    rule: allow
-    port: "{{ item }}"
-    proto: tcp
-  loop: [80, 443]
-  when: "'analytics' in group_names"
-
-- name: ANALYTICS | Allow Grafana/Prometheus/Uptime from admin CIDRs
-  ufw:
-    rule: allow
-    port: "{{ item }}"
-    proto: tcp
-    src: "{{ admin_cidr }}"
-  loop: [3000, 3001, 9090]
-  loop_control:
-    loop_var: item
-  vars:
-    admin_cidr: "{{ admin_allow_cidrs | first }}"
-  when: "'analytics' in group_names and (admin_allow_cidrs | length) > 0"
-
-- name: ANALYTICS | (Alternative) Allow observability from Tailscale mesh (comment previous task if using this)
-  ufw:
-    rule: allow
-    port: "{{ item }}"
-    proto: tcp
-    src: "{{ tailscale_network_cidr }}"
-  loop: [3000, 3001, 9090]
-  when: false  # set to true if you prefer mesh-wide access over admin CIDRs
-
-# ── SSO (public web) ────────────────────────────────────────────────
-- name: SSO | Allow HTTP/HTTPS publicly
-  ufw:
-    rule: allow
-    port: "{{ item }}"
-    proto: tcp
-  loop: [80, 443]
-  when: "'sso' in group_names"
-
-# ── Enable/Reload ───────────────────────────────────────────────────
+# ── Enable/Reload ────────────────────────────────────────────────────
 - name: Enable UFW
   ufw:
     state: enabled

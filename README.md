@@ -4,33 +4,44 @@ Infrastructure automation and configuration for the Wilkes Liberty web platform 
 
 ## Architecture
 
-**Hardware**: on-prem server (~13 CPUs, 24 GB RAM) + Njalla VPS (Next.js production only)
+**Hardware**: on-prem server (~13 CPUs, 24 GB RAM) + Njalla VPS (single public ingress)
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    on-prem server                  │
-│                                                     │
-│  Production Stack          Staging Stack            │
-│  ~/nas_docker/             ~/nas_docker_staging/    │
-│  ─────────────             ──────────────────────   │
-│  Drupal :8080              Drupal :8090             │
-│  Keycloak :8081            Keycloak :8091           │
-│  Solr :8983                Solr :8993               │
-│  PostgreSQL (internal)     PostgreSQL (internal)    │
-│  Redis (internal)          Redis (internal)         │
-│  Next.js (dev only)        Next.js :3010            │
-│                                                     │
-│  Monitoring (shared)                                │
-│  Prometheus :9090  Grafana :3001  Alertmanager :9093│
-└─────────────────────────────────────────────────────┘
-             │ Tailscale mesh (100.64.0.0/10)
-             ▼
-┌──────────────────────────┐
-│       Njalla VPS         │
-│  Next.js :3000 (prod)    │
-│  Caddy reverse proxy     │
-└──────────────────────────┘
+                         Internet
+                            │
+              ┌─────────────────────────────┐
+              │          Njalla VPS          │
+              │  www.wilkesliberty.com       │  ← Next.js (prod)
+              │  api.wilkesliberty.com       │  ← Drupal (proxied via Tailscale)
+              │  auth.wilkesliberty.com      │  ← Keycloak (proxied via Tailscale)
+              │  search.wilkesliberty.com    │  ← Solr (proxied, CIDR-restricted)
+              │  Caddy (TLS 1.2+, sec hdrs) │
+              └────────────┬────────────────┘
+                           │ Tailscale mesh (100.64.0.0/10)
+              ┌────────────▼────────────────────────────────────────┐
+              │                   on-prem server                    │
+              │                                                      │
+              │  Production Stack          Staging Stack             │
+              │  ~/nas_docker/             ~/nas_docker_staging/     │
+              │  ─────────────             ──────────────────────    │
+              │  Drupal :8080 (webcms)     Drupal :8090              │
+              │  Keycloak :8081            Keycloak :8091            │
+              │  Solr :8983                Solr :8993                │
+              │  PostgreSQL (internal)     PostgreSQL (internal)     │
+              │  Redis (internal, auth)    Redis (internal, auth)    │
+              │  Next.js (dev only)        Next.js :3010             │
+              │                                                      │
+              │  Monitoring (Tailscale-only, *.int.wilkesliberty.com)│
+              │  Grafana  Prometheus  Alertmanager  Uptime Kuma      │
+              │                                                      │
+              │  CoreDNS — serves int.wilkesliberty.com (Tailscale) │
+              └──────────────────────────────────────────────────────┘
 ```
+
+**DNS overview**:
+- `www`, `api`, `auth`, `search` — all A/AAAA records → VPS IP (Terraform-managed, Njalla)
+- `network.wilkesliberty.com` — CNAME to `login.tailscale.com` (VPN admin console)
+- `*.int.wilkesliberty.com` — CoreDNS on on-prem, accessible only over Tailscale (Split DNS)
 
 **Local development**: Developers use DDEV for Drupal and `npm run dev` for Next.js — neither environment is in this repo.
 
@@ -209,10 +220,12 @@ The `wl-onprem` role fully automates on-prem server setup in a single playbook r
 2. Installs Docker Desktop, Tailscale, Proton VPN via Homebrew
 3. Copies production docker-compose.yml and monitoring configuration
 4. Renders Alertmanager config from Jinja2 template (Ansible vars → config.yml)
-5. Deploys launchd backup plist (daily 04:00 AM)
-6. Clones `staging` branch of webcms and ui repos into `~/Repositories/staging/`
-7. Renders and starts staging docker-compose
-8. Starts production Docker stack
+5. Deploys internal Caddy (`Caddyfile.internal.j2`) — binds on Tailscale IP only; serves `*.int.wilkesliberty.com` with TLS
+6. Deploys CoreDNS with zone file for `int.wilkesliberty.com` — binds on Tailscale IP only
+7. Deploys launchd backup plist (daily 04:00 AM)
+8. Clones `staging` branch of webcms and ui repos into `~/Repositories/staging/`
+9. Renders and starts staging docker-compose
+10. Builds and starts production Docker stack (Drupal from `webcms`, Next.js from `ui`)
 
 ## Troubleshooting
 

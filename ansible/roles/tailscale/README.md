@@ -78,9 +78,9 @@ creation_rules:
 For hosts that need to advertise routes (subnet routers):
 
 ```yaml
-# ansible/inventory/host_vars/app1.prod.wilkesliberty.com.yml
+# ansible/inventory/host_vars/wilkesliberty-onprem.yml
 tailscale_advertise_routes: ["10.10.0.0/24"]
-tailscale_hostname: "app1-prod"
+tailscale_hostname: "wilkesliberty-onprem"
 ```
 
 ## Usage
