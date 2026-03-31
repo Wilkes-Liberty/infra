@@ -34,6 +34,7 @@ services:
       - DRUPAL_HASH_SALT=${DRUPAL_HASH_SALT:?DRUPAL_HASH_SALT is required}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required}
       - DRUPAL_ENVIRONMENT=production
     networks:
       - frontend
@@ -104,10 +105,15 @@ services:
     restart: unless-stopped
     volumes:
       - ~/nas_docker/redis:/data
+    environment:
+      # Redis password — prevents unauthenticated access if the port is ever exposed.
+      # Drupal must set redis.connection.password to the same value.
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required}
     networks:
       - backend
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      # Include password in health check so it works when AUTH is required
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -115,6 +121,7 @@ services:
     # AOF removed — it logs every eviction, causing unnecessary disk I/O for cache workloads
     command: >
       redis-server
+      --requirepass ${REDIS_PASSWORD}
       --maxmemory 1gb
       --maxmemory-policy allkeys-lru
       --save 300 1

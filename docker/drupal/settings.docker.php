@@ -41,6 +41,9 @@ if (getenv('REDIS_HOST')) {
   $settings['redis.connection']['interface'] = 'PhpRedis';
   $settings['redis.connection']['host']      = getenv('REDIS_HOST');
   $settings['redis.connection']['port']      = (int) (getenv('REDIS_PORT') ?: 6379);
+  if (getenv('REDIS_PASSWORD')) {
+    $settings['redis.connection']['password'] = getenv('REDIS_PASSWORD');
+  }
   $settings['cache']['default'] = 'cache.backend.redis';
   // Keep form cache in the database — forms are stateful and should not be evicted
   $settings['cache']['bins']['form'] = 'cache.backend.database';
