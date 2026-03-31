@@ -1,3 +1,6 @@
+# NOTE: Existing DNS records should be imported rather than recreated to avoid downtime.
+# Use the import_existing_records.sh script to generate import commands.
+
 # -------------------------
 # Proton Mail — MX
 # -------------------------
@@ -7,6 +10,10 @@ resource "njalla_record_mx" "mx_primary" {
   content  = "mail.protonmail.ch."
   priority = 10
   ttl      = 3600
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "njalla_record_mx" "mx_secondary" {
@@ -15,6 +22,10 @@ resource "njalla_record_mx" "mx_secondary" {
   content  = "mailsec.protonmail.ch."
   priority = 20
   ttl      = 3600
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # -------------------------
@@ -26,6 +37,10 @@ resource "njalla_record_txt" "proton_verification" {
   name    = "@"
   content = var.proton_verification_token
   ttl     = 10800 # 3h as shown in Njalla
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # -------------------------
@@ -37,6 +52,10 @@ resource "njalla_record_txt" "spf" {
   name    = "@"
   content = "v=spf1 include:_spf.protonmail.ch ~all"
   ttl     = 3600
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # -------------------------
@@ -48,6 +67,10 @@ resource "njalla_record_cname" "dkim1" {
   name    = "protonmail._domainkey"
   content = var.proton_dkim1_target
   ttl     = 3600
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "njalla_record_cname" "dkim2" {
@@ -55,6 +78,10 @@ resource "njalla_record_cname" "dkim2" {
   name    = "protonmail2._domainkey"
   content = var.proton_dkim2_target
   ttl     = 3600
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "njalla_record_cname" "dkim3" {
@@ -62,6 +89,10 @@ resource "njalla_record_cname" "dkim3" {
   name    = "protonmail3._domainkey"
   content = var.proton_dkim3_target
   ttl     = 3600
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # -------------------------
@@ -73,4 +104,8 @@ resource "njalla_record_txt" "dmarc" {
   name    = "_dmarc"
   content = "v=DMARC1; p=quarantine; adkim=s; aspf=s; rua=mailto:dmarc-reports@wilkesliberty.com; ruf=mailto:dmarc-failures@wilkesliberty.com; fo=1; pct=100"
   ttl     = 3600
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }

@@ -4,6 +4,8 @@
 # All public services proxy through single Njalla VPS
 # VPS IP configured in terraform.tfvars
 # =============================================
+# NOTE: Existing DNS records should be imported rather than recreated to avoid downtime.
+# Use the import_existing_records.sh script to generate import commands.
 
 # -------------------------
 # Apex (root domain)
@@ -14,15 +16,27 @@ resource "njalla_record_a" "apex" {
   name    = "@"
   content = var.vps_ipv4
   ttl     = 3600
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # Optional: IPv6 support
+# WARNING: These AAAA resources use count, so Terraform addresses them as njalla_record_aaaa.<name>[0].
+# If vps_ipv6 is later set to "", Terraform will attempt to destroy the instance and
+# prevent_destroy will block it with an error rather than silently skipping. You must
+# explicitly remove the lifecycle block before unsetting vps_ipv6 to avoid a plan failure.
 resource "njalla_record_aaaa" "apex" {
   count   = var.vps_ipv6 != "" ? 1 : 0
   domain  = var.domain_name
   name    = "@"
   content = var.vps_ipv6
   ttl     = 3600
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # -------------------------
