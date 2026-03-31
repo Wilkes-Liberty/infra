@@ -1,0 +1,165 @@
+---
+# =============================================================================
+# Bootstrap Playbook — On-Prem Server
+# =============================================================================
+# Installs required system software on the ON-PREM SERVER via Ansible.
+# Run this before onprem.yml on a fresh machine.
+#
+# For operator LOCAL MACHINE setup, use scripts/bootstrap.sh instead.
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.ini playbooks/bootstrap.yml
+# or via Makefile:
+#   make bootstrap
+# =============================================================================
+
+- name: Bootstrap on-prem server
+  hosts: onprem
+  gather_facts: true
+
+  pre_tasks:
+    - name: Verify target is macOS
+      fail:
+        msg: "Bootstrap playbook targets macOS on-prem only. Got: {{ ansible_os_family }}"
+      when: ansible_os_family != "Darwin"
+
+  roles:
+    - role: common
+
+  tasks:
+
+    # ── Homebrew ──────────────────────────────────────────────────────────────
+    - name: Install Homebrew if missing
+      command: >
+        /bin/bash -c
+        "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+      args:
+        creates: /opt/homebrew/bin/brew
+      environment:
+        NONINTERACTIVE: "1"
+
+    # ── Homebrew packages ──────────────────────────────────────────────────────
+    - name: Install Homebrew packages
+      community.general.homebrew:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - git
+        - curl
+        - jq
+        - python3
+
+    - name: Install Docker Desktop
+      community.general.homebrew_cask:
+        name: docker
+        state: present
+
+    - name: Install Tailscale
+      community.general.homebrew_cask:
+        name: tailscale
+        state: present
+
+    - name: Wait for Docker socket to become available
+      wait_for:
+        path: /var/run/docker.sock
+        timeout: 120
+      ignore_errors: true  # Docker Desktop may need manual launch on first install
+
+    # ── Python / pip ───────────────────────────────────────────────────────────
+    - name: Ensure pip3 is up to date
+      command: python3 -m pip install --upgrade pip --break-system-packages
+      changed_when: false
+
+    # ── Directory structure ────────────────────────────────────────────────────
+    - name: Create Docker data directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ ansible_env.HOME }}/nas_docker"
+        - "{{ ansible_env.HOME }}/nas_docker/drupal"
+        - "{{ ansible_env.HOME }}/nas_docker/postgres"
+        - "{{ ansible_env.HOME }}/nas_docker/redis"
+        - "{{ ansible_env.HOME }}/nas_docker/keycloak"
+        - "{{ ansible_env.HOME }}/nas_docker/solr"
+        - "{{ ansible_env.HOME }}/nas_docker/prometheus"
+        - "{{ ansible_env.HOME }}/nas_docker/prometheus/data"
+        - "{{ ansible_env.HOME }}/nas_docker/grafana"
+        - "{{ ansible_env.HOME }}/nas_docker/alertmanager"
+        - "{{ ansible_env.HOME }}/nas_docker_staging"
+        - "{{ ansible_env.HOME }}/Scripts"
+
+    - name: Create backup directory structure
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ ansible_env.HOME }}/Backups/wilkesliberty"
+        - "{{ ansible_env.HOME }}/Backups/wilkesliberty/daily"
+        - "{{ ansible_env.HOME }}/Backups/wilkesliberty/weekly"
+        - "{{ ansible_env.HOME }}/Backups/wilkesliberty/monthly"
+        - "{{ ansible_env.HOME }}/Backups/wilkesliberty/encrypted"
+        - "{{ ansible_env.HOME }}/Backups/wilkesliberty/logs"
+
+    # ── .env file ──────────────────────────────────────────────────────────────
+    - name: Check if Docker .env exists
+      stat:
+        path: "{{ ansible_env.HOME }}/nas_docker/.env"
+      register: env_file
+
+    - name: Copy .env template if not present
+      copy:
+        src: "{{ playbook_dir }}/../../docker/.env.example"
+        dest: "{{ ansible_env.HOME }}/nas_docker/.env"
+        mode: '0600'
+        force: false  # Never overwrite an existing .env
+      when: not env_file.stat.exists
+
+    - name: Warn if .env needs editing
+      debug:
+        msg: >
+          ⚠️  ~/nas_docker/.env was created from template.
+          Edit it now and set all required secrets before running onprem.yml:
+            REDIS_PASSWORD, DRUPAL_DB_PASSWORD, KEYCLOAK_ADMIN_PASSWORD,
+            GRAFANA_ADMIN_PASSWORD, BACKUP_ENCRYPTION_KEY
+      when: not env_file.stat.exists
+
+    # ── Sibling repo check ─────────────────────────────────────────────────────
+    - name: Check for webcms sibling repo
+      stat:
+        path: "{{ ansible_env.HOME }}/Repositories/webcms"
+      register: webcms_repo
+
+    - name: Clone webcms repo if missing
+      git:
+        repo: "{{ webcms_repo_url }}"
+        dest: "{{ ansible_env.HOME }}/Repositories/webcms"
+        version: master
+        accept_hostkey: true
+      when: not webcms_repo.stat.exists
+
+    - name: Check for ui sibling repo
+      stat:
+        path: "{{ ansible_env.HOME }}/Repositories/ui"
+      register: ui_repo
+
+    - name: Clone ui repo if missing
+      git:
+        repo: "{{ ui_repo_url }}"
+        dest: "{{ ansible_env.HOME }}/Repositories/ui"
+        version: master
+        accept_hostkey: true
+      when: not ui_repo.stat.exists
+
+    # ── Summary ────────────────────────────────────────────────────────────────
+    - name: Bootstrap complete
+      debug:
+        msg:
+          - "✅ Bootstrap complete. Next steps:"
+          - "  1. Edit ~/nas_docker/.env — set all required passwords"
+          - "  2. Start Docker Desktop (first launch may require manual open)"
+          - "  3. Run: sudo tailscale up --advertise-routes=10.10.0.0/24 --hostname=wilkesliberty-onprem"
+          - "  4. Note Tailscale IP: tailscale ip -4"
+          - "  5. Run full deployment: make deploy"
