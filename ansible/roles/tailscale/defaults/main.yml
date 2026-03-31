@@ -7,21 +7,36 @@
 tailscale_auth_key: ""  # Set in group_vars or via environment variable
 
 # Tailscale configuration options
-tailscale_up_args: "--accept-routes --accept-dns=false"  # Customize as needed
+# accept-dns=false: we manage DNS ourselves via CoreDNS + Split DNS below
+tailscale_up_args: "--accept-routes --accept-dns=false"
 
 # Optional: Set hostname advertised to Tailscale
 # If empty, uses system hostname
 tailscale_hostname: ""
 
-# Optional: Advertise routes from this node
-# Example: ["10.10.0.0/24"] to advertise internal network
-tailscale_advertise_routes: []
+# Advertise the LAN subnet so other Tailscale devices can reach LAN IPs
+# (e.g. admin device IPs like 10.10.0.1 for the router).
+# Requires approval in the Tailscale admin console under "Subnets".
+tailscale_advertise_routes:
+  - "10.10.0.0/24"
 
 # Optional: Set exit node
 tailscale_exit_node: ""
 
 # Optional: Enable SSH over Tailscale
 tailscale_ssh: false
+
+# ── Split DNS ─────────────────────────────────────────────────────────────────
+# Tells every device in the tailnet to resolve *.int.wilkesliberty.com
+# using CoreDNS running on this host (bound to its Tailscale IP).
+# Devices NOT on Tailscale never receive this DNS configuration,
+# so int.wilkesliberty.com is completely opaque to them.
+tailscale_split_dns_enabled: true
+tailscale_split_dns_domain: "int.wilkesliberty.com"
+# The DNS server IP must be the Tailscale IP of the on-prem server.
+# This is set at runtime from `tailscale ip -4` output.
+# Override in group_vars if you want to hardcode it: e.g. "100.82.73.91"
+tailscale_split_dns_server: ""   # Leave empty to auto-detect from tailscale ip -4
 
 # Service state
 tailscale_service_enabled: true

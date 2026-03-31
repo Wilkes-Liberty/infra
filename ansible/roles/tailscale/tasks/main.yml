@@ -94,3 +94,45 @@
   debug:
     var: final_status.stdout_lines
   when: final_status.rc == 0
+
+# ── Split DNS configuration ───────────────────────────────────────────────────
+# Tells every device in the tailnet to resolve *.int.wilkesliberty.com
+# using CoreDNS on this host. Devices not on Tailscale never receive
+# this config and cannot resolve int.wilkesliberty.com at all.
+
+- name: Get this node's Tailscale IP (for Split DNS server address)
+  command: tailscale ip -4
+  register: tailscale_self_ip
+  changed_when: false
+  failed_when: tailscale_self_ip.rc != 0
+  when: tailscale_split_dns_enabled | bool
+
+- name: Set Split DNS server IP (auto-detected from tailscale ip -4)
+  set_fact:
+    _split_dns_server: >-
+      {{ tailscale_split_dns_server
+         if tailscale_split_dns_server
+         else tailscale_self_ip.stdout | trim }}
+  when: tailscale_split_dns_enabled | bool
+
+- name: Configure Tailscale Split DNS for int.wilkesliberty.com
+  command: >-
+    tailscale set
+    --dns-domain={{ tailscale_split_dns_domain }}={{ _split_dns_server }}
+  when: tailscale_split_dns_enabled | bool
+  register: split_dns_result
+  changed_when: split_dns_result.rc == 0
+
+- name: Show Split DNS configuration result
+  debug:
+    msg: "Split DNS configured: {{ tailscale_split_dns_domain }} → {{ _split_dns_server }}"
+  when: tailscale_split_dns_enabled | bool
+
+- name: Remind operator to approve subnet routes in Tailscale admin console
+  debug:
+    msg:
+      - "⚠️  ACTION REQUIRED in Tailscale admin console:"
+      - "   https://login.tailscale.com/admin/machines"
+      - "   Find this node → Edit → Subnets → Approve: {{ tailscale_advertise_routes | join(', ') }}"
+      - "   Without approval, other tailnet devices cannot reach LAN IPs (router, NAS, etc.)"
+  when: tailscale_advertise_routes | length > 0
