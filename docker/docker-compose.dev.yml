@@ -51,9 +51,8 @@ services:
       dockerfile: infra/docker/nextjs/Dockerfile.dev
     environment:
       - NODE_ENV=development
-      # In dev, browser can reach Drupal at localhost:8080
-      # SSR fetches also use localhost:8080 since Next.js runs outside Docker networking in dev
-      # If running Next.js inside Docker, use http://drupal:80 for SSR
+      # Dev override: browser and SSR both hit Drupal at localhost:8080 (on-prem Docker).
+      # Production uses https://api.wilkesliberty.com (see docker-compose.yml).
       - NEXT_PUBLIC_DRUPAL_BASE_URL=http://localhost:8080
       - NEXT_IMAGE_DOMAIN=${NEXT_IMAGE_DOMAIN:-localhost}
       - DRUPAL_CLIENT_ID=${DRUPAL_CLIENT_ID:-}

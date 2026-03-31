@@ -217,15 +217,26 @@ services:
       - "prometheus.io/port=8983"
       - "prometheus.io/path=/admin/metrics"
 
-  # ================== FRONTEND (DEV — overridden by docker-compose.dev.yml) ==================
-  # In production, Next.js runs on the Njalla VPS, not here.
-  # For on-prem server development, this service is activated via docker-compose.dev.yml.
+  # ================== FRONTEND (VPS production / dev on-prem) ==================
+  # In production, Next.js runs on the Njalla VPS (not on the on-prem server).
+  # This service definition is used when building the VPS image OR for on-prem dev
+  # via docker-compose.dev.yml.
+  #
+  # Built from the ui repo (Next.js frontend).
+  # Build context is ~/Repositories/ so the Dockerfile can COPY ui/ and infra/.
+  # Public DNS: www.wilkesliberty.com → VPS Caddy → localhost:3000 (Next.js on VPS)
+  #
+  # Drupal API URL:
+  #   Production (VPS):  https://api.wilkesliberty.com  (public HTTPS — Caddy → on-prem:8080)
+  #   Dev (on-prem):     http://drupal:80  (Docker-internal — overridden in docker-compose.dev.yml)
   nextjs:
     build:
       context: ../..           # ~/Repositories/ — parent of both infra and ui repos
       dockerfile: infra/docker/nextjs/Dockerfile.prod
       args:
-        NEXT_PUBLIC_DRUPAL_BASE_URL: http://drupal:80
+        # In production the frontend is on the VPS and reaches Drupal via the public API domain.
+        # docker-compose.dev.yml overrides this to http://localhost:8080 for local dev.
+        NEXT_PUBLIC_DRUPAL_BASE_URL: ${NEXT_PUBLIC_DRUPAL_BASE_URL:-https://api.wilkesliberty.com}
         NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://wilkesliberty.com}
     container_name: wl_nextjs
     restart: unless-stopped
@@ -233,9 +244,10 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      # Drupal is on the same Docker network — use internal hostname for SSR fetches
-      - NEXT_PUBLIC_DRUPAL_BASE_URL=http://drupal:80
-      - NEXT_IMAGE_DOMAIN=${NEXT_IMAGE_DOMAIN:-drupal}
+      # Production: Next.js on VPS talks to Drupal via the public API domain over HTTPS.
+      # This is baked in at build time (NEXT_PUBLIC_) and also set at runtime for SSR.
+      - NEXT_PUBLIC_DRUPAL_BASE_URL=${NEXT_PUBLIC_DRUPAL_BASE_URL:-https://api.wilkesliberty.com}
+      - NEXT_IMAGE_DOMAIN=${NEXT_IMAGE_DOMAIN:-api.wilkesliberty.com}
       - DRUPAL_CLIENT_ID=${DRUPAL_CLIENT_ID:?DRUPAL_CLIENT_ID is required}
       - DRUPAL_CLIENT_SECRET=${DRUPAL_CLIENT_SECRET:?DRUPAL_CLIENT_SECRET is required}
       - DRUPAL_REVALIDATE_SECRET=${DRUPAL_REVALIDATE_SECRET:?DRUPAL_REVALIDATE_SECRET is required}
@@ -279,7 +291,9 @@ services:
       - '--storage.tsdb.retention.time=90d'
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
-      - '--web.enable-lifecycle'
+      # --web.enable-lifecycle intentionally omitted: it exposes an unauthenticated HTTP
+      # POST /-/reload endpoint that lets anyone trigger config reloads. Restart the
+      # container instead: docker compose restart prometheus
     networks:
       - monitoring
     healthcheck:
@@ -305,13 +319,31 @@ services:
       - ~/nas_docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      # No default — must be set in .env to force intentional password choice
+      # Bootstrap password — rotate via Grafana UI after first login.
+      # Once Keycloak OAuth2 is enabled below, set GF_AUTH_DISABLE_LOGIN_FORM=true
+      # and this password will no longer be used for regular login.
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
-      - GF_SERVER_ROOT_URL=http://localhost:3001
+      - GF_SERVER_ROOT_URL=https://monitor.int.wilkesliberty.com
       - GF_INSTALL_PLUGINS=grafana-piechart-panel,grafana-clock-panel
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_ANALYTICS_REPORTING_ENABLED=false
       - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+      # ── Keycloak OAuth2 SSO (recommended — enables single sign-on with your Keycloak realm)
+      # 1. Create a 'grafana' client in Keycloak (confidential, redirect URI: https://monitor.int.wilkesliberty.com/login/generic_oauth)
+      # 2. Set GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET to the client secret
+      # 3. Uncomment all lines below and remove GRAFANA_ADMIN_PASSWORD from active login use
+      # - GF_AUTH_GENERIC_OAUTH_ENABLED=true
+      # - GF_AUTH_GENERIC_OAUTH_NAME=Keycloak
+      # - GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP=true
+      # - GF_AUTH_GENERIC_OAUTH_CLIENT_ID=grafana
+      # - GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET=${GRAFANA_OAUTH_CLIENT_SECRET}
+      # - GF_AUTH_GENERIC_OAUTH_SCOPES=openid profile email
+      # - GF_AUTH_GENERIC_OAUTH_AUTH_URL=https://auth.wilkesliberty.com/realms/wilkesliberty/protocol/openid-connect/auth
+      # - GF_AUTH_GENERIC_OAUTH_TOKEN_URL=https://auth.wilkesliberty.com/realms/wilkesliberty/protocol/openid-connect/token
+      # - GF_AUTH_GENERIC_OAUTH_API_URL=https://auth.wilkesliberty.com/realms/wilkesliberty/protocol/openid-connect/userinfo
+      # - GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH=contains(groups[*], 'grafana-admin') && 'Admin' || 'Viewer'
+      # - GF_AUTH_DISABLE_LOGIN_FORM=true
+      # - GF_AUTH_SIGNOUT_REDIRECT_URL=https://auth.wilkesliberty.com/realms/wilkesliberty/protocol/openid-connect/logout
     networks:
       - monitoring
     depends_on:
