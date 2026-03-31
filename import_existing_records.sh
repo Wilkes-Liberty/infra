@@ -54,7 +54,7 @@ echo "terraform import njalla_record_txt.dmarc <record_id>"
 echo "terraform import njalla_record_txt.domain_verification <record_id>"
 echo ""
 
-echo "# CNAME records"
+echo "# CNAME records (mail_proton.tf)"
 echo "terraform import njalla_record_cname.dkim1 <record_id>"
 echo "terraform import njalla_record_cname.dkim2 <record_id>"
 echo "terraform import njalla_record_cname.dkim3 <record_id>"

@@ -172,10 +172,30 @@ resource "njalla_record_cname" "network" {
 # -------------------------
 # Security: CAA records
 # -------------------------
-# NOTE: Njalla provider v0.10.0 does not support CAA records
-# These must be managed manually in Njalla web UI if desired
-# CAA records are optional - they restrict which CAs can issue certificates
+# CAA records restrict which Certificate Authorities are permitted to issue
+# certificates for wilkesliberty.com. Without them, any CA can issue certs for
+# your domain, enabling phishing/MITM via rogue certificates.
+#
+# STATUS: Njalla provider v0.10.0 does NOT support CAA records via Terraform.
+# ACTION REQUIRED: Add these records manually in the Njalla web UI:
+#   https://njal.la/ → wilkesliberty.com → Add record → Type: CAA
+#
+#   Record 1 — restrict issuance to Let's Encrypt only:
+#     Name: @    TTL: 3600    Value: 0 issue "letsencrypt.org"
+#
+#   Record 2 — restrict wildcard issuance to Let's Encrypt only:
+#     Name: @    TTL: 3600    Value: 0 issuewild "letsencrypt.org"
+#
+#   Record 3 — report policy violations to your security email:
+#     Name: @    TTL: 3600    Value: 0 iodef "mailto:security@wilkesliberty.com"
+#
+# Verify after creation:
+#   dig CAA wilkesliberty.com
+#
+# Monitor for unauthorized cert issuance via Certificate Transparency logs:
+#   https://crt.sh/?q=wilkesliberty.com
 
+# Terraform placeholders (uncomment if/when Njalla provider adds CAA support):
 # resource "njalla_record_caa" "caa_issue" {
 #   domain  = var.domain_name
 #   name    = "@"
@@ -207,9 +227,20 @@ resource "njalla_record_cname" "network" {
 # - CAA records enforce Let's Encrypt certificates only
 # - TTL: 1 hour (3600s) for all records
 #
-# Private services (NO DNS, Tailscale-only):
-# - PostgreSQL (100.x.x.x:5432)
-# - Redis (100.x.x.x:6379)
-# - Solr (100.x.x.x:8983)
-# - Prometheus (100.x.x.x:9090)
+# Public subdomains (A/AAAA → VPS → proxied to on-prem via Tailscale):
+# - www        → Next.js frontend (runs on VPS)
+# - api        → Drupal CMS / GraphQL API (webcms repo, on-prem:8080)
+# - auth       → Keycloak SSO (on-prem:8081)
+# - search     → Solr (on-prem:8983, admin-CIDR restricted)
+#
+# Special subdomains:
+# - network    → CNAME to login.tailscale.com (VPN/network admin console shortcut)
+#
+# Internal-only subdomains (CoreDNS / Tailscale Split DNS — not in public DNS):
+# - *.int.wilkesliberty.com → Tailscale-only, served by on-prem CoreDNS
+#
+# Private services (no public DNS, Tailscale-only):
+# - PostgreSQL (on-prem:5432)
+# - Redis (on-prem:6379)
+# - Prometheus (on-prem:9090, internal DNS only)
 # =============================================

@@ -16,6 +16,9 @@ services:
   # ================== APPLICATION SERVICES ==================
 
   drupal:
+    # Built from the webcms repo (Drupal CMS — headless backend).
+    # Build context is ~/Repositories/ so the Dockerfile can COPY webcms/ and infra/.
+    # Public DNS: api.wilkesliberty.com → VPS Caddy → on-prem Tailscale IP:8080
     build:
       context: ../..           # ~/Repositories/ — parent of both infra and webcms repos
       dockerfile: infra/docker/drupal/Dockerfile.prod
