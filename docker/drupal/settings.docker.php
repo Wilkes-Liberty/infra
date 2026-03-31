@@ -60,14 +60,28 @@ $settings['file_public_path']  = 'sites/default/files';
 $settings['file_private_path'] = getenv('DRUPAL_PRIVATE_FILES') ?: '/opt/drupal/private';
 
 // ── Trusted host patterns ─────────────────────────────────────────────────────
-// Add any additional hostnames here or via DRUPAL_TRUSTED_HOST env var.
+// Explicit allowlist — never use a wildcard like ^.*\.wilkesliberty\.com$ as it
+// permits host-header injection from any subdomain an attacker controls.
+// Add new public subdomains here when they are created.
 
 $settings['trusted_host_patterns'] = [
+  // Local / Docker-internal hostnames
   '^localhost$',
   '^drupal$',
-  '^drupal\.wilkesliberty\.com$',
-  '^.*\.wilkesliberty\.com$',
+
+  // Public-facing API domain (proxied via Njalla VPS Caddy)
+  '^api\.wilkesliberty\.com$',
+
+  // Internal Tailscale domain (proxied via on-prem internal Caddy)
+  '^app\.int\.wilkesliberty\.com$',
+
+  // Auth / SSO domain
+  '^auth\.wilkesliberty\.com$',
+  '^sso\.int\.wilkesliberty\.com$',
 ];
+
+// Allow injecting an additional pattern via environment variable (e.g. staging hostnames).
+// Example: DRUPAL_TRUSTED_HOST_PATTERN='^staging\.wilkesliberty\.com$'
 if (getenv('DRUPAL_TRUSTED_HOST_PATTERN')) {
   $settings['trusted_host_patterns'][] = getenv('DRUPAL_TRUSTED_HOST_PATTERN');
 }
