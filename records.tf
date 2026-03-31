@@ -118,6 +118,40 @@ resource "njalla_record_aaaa" "auth" {
   }
 }
 
+# search - Solr search (proxied to on-prem server via Tailscale; admin-CIDR restricted on Caddy)
+resource "njalla_record_a" "search" {
+  domain  = var.domain_name
+  name    = "search"
+  content = var.vps_ipv4
+  ttl     = 3600
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+# WARNING: count + prevent_destroy interaction — see note above on njalla_record_aaaa.apex
+resource "njalla_record_aaaa" "search" {
+  count   = var.vps_ipv6 != "" ? 1 : 0
+  domain  = var.domain_name
+  name    = "search"
+  content = var.vps_ipv6
+  ttl     = 3600
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+# network - Tailscale admin console shortcut (CNAME to login.tailscale.com)
+# network.wilkesliberty.com is a clean, generic alias for the VPN/network admin UI.
+resource "njalla_record_cname" "network" {
+  domain  = var.domain_name
+  name    = "network"
+  content = "login.tailscale.com."
+  ttl     = 3600
+}
+
 # analytics - Grafana monitoring (proxied to on-prem server via Tailscale)
 # Uncomment when ready to expose publicly
 # resource "njalla_record_a" "analytics" {

@@ -142,15 +142,43 @@ auth.wilkesliberty.com {
         health_timeout 10s
     }
     
-    header {
-        Strict-Transport-Security "max-age=31536000; includeSubDomains"
-        X-Frame-Options "SAMEORIGIN"
-        X-Content-Type-Options "nosniff"
-        -Server
-    }
-    
+    import public_headers_api
+
     log {
         output file /var/log/caddy/auth.log
+        format json
+    }
+}
+
+# Solr search (proxied to on-prem server via Tailscale — admin-CIDR restricted)
+# Solr has no built-in authentication, so access is gated here at Caddy.
+search.wilkesliberty.com {
+    # Only allow requests from admin CIDRs; block everything else
+    @admin_allowed {
+        remote_ip {% for cidr in admin_allow_cidrs %}{{ cidr }}{% if not loop.last %} {% endif %}{% endfor %}
+
+    }
+    handle @admin_allowed {
+        reverse_proxy {{ onprem_tailscale_ip | default('100.82.73.91') }}:8983 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+
+            # Health check — 404 is expected until a Solr core is created
+            health_uri /solr/
+            health_interval 30s
+            health_timeout 10s
+        }
+    }
+    handle {
+        respond "Access denied" 403
+    }
+
+    import public_headers_api
+
+    log {
+        output file /var/log/caddy/search.log
         format json
     }
 }
