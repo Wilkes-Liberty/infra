@@ -1,89 +1,118 @@
-# WilkesLiberty Infrastructure - Complete Deployment Checklist
+# WilkesLiberty Infrastructure — Complete Deployment Checklist
 
-**Version**: 1.0  
-**Last Updated**: March 30, 2026  
-**Estimated Time**: 2-3 hours for initial setup
-
----
-
-## 📋 **PRE-DEPLOYMENT CHECKLIST**
-
-### ✅ **Prerequisites** (Verify Before Starting)
-
-- [ ] **on-prem server** is operational
-- [ ] **Docker Desktop** installed and running
-- [ ] **Homebrew** installed (`/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`)
-- [ ] **Git** repository cloned to `/Users/jcerda/Repositories/infra`
-- [ ] **4TB Synology NAS** mounted and accessible
-- [ ] **Internet connectivity** verified
-- [ ] **Proton VPN** installed (optional but recommended)
-- [ ] **Tailscale** account created (for VPN mesh)
+**Version**: 2.0
+**Last Updated**: March 2026
+**Estimated Time**: 3–4 hours for initial setup
 
 ---
 
-## 🚀 **PHASE 1: ENVIRONMENT SETUP**
+## Architecture Summary
 
-### Step 1.1: Create Required Directories
-
-```bash
-# Navigate to home
-cd ~
-
-# Create main backup directory structure
-mkdir -p ~/Backups/wilkesliberty/{daily,weekly,monthly,encrypted,logs}
-
-# Create Docker data directories
-mkdir -p ~/nas_docker/{drupal,postgres,redis,keycloak,solr}
-mkdir -p ~/nas_docker/prometheus/{data,}
-mkdir -p ~/nas_docker/grafana/{provisioning/datasources,provisioning/dashboards,dashboards}
-mkdir -p ~/nas_docker/alertmanager
-
-# Verify creation
-ls -la ~/nas_docker/
-ls -la ~/Backups/wilkesliberty/
+```
+Internet → Njalla VPS (Caddy, Next.js) ←── Tailscale ──→ On-prem server (Docker Compose)
+Internal devices (Tailscale) → *.int.wilkesliberty.com (CoreDNS on on-prem)
 ```
 
-### Step 1.2: Configure Environment Variables
+The **on-prem server** runs all backend services. The **Njalla VPS** is the single public ingress — it serves Next.js directly and proxies everything else (Drupal, Keycloak, Solr) over the Tailscale mesh to the on-prem server. Internal monitoring and admin services are accessible only over Tailscale via `*.int.wilkesliberty.com`.
+
+---
+
+## PRE-DEPLOYMENT CHECKLIST
+
+### Prerequisites (Verify Before Starting)
+
+- [ ] On-prem server is operational (macOS, adequate RAM/disk)
+- [ ] Docker Desktop installed and running
+- [ ] Homebrew installed
+- [ ] Git repository cloned to `~/Repositories/infra`
+- [ ] **Sibling repositories** cloned:
+  - `~/Repositories/webcms` — Drupal CMS source (Docker build context)
+  - `~/Repositories/ui` — Next.js frontend source (Docker build context)
+- [ ] SOPS and AGE installed (`brew install sops age`)
+- [ ] AGE private key present at `~/.config/sops/age/keys.txt`
+- [ ] `SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt` set in shell profile
+- [ ] Tailscale account created
+- [ ] Njalla VPS provisioned with static IPv4 (and optionally IPv6)
+- [ ] Terraform CLI installed
+- [ ] Ansible CLI installed with required collections:
+  ```bash
+  ansible-galaxy collection install community.sops community.general
+  ```
+
+---
+
+## PHASE 1: SECRETS & CONFIGURATION
+
+### Step 1.1: Decrypt and Review Encrypted Secrets
 
 ```bash
-# Navigate to docker directory
-cd /Users/jcerda/Repositories/infra/docker
+cd ~/Repositories/infra
 
-# Copy environment template
+# Verify your AGE key can decrypt
+sops -d ansible/inventory/group_vars/sso_secrets.yml
+sops -d ansible/inventory/group_vars/tailscale_secrets.yml
+sops -d terraform_secrets.yml
+```
+
+**All three should decrypt without errors.** If not, see `SECRETS_MANAGEMENT.md`.
+
+### Step 1.2: Configure Docker Environment
+
+```bash
+cd ~/Repositories/infra/docker
+
+# Copy the environment template
 cp .env.example .env
 
-# Edit with your actual secrets
+# Restrict permissions immediately
+chmod 600 .env
+
+# Edit with actual secrets
 nano .env
 ```
 
-**IMPORTANT**: Update these values in `.env`:
+**Required values to set in `.env`** (generate passwords with `openssl rand -base64 32`):
 
 ```bash
-# Strong passwords (generate with: openssl rand -base64 32)
-DRUPAL_DB_PASSWORD=your_strong_password_here
-KEYCLOAK_ADMIN_PASSWORD=your_strong_password_here
-GRAFANA_ADMIN_PASSWORD=your_strong_password_here
+# Database
+DRUPAL_DB_PASSWORD=<strong_password>
+KEYCLOAK_DB_PASSWORD=<strong_password>
 
-# Email alerts (optional)
+# Redis (required — Drupal and Redis both use this)
+REDIS_PASSWORD=<strong_password>
+
+# Application credentials
+KEYCLOAK_ADMIN_PASSWORD=<strong_password>
+GRAFANA_ADMIN_PASSWORD=<strong_password>
+
+# Backup
+BACKUP_ENCRYPTION_KEY=<strong_key>       # REQUIRED — backups are encrypted
+BACKUP_NOTIFICATION_EMAIL=admin@wilkesliberty.com
+
+# Alert routing (optional)
 ALERT_EMAIL_FROM=alerts@wilkesliberty.com
-ALERT_EMAIL_TO=your_email@example.com
-ALERT_SMTP_HOST=smtp.gmail.com
+ALERT_EMAIL_TO=admin@wilkesliberty.com
+ALERT_SMTP_HOST=smtp.example.com
 ALERT_SMTP_PORT=587
-ALERT_SMTP_USER=your_email@gmail.com
-ALERT_SMTP_PASSWORD=your_smtp_password
-
-# Backup encryption (generate with: openssl rand -base64 32)
-BACKUP_ENCRYPTION_KEY=your_encryption_key_here
-BACKUP_NOTIFICATION_EMAIL=your_email@example.com
+ALERT_SMTP_USER=<smtp_user>
+ALERT_SMTP_PASSWORD=<smtp_password>
 ```
 
-### Step 1.3: Create Grafana Datasource Configuration
+### Step 1.3: Create Docker Data Directories
 
 ```bash
-# Create Prometheus datasource
+mkdir -p ~/nas_docker/{drupal,postgres,redis,keycloak,solr}
+mkdir -p ~/nas_docker/prometheus/data
+mkdir -p ~/nas_docker/grafana/{provisioning/datasources,provisioning/dashboards,dashboards}
+mkdir -p ~/nas_docker/alertmanager
+mkdir -p ~/Backups/wilkesliberty/{daily,weekly,monthly,encrypted,logs}
+```
+
+### Step 1.4: Configure Grafana Datasource
+
+```bash
 cat > ~/nas_docker/grafana/provisioning/datasources/prometheus.yml << 'EOF'
 apiVersion: 1
-
 datasources:
   - name: Prometheus
     type: prometheus
@@ -96,302 +125,277 @@ datasources:
 EOF
 ```
 
-### Step 1.4: Create Grafana Dashboard Provisioning
+---
+
+## PHASE 2: TAILSCALE VPN MESH
+
+Tailscale must be running on both the on-prem server and the VPS **before** deploying the application stack, because production Caddy routes depend on Tailscale IPs.
+
+### Step 2.1: Install and Connect Tailscale (On-prem server)
 
 ```bash
-# Create dashboard provisioning config
-cat > ~/nas_docker/grafana/provisioning/dashboards/dashboards.yml << 'EOF'
-apiVersion: 1
+# Install
+brew install tailscale
 
-providers:
-  - name: 'default'
-    orgId: 1
-    folder: ''
-    type: file
-    disableDeletion: false
-    updateIntervalSeconds: 10
-    allowUiUpdates: true
-    options:
-      path: /var/lib/grafana/dashboards
+# Start daemon
+sudo tailscaled &
+
+# Authenticate and enable subnet routing
+sudo tailscale up --advertise-routes=10.10.0.0/24
+
+# Note your Tailscale IP (100.x.x.x range)
+tailscale ip -4
+```
+
+### Step 2.2: Install and Connect Tailscale (Njalla VPS)
+
+```bash
+# Install (on VPS — Linux)
+curl -fsSL https://tailscale.com/install.sh | sh
+
+# Authenticate
+sudo tailscale up
+
+# Note VPS Tailscale IP
+tailscale ip -4
+```
+
+### Step 2.3: Approve Subnet Routes in Tailscale Admin
+
+1. Open https://login.tailscale.com (or `network.wilkesliberty.com` once DNS is live)
+2. Find the on-prem server machine
+3. Under **Subnet routes**, approve `10.10.0.0/24`
+4. This allows the VPS to reach on-prem LAN services directly over Tailscale
+
+### Step 2.4: Configure Tailscale Split DNS
+
+In the Tailscale admin console:
+
+1. Go to **DNS** tab
+2. Under **Nameservers**, add a custom nameserver:
+   - **Domain**: `int.wilkesliberty.com`
+   - **Nameserver**: `<on-prem Tailscale IP>` (the 100.x.x.x address from Step 2.1)
+3. Save
+
+This routes all `*.int.wilkesliberty.com` DNS queries to CoreDNS on the on-prem server, only for devices connected to Tailscale.
+
+### Step 2.5: Verify Tailscale Connectivity
+
+```bash
+# From VPS — ping on-prem Tailscale IP
+ping -c 3 <on-prem-tailscale-ip>
+
+# From on-prem — ping VPS Tailscale IP
+ping -c 3 <vps-tailscale-ip>
+```
+
+---
+
+## PHASE 3: TERRAFORM DNS
+
+### Step 3.1: Configure Terraform Variables
+
+```bash
+cd ~/Repositories/infra
+
+# Decrypt and review Terraform secrets
+sops -d terraform_secrets.yml
+
+# Create terraform.tfvars (gitignored)
+cat > terraform.tfvars << EOF
+njalla_api_token = "<your_njalla_api_token>"
+vps_ipv4         = "<your_vps_ipv4>"
+vps_ipv6         = "<your_vps_ipv6_or_empty_string>"
 EOF
+
+chmod 600 terraform.tfvars
+```
+
+### Step 3.2: Apply DNS Records
+
+```bash
+terraform init
+terraform plan    # Review all records to be created
+terraform apply   # Apply when satisfied
+```
+
+**Records applied**: apex A/AAAA, www, api, auth, search (all → VPS IP), network CNAME, Proton Mail records.
+
+### Step 3.3: Add CAA Records Manually (Njalla web UI)
+
+The Terraform provider doesn't support CAA. Log in to Njalla and add these three records manually for `wilkesliberty.com`:
+
+| Tag | Value |
+|-----|-------|
+| `issue` | `"letsencrypt.org"` |
+| `issuewild` | `"letsencrypt.org"` |
+| `iodef` | `"mailto:admin@wilkesliberty.com"` |
+
+Verify:
+```bash
+dig CAA wilkesliberty.com
 ```
 
 ---
 
-## 🐳 **PHASE 2: DOCKER STACK DEPLOYMENT**
+## PHASE 4: ANSIBLE DEPLOYMENT (ON-PREM SERVER)
 
-### Step 2.1: Validate Docker Compose Configuration
+The `wl-onprem` Ansible role deploys and configures everything on the on-prem server in one run.
+
+### Step 4.1: Validate Inventory
 
 ```bash
-cd /Users/jcerda/Repositories/infra/docker
-
-# Validate syntax
-docker compose config
-
-# Check for errors
-echo $?  # Should output: 0
+cd ~/Repositories/infra
+ansible-inventory -i ansible/inventory/hosts.ini --graph
+ansible -i ansible/inventory/hosts.ini all -m ping
 ```
 
-### Step 2.2: Deploy the Stack
+### Step 4.2: Run the Deployment Playbook
 
 ```bash
-# Pull all images (this may take 10-15 minutes)
-docker compose pull
-
-# Start all services
-docker compose up -d
-
-# Watch the startup logs
-docker compose logs -f
+ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/onprem.yml
 ```
 
-**Expected Output**: All 11 containers should start successfully
+This playbook:
+1. Creates directory structure (`~/nas_docker/`, `~/nas_docker_staging/`, etc.)
+2. Installs Docker Desktop, Tailscale, Proton VPN via Homebrew
+3. Copies Docker Compose files and monitoring configs
+4. Renders Alertmanager config from Jinja2 template
+5. Deploys Caddy (internal — binds on Tailscale IP only)
+6. Deploys CoreDNS with zone file for `int.wilkesliberty.com`
+7. Deploys launchd plist for daily backups (04:00 AM)
+8. Starts the production Docker stack (builds Drupal from `webcms`, Next.js from `ui`)
 
-### Step 2.3: Verify Service Health
+### Step 4.3: Run the VPS Deployment Playbook
 
 ```bash
-# Check container status
+ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/vps.yml
+```
+
+This playbook deploys to the Njalla VPS:
+1. Installs Docker, Caddy, certbot
+2. Deploys `Caddyfile.production.j2` (binds on all interfaces; uses certbot wildcard certs)
+3. Deploys Next.js (built from `ui` repo)
+4. Starts Caddy
+
+---
+
+## PHASE 5: LET'S ENCRYPT WILDCARD CERTIFICATE
+
+### Step 5.1: Obtain Wildcard Certificate
+
+On the Njalla VPS:
+
+```bash
+# DNS-01 challenge for wildcard cert
+certbot certonly \
+  --manual \
+  --preferred-challenges dns \
+  -d "wilkesliberty.com" \
+  -d "*.wilkesliberty.com"
+```
+
+Certbot will ask you to add a `_acme-challenge` TXT record to Njalla. Add it manually in the Njalla web UI, wait ~60 seconds for propagation, then press Enter.
+
+### Step 5.2: Verify Certificate
+
+```bash
+# Check cert is present and valid
+ls -la /etc/letsencrypt/live/wilkesliberty.com/
+openssl x509 -in /etc/letsencrypt/live/wilkesliberty.com/fullchain.pem -noout -dates
+```
+
+### Step 5.3: Caddy TLS Configuration
+
+Caddy (`Caddyfile.production.j2`) is configured with `auto_https off` and uses the certbot-managed cert directly. Verify Caddy is reading the cert:
+
+```bash
+caddy reload
+journalctl -u caddy -f
+```
+
+See `LETSENCRYPT_SSL_GUIDE.md` for renewal procedures.
+
+---
+
+## PHASE 6: DOCKER STACK VERIFICATION (ON-PREM SERVER)
+
+### Step 6.1: Check Container Health
+
+```bash
+cd ~/nas_docker
 docker compose ps
-
-# All services should show "healthy" or "running"
-# Wait 2-3 minutes for health checks to pass
-
-# Detailed health status
-docker inspect wl_drupal | grep -A 10 Health
-docker inspect wl_postgres | grep -A 10 Health
-docker inspect wl_keycloak | grep -A 10 Health
 ```
 
-### Step 2.4: Test Service Connectivity
+All services should show `healthy` or `running`:
 
-```bash
-# Test Drupal
-curl -I http://localhost:8080
-
-# Test Keycloak
-curl -I http://localhost:8081
-
-# Test Solr
-curl http://localhost:8983/solr/admin/ping
-
-# Test Prometheus
-curl http://localhost:9090/-/healthy
-
-# Test Grafana
-curl http://localhost:3001/api/health
-
-# Test Alertmanager
-curl http://localhost:9093/-/healthy
+```
+wl_drupal              healthy   (built from webcms repo, serves api.wilkesliberty.com)
+wl_postgres            healthy
+wl_redis               healthy
+wl_keycloak            healthy   (serves auth.wilkesliberty.com)
+wl_solr                healthy
+wl_prometheus          running
+wl_grafana             running
+wl_alertmanager        running
+wl_node_exporter       running
+wl_cadvisor            running
+wl_postgres_exporter   running
 ```
 
-**Expected**: All should return successful responses (200 OK or similar)
-
----
-
-## 📊 **PHASE 3: MONITORING CONFIGURATION**
-
-### Step 3.1: Access Grafana
+### Step 6.2: Verify Redis Authentication
 
 ```bash
-# Open Grafana in browser
-open http://localhost:3001
+# Without password — should fail
+docker exec wl_redis redis-cli ping
+# Expected: NOAUTH Authentication required.
+
+# With password — should succeed
+docker exec wl_redis redis-cli -a "$REDIS_PASSWORD" ping
+# Expected: PONG
 ```
 
-**Login Credentials**:
-- Username: `admin`
-- Password: (value from `GRAFANA_ADMIN_PASSWORD` in `.env`)
+### Step 6.3: Test Drupal (via internal Caddy)
 
-### Step 3.2: Verify Prometheus Data Source
-
-1. Go to **Configuration** → **Data Sources**
-2. Click on **Prometheus**
-3. Click **Test** button
-4. Should see: "Data source is working"
-
-### Step 3.3: Import Pre-built Dashboards (Optional)
+From a device connected to Tailscale:
 
 ```bash
-# Download community dashboards
-cd ~/nas_docker/grafana/dashboards
+# Internal Caddy serves Drupal at app.int.wilkesliberty.com
+curl -I https://app.int.wilkesliberty.com
+# Expected: 200 OK
 
-# Node Exporter Full dashboard
-curl -o node-exporter-full.json https://grafana.com/api/dashboards/1860/revisions/27/download
-
-# Docker Container dashboard
-curl -o docker-containers.json https://grafana.com/api/dashboards/193/revisions/5/download
-
-# PostgreSQL dashboard
-curl -o postgresql.json https://grafana.com/api/dashboards/9628/revisions/7/download
+# Verify Redis connection in Drupal
+docker exec wl_drupal drush status | grep cache
 ```
 
-Dashboards will auto-load in Grafana within 10 seconds.
-
-### Step 3.4: Test Alerting
+### Step 6.4: Create Solr Core
 
 ```bash
-# Trigger a test alert by stopping a service
-docker stop wl_redis
+docker exec -it wl_solr bash -c "solr create -c drupal"
 
-# Wait 5 minutes, then check Alertmanager
-open http://localhost:9093
-
-# You should see "ServiceDown" alert firing
-
-# Restart the service
-docker start wl_redis
-```
-
----
-
-## 💾 **PHASE 4: BACKUP SYSTEM SETUP**
-
-### Step 4.1: Test Manual Backup
-
-```bash
-# Run backup script manually
-/Users/jcerda/Repositories/infra/scripts/backup-onprem.sh
-
-# Check backup was created
-ls -lh ~/Backups/wilkesliberty/daily/
-
-# Verify manifest
-cat ~/Backups/wilkesliberty/daily/$(ls -t ~/Backups/wilkesliberty/daily/ | head -1)/MANIFEST.txt
-```
-
-**Expected**: Backup completes successfully with no errors
-
-### Step 4.2: Configure Automated Backups
-
-```bash
-# Copy launchd plist to LaunchAgents
-cp /Users/jcerda/Repositories/infra/config/com.wilkesliberty.backup.plist ~/Library/LaunchAgents/
-
-# Load the launch agent
-launchctl load ~/Library/LaunchAgents/com.wilkesliberty.backup.plist
-
-# Verify it's loaded
-launchctl list | grep wilkesliberty
-
-# Test immediate run
-launchctl start com.wilkesliberty.backup
-
-# Check logs
-tail -f ~/Backups/wilkesliberty/logs/backup.log
-```
-
-### Step 4.3: Configure on-prem server Wake Schedule (Optional)
-
-1. **System Settings** → **Battery** (or Energy Saver)
-2. Click **Options**
-3. Enable **"Wake for network access"**
-4. Enable **"Start up automatically after power failure"**
-
-This ensures backups run even if on-prem server sleeps.
-
----
-
-## 🔐 **PHASE 5: DRUPAL INSTALLATION**
-
-### Step 5.1: Access Drupal Installer
-
-```bash
-open http://localhost:8080
-```
-
-### Step 5.2: Complete Drupal Installation
-
-1. **Choose language**: English
-2. **Select profile**: Standard
-3. **Database configuration**:
-   - Database type: **PostgreSQL**
-   - Database name: `drupal`
-   - Database username: `drupal`
-   - Database password: (value from `DRUPAL_DB_PASSWORD` in `.env`)
-   - Advanced options:
-     - Host: `postgres`
-     - Port: `5432`
-
-4. **Site configuration**:
-   - Site name: `WilkesLiberty`
-   - Site email: your email
-   - Username: `admin`
-   - Password: (create strong password)
-   - Email: your email
-
-5. Click **Save and continue**
-
-**Expected**: Drupal installation completes successfully
-
-### Step 5.3: Install Required Modules
-
-```bash
-# Access Drupal container
-docker exec -it wl_drupal bash
-
-# Enable GraphQL modules (should already be in composer.json)
-drush en graphql graphql_compose graphql_compose_menus -y
-
-# Enable Search API + Solr
-drush en search_api search_api_solr -y
-
-# Enable Redis
-drush en redis -y
-
-# Clear cache
-drush cr
-
-# Exit container
-exit
-```
-
----
-
-## 🔍 **PHASE 6: SOLR CONFIGURATION**
-
-### Step 6.1: Configure Search API Solr
-
-1. Access Drupal admin: `http://localhost:8080/admin`
-2. Go to **Configuration** → **Search and metadata** → **Search API**
-3. Click **Add server**
-4. Configure:
-   - Server name: `Solr Server`
-   - Backend: **Solr**
-   - Solr Connector: **Standard**
-   - HTTP protocol: `http`
-   - Solr host: `solr`
-   - Solr port: `8983`
-   - Solr path: `/`
-   - Solr core: `drupal` (create this in Solr first)
-
-### Step 6.2: Create Solr Core
-
-```bash
-# Access Solr container
-docker exec -it wl_solr bash
-
-# Create Drupal core
-solr create -c drupal
-
-# Exit container
-exit
-
-# Verify core was created
+# Verify
 curl http://localhost:8983/solr/admin/cores?action=STATUS
 ```
 
 ---
 
-## 🔑 **PHASE 7: KEYCLOAK SSO SETUP** (Optional)
+## PHASE 7: KEYCLOAK SSO SETUP
 
-### Step 7.1: Access Keycloak Admin
+### Step 7.1: Access Keycloak Admin (Internal)
 
-```bash
-open http://localhost:8081
+From a Tailscale-connected device:
+
+```
+https://sso.int.wilkesliberty.com
 ```
 
-**Login**:
-- Username: `admin`
-- Password: (value from `KEYCLOAK_ADMIN_PASSWORD` in `.env`)
+Or via public DNS (proxied through VPS):
+
+```
+https://auth.wilkesliberty.com
+```
+
+**Login**: admin / `KEYCLOAK_ADMIN_PASSWORD` from `.env`
 
 ### Step 7.2: Create Realm
 
@@ -399,192 +403,252 @@ open http://localhost:8081
 2. Name: `wilkesliberty`
 3. Click **Create**
 
-### Step 7.3: Create Client for Drupal
+### Step 7.3: Create Grafana OAuth2 Client (Optional)
+
+To enable Grafana SSO via Keycloak:
 
 1. Go to **Clients** → **Create**
-2. Client ID: `drupal`
+2. Client ID: `grafana`
 3. Client Protocol: `openid-connect`
-4. Root URL: `http://localhost:8080`
-5. **Save**
+4. Valid Redirect URIs: `https://monitor.int.wilkesliberty.com/login/generic_oauth`
+5. Note the client secret
+6. Uncomment the `GF_AUTH_GENERIC_OAUTH_*` variables in `docker/.env` and fill in the client secret
 
 ---
 
-## 🌐 **PHASE 8: NETWORKING (FUTURE - NJALLA VPS)**
+## PHASE 8: COREDNS INTERNAL DNS
 
-### Step 8.1: Tailscale Setup (On on-prem server)
+CoreDNS is deployed by the `wl-onprem` Ansible role and binds **only on the Tailscale IP** — it is not accessible from the public internet.
+
+### Step 8.1: Verify CoreDNS Resolution
+
+From a Tailscale-connected device:
 
 ```bash
-# Install Tailscale
-brew install tailscale
+# Query CoreDNS directly
+dig @<on-prem-tailscale-ip> app.int.wilkesliberty.com
+# Expected: 10.10.0.2
 
-# Start Tailscale
-sudo tailscaled
+dig @<on-prem-tailscale-ip> monitor.int.wilkesliberty.com
+# Expected: 10.10.0.7
 
-# Authenticate (opens browser)
-sudo tailscale up
-
-# Get your Tailscale IP
-tailscale ip -4
+dig @<on-prem-tailscale-ip> network.int.wilkesliberty.com
+# Expected: CNAME login.tailscale.com.
 ```
 
-**Note this IP** - you'll need it for Njalla VPS configuration
+### Step 8.2: Verify Split DNS is Working
 
-### Step 8.2: Njalla VPS Deployment (When Ready)
+After Tailscale Split DNS is configured (Phase 2, Step 2.4):
 
-**This step is for future deployment**. You'll need to:
+```bash
+# From any Tailscale-connected device (should resolve without specifying @)
+ping app.int.wilkesliberty.com
+# Expected: resolves to 10.10.0.2
 
-1. Provision Njalla VPS
-2. Install Tailscale on VPS
-3. Connect to same Tailnet
-4. Deploy Next.js frontend (from `ui` repo)
-5. Configure Caddy reverse proxy to on-prem server Tailscale IP
+# These should NOT resolve (no public DNS for int.wilkesliberty.com)
+# Test from a non-Tailscale device — should get NXDOMAIN
+```
 
-See `ansible/playbooks/vps.yml` for automation.
+### Step 8.3: Update Zone Serial (When Making Changes)
+
+If you edit `coredns/zones/int.wilkesliberty.com.zone`, increment the serial in `YYYYMMDDNN` format before re-running Ansible.
 
 ---
 
-## ✅ **PHASE 9: VALIDATION & TESTING**
+## PHASE 9: VALIDATION & TESTING
 
-### Step 9.1: Service Health Dashboard
+### Step 9.1: Public URLs
+
+From any internet-connected browser (no Tailscale required):
+
+| URL | Expected |
+|-----|----------|
+| `https://www.wilkesliberty.com` | Next.js frontend |
+| `https://api.wilkesliberty.com` | Drupal JSON:API / GraphQL |
+| `https://auth.wilkesliberty.com` | Keycloak login page |
+
+### Step 9.2: Internal URLs (Tailscale required)
+
+From a Tailscale-connected device:
+
+| URL | Expected |
+|-----|----------|
+| `https://app.int.wilkesliberty.com` | Drupal admin |
+| `https://sso.int.wilkesliberty.com` | Keycloak admin |
+| `https://monitor.int.wilkesliberty.com` | Grafana dashboards |
+| `https://prometheus.int.wilkesliberty.com` | Prometheus UI |
+| `https://alerts.int.wilkesliberty.com` | Alertmanager |
+| `https://uptime.int.wilkesliberty.com` | Uptime Kuma |
+
+### Step 9.3: Security Header Verification
 
 ```bash
-# Check all services
-docker compose ps
+# Check public headers on www
+curl -I https://www.wilkesliberty.com | grep -i "strict-transport\|x-frame\|content-security\|permissions"
 
-# Should see:
-# - wl_drupal: healthy
-# - wl_postgres: healthy
-# - wl_redis: healthy
-# - wl_keycloak: healthy
-# - wl_solr: healthy
-# - wl_prometheus: healthy
-# - wl_grafana: healthy
-# - wl_alertmanager: healthy
-# - wl_node_exporter: running
-# - wl_cadvisor: running
-# - wl_postgres_exporter: running
+# Check API headers
+curl -I https://api.wilkesliberty.com | grep -i "strict-transport\|referrer"
 ```
 
-### Step 9.2: Monitoring Verification
+Expected headers on HTML endpoints: `Strict-Transport-Security`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, `Content-Security-Policy`.
 
-1. **Grafana**: `http://localhost:3001`
-   - Verify Prometheus data source connected
-   - Check dashboards showing metrics
-   
-2. **Prometheus**: `http://localhost:9090`
+### Step 9.4: TLS Verification
+
+```bash
+# Verify TLS 1.2+ and certificate
+openssl s_client -connect www.wilkesliberty.com:443 -tls1_1 2>&1 | grep "alert"
+# Expected: handshake failure (TLS 1.1 rejected)
+
+openssl s_client -connect www.wilkesliberty.com:443 -tls1_2 2>&1 | grep "Cipher"
+# Expected: valid cipher suite
+
+# Verify wildcard cert covers all subdomains
+openssl s_client -connect api.wilkesliberty.com:443 2>&1 | grep "subject\|CN"
+```
+
+### Step 9.5: Monitoring Verification
+
+From a Tailscale-connected device:
+
+1. Open `https://monitor.int.wilkesliberty.com` → Grafana
+   - Log in with admin / `GRAFANA_ADMIN_PASSWORD`
+   - Go to **Configuration** → **Data Sources** → **Prometheus** → **Test**
+   - Should show: "Data source is working"
+
+2. Open `https://prometheus.int.wilkesliberty.com` → Prometheus
    - Go to **Status** → **Targets**
-   - All targets should be "UP"
-   
-3. **Alertmanager**: `http://localhost:9093`
-   - Should show "No alerts" (healthy state)
+   - All targets should be **UP**
 
-### Step 9.3: Backup Verification
+3. Open `https://alerts.int.wilkesliberty.com` → Alertmanager
+   - Should show "No alerts" (healthy)
+
+### Step 9.6: Backup Verification
 
 ```bash
-# Check latest backup exists
+# Run backup manually
+~/Scripts/backup-onprem.sh
+
+# Verify backup created and encrypted
 ls -lh ~/Backups/wilkesliberty/daily/
 
-# Check backup manifest
-cat ~/Backups/wilkesliberty/daily/$(ls -t ~/Backups/wilkesliberty/daily/ | head -1)/MANIFEST.txt
-
-# Verify automated backup is scheduled
+# Check automated backup is scheduled
 launchctl list | grep wilkesliberty
 ```
 
-### Step 9.4: Resource Usage Check
-
-```bash
-# Check Docker resource usage
-docker stats --no-stream
-
-# Check on-prem server resources
-top -l 1 | head -10
-```
-
-**Expected Resource Usage**:
-- CPU: 20-40% average
-- Memory: 16-20GB used (of 24GB+ available)
-- Disk: Check with `df -h ~/nas_docker`
-
 ---
 
-## 🎯 **PHASE 10: OPERATIONAL PROCEDURES**
+## PHASE 10: OPERATIONAL PROCEDURES
 
 ### Daily Operations
 
-**View logs**:
 ```bash
-cd /Users/jcerda/Repositories/infra/docker
+cd ~/nas_docker
 
-# All services
+# Check service status
+docker compose ps
+
+# Stream all logs
 docker compose logs -f
 
-# Specific service
+# Specific service logs
 docker compose logs -f drupal
-docker compose logs -f postgres
+docker compose logs -f caddy
 ```
 
-**Restart service**:
+### Restart a Service
+
 ```bash
-# Restart single service
 docker compose restart drupal
 
-# Restart all services
-docker compose restart
+# Prometheus (note: --web.enable-lifecycle is intentionally disabled)
+docker compose restart prometheus
 ```
 
-**Stop services**:
-```bash
-# Stop all
-docker compose down
+### Update Docker Stack
 
-# Stop and remove volumes (CAUTION: DATA LOSS)
-# docker compose down -v
-```
-
-**Start services**:
 ```bash
-docker compose up -d
+cd ~/nas_docker
+
+# Rebuild images (picks up latest commits from webcms/ui repos)
+docker compose build --no-cache drupal nextjs
+
+# Restart updated services
+docker compose up -d drupal nextjs
 ```
 
 ### Weekly Maintenance
 
-1. **Check Grafana dashboards** for anomalies
-2. **Review backup logs**: `tail -100 ~/Backups/wilkesliberty/logs/backup.log`
-3. **Check disk space**: `df -h ~/nas_docker`
-4. **Review Prometheus alerts**: `http://localhost:9093`
+1. Check `https://monitor.int.wilkesliberty.com` for anomalies
+2. Review backup logs: `tail -100 ~/Backups/wilkesliberty/logs/backup.log`
+3. Check disk: `df -h ~/nas_docker`
+4. Review Prometheus targets at `https://prometheus.int.wilkesliberty.com/targets`
 
 ### Monthly Maintenance
 
-1. **Update Docker images**:
-   ```bash
-   cd /Users/jcerda/Repositories/infra/docker
-   docker compose pull
-   docker compose up -d
-   ```
-
-2. **Test backup restore** (create separate test script)
-3. **Review performance baselines** in Grafana
-4. **Update Drupal core/modules**:
+1. Update Drupal core/modules:
    ```bash
    docker exec -it wl_drupal bash
    composer update drupal/core
-   drush updb -y
-   drush cr
+   drush updb -y && drush cr
+   exit
    ```
+
+2. Rotate `REDIS_PASSWORD` if needed (update `.env`, restart drupal + redis)
+3. Review certificate expiry: `openssl x509 -in /etc/letsencrypt/live/wilkesliberty.com/fullchain.pem -noout -enddate`
+4. Review SOPS keys: `cat .sops.yaml` — rotate quarterly
 
 ---
 
-## 🐛 **TROUBLESHOOTING**
+## TROUBLESHOOTING
+
+### Internal URLs Not Resolving
+
+```bash
+# Check Tailscale is connected
+tailscale status
+
+# Check Split DNS is configured (Tailscale admin → DNS tab)
+# Verify CoreDNS is running on on-prem
+docker exec wl_coredns sh -c "dig @localhost app.int.wilkesliberty.com"
+```
+
+### Redis Connection Refused / Auth Failure
+
+```bash
+# Verify REDIS_PASSWORD is set in .env
+grep REDIS_PASSWORD ~/nas_docker/.env
+
+# Test auth
+docker exec wl_redis redis-cli -a "$REDIS_PASSWORD" ping
+
+# Check Drupal's Redis connection
+docker exec wl_drupal drush eval "var_dump(\Drupal::cache()->get('test'));"
+```
+
+### Drupal Trusted Host Rejection
+
+If Drupal returns "The provided host name is not valid":
+- Check `docker/drupal/settings.docker.php` — only explicitly listed hosts are allowed
+- Allowed: `localhost`, `drupal`, `api.wilkesliberty.com`, `app.int.wilkesliberty.com`, `auth.wilkesliberty.com`, `sso.int.wilkesliberty.com`
+
+### Caddy Can't Connect to On-prem Services
+
+```bash
+# Verify Tailscale mesh is up from VPS
+tailscale ping <on-prem-tailscale-ip>
+
+# Check Caddy upstream addresses in Caddyfile
+# They should use the on-prem Tailscale IP (100.x.x.x), not LAN IP
+```
 
 ### Service Won't Start
 
 ```bash
 # Check logs
-docker compose logs service_name
+docker compose logs <service_name>
 
-# Check disk space
-df -h
+# Check disk
+df -h ~/nas_docker
 
 # Check permissions
 ls -la ~/nas_docker/
@@ -593,85 +657,44 @@ ls -la ~/nas_docker/
 ### Database Connection Issues
 
 ```bash
-# Verify PostgreSQL is running
 docker exec -it wl_postgres pg_isready -U drupal
-
-# Check connection from Drupal
 docker exec -it wl_drupal nc -zv postgres 5432
 ```
 
 ### Backup Failures
 
 ```bash
-# Check backup logs
 tail -100 ~/Backups/wilkesliberty/logs/backup.err
-
-# Run manual backup with verbose output
-bash -x /Users/jcerda/Repositories/infra/scripts/backup-onprem.sh
-```
-
-### Prometheus Not Scraping
-
-```bash
-# Check Prometheus targets
-open http://localhost:9090/targets
-
-# Verify containers are on correct network
-docker network inspect wl_monitoring
-```
-
-### High Resource Usage
-
-```bash
-# Check container resource usage
-docker stats
-
-# Identify heavy container
-docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"
-
-# Check on-prem server resources
-top -o cpu
+bash -x ~/Repositories/infra/scripts/backup-onprem.sh
 ```
 
 ---
 
-## 📞 **EMERGENCY CONTACTS**
+## SUCCESS CRITERIA
 
-**Infrastructure Issues**:
-- Check `IMPLEMENTATION_STATUS.md` for details
-- Review logs in `~/Backups/wilkesliberty/logs/`
+Deployment is complete when:
 
-**Backup Restoration**:
-- See backup manifest in backup directory
-- Use `pg_restore` for database recovery
-
----
-
-## 🎉 **SUCCESS CRITERIA**
-
-You've successfully deployed when:
-
-- ✅ All 11 Docker containers running and healthy
-- ✅ Drupal accessible at `http://localhost:8080`
-- ✅ Grafana showing metrics at `http://localhost:3001`
-- ✅ Prometheus scraping all targets at `http://localhost:9090`
-- ✅ Automated backups running daily at 4:00 AM
-- ✅ Alert notifications configured and tested
-- ✅ No critical alerts firing in Alertmanager
-- ✅ Resource usage within normal limits (CPU < 50%, RAM < 20GB)
-
-**Congratulations! Your enterprise-grade infrastructure is operational.** 🚀
+- [ ] All 11 Docker containers running healthy on on-prem
+- [ ] `https://www.wilkesliberty.com` loads Next.js frontend
+- [ ] `https://api.wilkesliberty.com` returns Drupal JSON:API response
+- [ ] `https://auth.wilkesliberty.com` shows Keycloak login
+- [ ] `https://monitor.int.wilkesliberty.com` shows Grafana (Tailscale required)
+- [ ] `https://prometheus.int.wilkesliberty.com` — all targets UP
+- [ ] Redis authentication working (`redis-cli -a $REDIS_PASSWORD ping` → PONG)
+- [ ] TLS 1.1 rejected on public endpoints
+- [ ] Security headers present on all public vhosts
+- [ ] CAA records in Njalla; `dig CAA wilkesliberty.com` returns 3 records
+- [ ] `*.int.wilkesliberty.com` NOT resolvable from non-Tailscale devices
+- [ ] Automated backups running daily at 4:00 AM (encrypted)
+- [ ] No critical alerts firing in Alertmanager
 
 ---
 
-**Next Steps**:
-1. Deploy Next.js frontend to Njalla VPS (see `ui` repo)
-2. Configure Drupal content types and GraphQL schema
-3. Set up Tailscale VPN mesh between on-prem server and Njalla
-4. Establish performance baselines (run for 7 days)
-5. Create operational runbooks for team
+## Related Documentation
 
-**Documentation**:
-- **Implementation Status**: `IMPLEMENTATION_STATUS.md`
-- **Implementation Plan**: View in Warp (plan ID: 4d902060-84ed-40fe-986e-e814b122e283)
-- **WARP.md**: Architecture overview and history
+- `README.md` — Architecture overview and quick reference
+- `SECRETS_MANAGEMENT.md` — SOPS + AGE encryption guide
+- `TAILSCALE_SETUP.md` — Tailscale VPN mesh and Split DNS
+- `DNS_RECORDS.md` — DNS records reference
+- `LETSENCRYPT_SSL_GUIDE.md` — Wildcard certificate management
+- `ansible/README.md` — Ansible variable precedence and structure
