@@ -64,7 +64,7 @@
     name: "Let's Encrypt certificate renewal"
     minute: "{{ letsencrypt_renewal_time.split(':')[1] }}"
     hour: "{{ letsencrypt_renewal_time.split(':')[0] }}"
-    job: "/usr/bin/certbot renew --quiet --no-self-upgrade --post-hook 'systemctl reload nginx' >> /var/log/letsencrypt/renewal.log 2>&1"
+    job: "/usr/bin/certbot renew --quiet --no-self-upgrade --deploy-hook /etc/letsencrypt/renewal-hooks/deploy/reload-caddy.sh >> /var/log/letsencrypt/renewal.log 2>&1"
     user: root
   become: yes
   when: letsencrypt_renewal_frequency == "daily"

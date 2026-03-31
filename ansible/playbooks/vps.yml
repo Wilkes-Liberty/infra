@@ -1,21 +1,54 @@
 ---
-- name: Deploy Njalla VPS Reverse Proxy
+# =============================================================================
+# VPS Deployment Playbook — Njalla VPS
+# =============================================================================
+# Deploys the public ingress on the Njalla VPS:
+#   1. Obtains/renews wildcard Let's Encrypt certificate (DNS-01 via Njalla API)
+#   2. Installs and configures Caddy as the public reverse proxy
+#
+# Prerequisites:
+#   - Tailscale must be running on the VPS (Section 5.2 of deployment guide)
+#   - On-prem Tailscale IP must be resolvable from VPS
+#   - njalla_api_token must be set (via sso_secrets.yml or TF_VAR env)
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.ini playbooks/vps.yml
+# or via Makefile:
+#   make vps
+# =============================================================================
+
+- name: Deploy Njalla VPS — Let's Encrypt + Caddy
   hosts: njalla-vps
   become: yes
+
+  roles:
+    - role: letsencrypt
+
   tasks:
+
+    # ── Caddy ─────────────────────────────────────────────────────────────────
     - name: Install Caddy
       apt:
         name: caddy
         state: present
         update_cache: yes
 
-    - name: Deploy Caddyfile with Tailscale proxy
+    - name: Deploy production Caddyfile
       template:
-        src: Caddyfile.j2
+        src: "{{ playbook_dir }}/../roles/vps-proxy/templates/Caddyfile.production.j2"
         dest: /etc/caddy/Caddyfile
         mode: '0644'
+        validate: caddy validate --config %s
       notify: Reload Caddy
+
+    - name: Ensure Caddy is enabled and running
+      systemd:
+        name: caddy
+        enabled: true
+        state: started
 
   handlers:
     - name: Reload Caddy
-      command: caddy reload
+      systemd:
+        name: caddy
+        state: reloaded
