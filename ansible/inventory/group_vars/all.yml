@@ -44,10 +44,11 @@ uptime_int_ip: "10.10.0.7"    # Uptime Kuma — same host as monitoring stack
 uptime_admin_port: "3002"      # Uptime Kuma default port
 
 # ── Repository URLs ───────────────────────────────────────────────────
-# Used by the wl-onprem role to clone the 'staging' branch for the staging stack.
-# Uncomment and set once the repos have a remote origin configured.
-# webcms_repo_url: "git@github.com:wilkesliberty/webcms.git"
-# ui_repo_url: "git@github.com:wilkesliberty/ui.git"
+# webcms = Drupal CMS (headless backend) — built into the Drupal Docker image; serves api.wilkesliberty.com
+# ui     = Next.js frontend — built into the Next.js Docker image; serves www.wilkesliberty.com
+# Both repos are cloned at the 'staging' branch for the staging stack.
+webcms_repo_url: "git@github.com:wilkesliberty/webcms.git"
+ui_repo_url: "git@github.com:wilkesliberty/ui.git"
 
 # ── Software Versions ─────────────────────────────────────────────────
 php_version: "8.3"
