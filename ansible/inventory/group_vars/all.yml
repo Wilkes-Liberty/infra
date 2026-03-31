@@ -21,21 +21,30 @@ onprem_int_ip: 10.10.0.2      # On-prem server: Drupal, Postgres, Redis, Solr, K
 coredns_ts_ip: ""              # e.g. 100.64.0.1
 
 # ── Admin Device Internal IP Addresses ────────────────────────────────
-# TODO: Replace placeholders with actual LAN IPs from your router's DHCP table.
-# Assign static/reserved leases on your router for each device so these never drift.
-nas_int_ip: "10.10.0.20"       # NAS storage (Synology, TrueNAS, etc.)
-nas_admin_port: "5000"         # Synology DSM = 5000 (HTTP) / 5001 (HTTPS); TrueNAS = 80/443
+# These are used by Caddyfile.internal.j2 to reverse-proxy device admin UIs
+# at *.int.wilkesliberty.com over HTTPS (wildcard cert).
+# TODO: Replace placeholders with actual static/reserved DHCP IPs.
+# Assign static leases on your router so these never drift.
+# Run `arp -a` or check your router's DHCP table to find current IPs.
 
-router_int_ip: "10.10.0.1"    # Router/gateway — usually the default gateway IP
-router_admin_port: "80"        # Change to 443 if your router uses HTTPS for admin
+# Synology NAS — nas.int.wilkesliberty.com
+nas_int_ip: "10.10.0.20"       # TODO: set actual IP
+nas_admin_port: "5000"         # Synology DSM HTTP = 5000; HTTPS = 5001; TrueNAS = 80/443
 
-switch_int_ip: "10.10.0.2"    # TP-Link managed switch — TODO: set actual IP (not the app server)
+# AT&T router — router.int.wilkesliberty.com
+router_int_ip: "10.10.0.1"    # Usually the default gateway; confirm in router UI
+router_admin_port: "80"        # AT&T BGW320 = 80 (HTTP only internally)
+
+# TP-Link managed switch — switch.int.wilkesliberty.com
+switch_int_ip: "10.10.0.50"   # TODO: set actual IP (check router DHCP table)
 switch_admin_port: "80"        # TP-Link smart switches default to port 80
 
-printer_int_ip: "10.10.0.30"  # Network printer — TODO: set actual IP
+# Network printer — print.int.wilkesliberty.com
+printer_int_ip: "10.10.0.30"  # TODO: set actual IP
 printer_admin_port: "80"       # Most printers expose admin on port 80
 
-uptime_int_ip: "10.10.0.7"    # Uptime Kuma — same host as monitoring stack
+# Uptime Kuma — uptime.int.wilkesliberty.com (runs on on-prem server)
+uptime_int_ip: "10.10.0.7"    # Same host as monitoring stack
 uptime_admin_port: "3002"      # Uptime Kuma default port
 
 # ── Repository URLs ───────────────────────────────────────────────────

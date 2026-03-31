@@ -38,7 +38,7 @@ Source of truth: `records.tf`
 | `api` | A / AAAA | VPS IP | Drupal CMS / GraphQL API (webcms repo, on-prem via Tailscale) |
 | `auth` | A / AAAA | VPS IP | Keycloak SSO (on-prem via Tailscale) |
 | `search` | A / AAAA | VPS IP | Solr search (on-prem via Tailscale; admin-CIDR restricted) |
-| `network` | CNAME | `login.tailscale.com.` | Generic alias for VPN/network admin console |
+| `network` | CNAME | `login.tailscale.com.` | Tailscale/VPN admin console |
 
 > **Note**: `api`, `auth`, and `search` all resolve to the VPS IP. Caddy on the VPS proxies those requests over Tailscale to the on-prem server. The VPS is the single public ingress point.
 
@@ -115,10 +115,11 @@ These names resolve to the on-prem server's LAN IP. Internal Caddy (`Caddyfile.i
 
 | Name | Type | Placeholder IP | Device |
 |------|------|---------------|--------|
-| `nas.int.wilkesliberty.com` | A | `10.10.0.20` | NAS storage |
-| `router.int.wilkesliberty.com` | A | `10.10.0.1` | Router/gateway |
-| `switch.int.wilkesliberty.com` | A | `10.10.0.2` | Managed switch (update — conflicts with app) |
+| `nas.int.wilkesliberty.com` | A | `10.10.0.20` | Synology NAS |
+| `router.int.wilkesliberty.com` | A | `10.10.0.1` | AT&T router/gateway |
+| `switch.int.wilkesliberty.com` | A | `10.10.0.50` | TP-Link managed switch |
 | `printer.int.wilkesliberty.com` | A | `10.10.0.30` | Network printer |
+| `print.int.wilkesliberty.com` | CNAME | → `printer.int.wilkesliberty.com` | Alias for printer |
 
 ---
 
