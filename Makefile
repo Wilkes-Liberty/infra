@@ -7,7 +7,7 @@
 help:
 	@echo "Available targets:"
 	@echo "  bootstrap     - Bootstrap base tools (Homebrew, etc.)"
-	@echo "  onprem        - Deploy wl-onprem role (Mac Mini server + Docker stack)"
+	@echo "  onprem        - Deploy wl-onprem role (on-prem server + Docker stack)"
 	@echo "  monitoring    - Deploy Prometheus + Grafana"
 	@echo "  vps           - Deploy Njalla VPS reverse proxy (Caddy)"
 	@echo "  deploy        - Full deployment (onprem + monitoring + vps)"
@@ -18,7 +18,7 @@ help:
 bootstrap:
 	ansible-playbook -i inventory/hosts.ini playbooks/bootstrap.yml
 
-# Deploy the on-prem Mac Mini server (wl-onprem role)
+# Deploy the on-prem server (wl-onprem role)
 onprem:
 	ansible-playbook -i inventory/hosts.ini playbooks/onprem.yml --limit wl-onprem
 
@@ -33,7 +33,7 @@ vps:
 # Full deployment (recommended)
 deploy: onprem monitoring vps
 
-# Clean Docker services on the Mac Mini
+# Clean Docker services on the on-prem server
 clean:
 	docker compose -f ~/nas_docker/docker-compose.yml down
 

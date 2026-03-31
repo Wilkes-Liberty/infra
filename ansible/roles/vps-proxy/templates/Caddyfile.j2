@@ -1,5 +1,5 @@
 wilkesliberty.com {
-    # Proxy API calls to the Mac Mini via Tailscale (inner mesh)
+    # Proxy API calls to the on-prem server via Tailscale (inner mesh)
     reverse_proxy /api* http://100.82.73.91:8080 {
         header_up X-Forwarded-For {remote_host}
     }

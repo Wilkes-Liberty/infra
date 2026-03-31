@@ -9,7 +9,7 @@ global:
   external_labels:
     cluster: 'wilkesliberty'
     environment: 'production'
-    location: 'on-prem-mac-mini'
+    location: 'on-prem-server'
 
 # Alertmanager configuration
 alerting:
@@ -45,7 +45,7 @@ scrape_configs:
       - targets: ['node-exporter:9100']
         labels:
           service: 'host'
-          instance: 'mac-mini-m4-pro'
+          instance: 'on-prem-server'
 
   # Container metrics
   - job_name: 'cadvisor'

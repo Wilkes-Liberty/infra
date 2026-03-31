@@ -11,7 +11,7 @@ resource "njalla_firewall_rule" "tailscale_internal" {
   action      = "accept"
   description = "Allow Tailscale mesh traffic (inner private network)"
 
-  # Tailscale subnet (100.64.0.0/10) + your Mac Mini Tailscale IP range
+  # Tailscale subnet (100.64.0.0/10) + your on-prem server Tailscale IP range
   source      = "100.64.0.0/10"
 }
 
@@ -34,8 +34,8 @@ resource "njalla_firewall_rule" "default_deny" {
   source      = "0.0.0.0/0"
 }
 
-# Output the Tailscale IP of the Mac Mini for easy reference
-output "mac_mini_tailscale_ip" {
+# Output the Tailscale IP of the on-prem server for easy reference
+output "onprem_tailscale_ip" {
   value       = "100.82.73.91"   # Your current Tailscale IP from earlier
   description = "Use this in Caddy reverse_proxy on the Njalla VPS"
 }

@@ -2,7 +2,7 @@
 # WilkesLiberty Production Caddyfile
 # Njalla VPS Reverse Proxy Configuration
 # =============================================
-# All services proxy to Mac Mini via Tailscale
+# All services proxy to on-prem server via Tailscale
 # SSL certificates automatically managed by Caddy
 # =============================================
 
@@ -61,8 +61,8 @@ www.wilkesliberty.com {
 
 # Drupal GraphQL API (headless CMS)
 api.wilkesliberty.com {
-    # Proxy to Mac Mini Drupal via Tailscale
-    reverse_proxy {{ mac_mini_tailscale_ip | default('100.82.73.91') }}:8080 {
+    # Proxy to on-prem server Drupal via Tailscale
+    reverse_proxy {{ onprem_tailscale_ip | default('100.82.73.91') }}:8080 {
         header_up Host {host}
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-For {remote_host}
@@ -110,8 +110,8 @@ api.wilkesliberty.com {
 
 # Keycloak SSO/Auth
 auth.wilkesliberty.com {
-    # Proxy to Mac Mini Keycloak via Tailscale
-    reverse_proxy {{ mac_mini_tailscale_ip | default('100.82.73.91') }}:8081 {
+    # Proxy to on-prem server Keycloak via Tailscale
+    reverse_proxy {{ onprem_tailscale_ip | default('100.82.73.91') }}:8081 {
         header_up Host {host}
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-For {remote_host}
@@ -144,8 +144,8 @@ auth.wilkesliberty.com {
 # Uncomment to expose Grafana analytics dashboard (recommended: keep private via Tailscale)
 
 # analytics.wilkesliberty.com {
-#     # Proxy to Mac Mini Grafana via Tailscale
-#     reverse_proxy {{ mac_mini_tailscale_ip | default('100.82.73.91') }}:3001 {
+#     # Proxy to on-prem server Grafana via Tailscale
+#     reverse_proxy {{ onprem_tailscale_ip | default('100.82.73.91') }}:3001 {
 #         header_up Host {host}
 #         header_up X-Real-IP {remote_host}
 #         header_up X-Forwarded-For {remote_host}
@@ -183,14 +183,14 @@ auth.wilkesliberty.com {
 # 1. SSL certificates are automatically obtained from Let's Encrypt
 # 2. Certificates auto-renew before expiration
 # 3. HTTP traffic automatically redirects to HTTPS
-# 4. All backend services stay private on Mac Mini
+# 4. All backend services stay private on on-prem server
 # 5. Only Njalla VPS is publicly accessible
-# 6. Tailscale provides encrypted tunnel to Mac Mini
-# 7. Update {{ mac_mini_tailscale_ip }} with actual Tailscale IP
+# 6. Tailscale provides encrypted tunnel to on-prem server
+# 7. Update {{ onprem_tailscale_ip }} with actual Tailscale IP
 #
 # Security Best Practices:
-# - Mac Mini has NO public ports open
-# - Only Tailscale VPN can reach Mac Mini
+# - On-prem server has NO public ports open
+# - Only Tailscale VPN can reach on-prem server
 # - Caddy handles SSL termination
 # - Security headers on all responses
 # - Rate limiting available (uncomment if needed)

@@ -127,9 +127,9 @@ terraform apply
 
 These services are accessed only via Tailscale VPN:
 
-- **Prometheus** - `http://<mac-mini-tailscale-ip>:9090`
-- **Grafana/Analytics** - `http://<mac-mini-tailscale-ip>:3001` (or expose as `analytics.wilkesliberty.com`)
-- **Solr** - `http://<mac-mini-tailscale-ip>:8983` (Drupal talks to it directly)
+- **Prometheus** - `http://<onprem-tailscale-ip>:9090`
+- **Grafana/Analytics** - `http://<onprem-tailscale-ip>:3001` (or expose as `analytics.wilkesliberty.com`)
+- **Solr** - `http://<onprem-tailscale-ip>:8983` (Drupal talks to it directly)
 - **PostgreSQL** - Never publicly accessible
 - **Redis** - Never publicly accessible
 
@@ -283,7 +283,7 @@ Replace these placeholders:
 
 ```bash
 # Get on-prem server Tailscale IP
-# Run this ON MAC MINI:
+# Run this ON ON-PREM SERVER:
 tailscale ip -4
 
 # Example output: 100.82.73.91
@@ -292,7 +292,7 @@ tailscale ip -4
 **Update Caddyfile:**
 ```caddyfile
 # Replace this:
-reverse_proxy {{ mac_mini_tailscale_ip | default('100.82.73.91') }}:8080
+reverse_proxy {{ onprem_tailscale_ip | default('100.82.73.91') }}:8080
 
 # With your actual IP:
 reverse_proxy 100.82.73.91:8080
@@ -597,10 +597,10 @@ journalctl -u caddy -n 50
 
 ```bash
 # On Njalla VPS - test Tailscale connectivity
-tailscale ping <mac-mini-tailscale-ip>
+tailscale ping <onprem-tailscale-ip>
 
 # Test backend service directly
-curl http://<mac-mini-tailscale-ip>:8080
+curl http://<onprem-tailscale-ip>:8080
 
 # If fails:
 # 1. Verify Tailscale is running on on-prem server

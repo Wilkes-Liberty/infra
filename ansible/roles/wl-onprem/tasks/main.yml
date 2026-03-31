@@ -1,6 +1,6 @@
 ---
 # wl-onprem role
-# Purpose: Deploy and manage the on-prem Mac Mini server
+# Purpose: Deploy and manage the on-prem server
 # Architecture:
 #   - Outer layer: Proton VPN (kill-switch + always-on — enforced client-side)
 #   - Inner layer: Tailscale (private mesh network — 100.64.0.0/10)
@@ -230,7 +230,7 @@
 # ============================================================================
 # PHASE 7: STAGING ENVIRONMENT
 # ============================================================================
-# Staging runs on the same Mac Mini alongside production.
+# Staging runs on the same on-prem server alongside production.
 # Source branch: 'staging'
 # Repos: ~/Repositories/staging/{infra,webcms,ui}
 # Stack:  ~/nas_docker_staging/

@@ -35,49 +35,76 @@ resource "njalla_record_a" "www" {
   name    = "www"
   content = var.vps_ipv4
   ttl     = 3600
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
+# WARNING: count + prevent_destroy interaction — see note above on njalla_record_aaaa.apex
 resource "njalla_record_aaaa" "www" {
   count   = var.vps_ipv6 != "" ? 1 : 0
   domain  = var.domain_name
   name    = "www"
   content = var.vps_ipv6
   ttl     = 3600
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
-# api - Drupal GraphQL backend (proxied to Mac Mini via Tailscale)
+# api - Drupal GraphQL backend (proxied to on-prem server via Tailscale)
 resource "njalla_record_a" "api" {
   domain  = var.domain_name
   name    = "api"
   content = var.vps_ipv4
   ttl     = 3600
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
+# WARNING: count + prevent_destroy interaction — see note above on njalla_record_aaaa.apex
 resource "njalla_record_aaaa" "api" {
   count   = var.vps_ipv6 != "" ? 1 : 0
   domain  = var.domain_name
   name    = "api"
   content = var.vps_ipv6
   ttl     = 3600
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
-# auth - Keycloak SSO (proxied to Mac Mini via Tailscale)
+# auth - Keycloak SSO (proxied to on-prem server via Tailscale)
 resource "njalla_record_a" "auth" {
   domain  = var.domain_name
   name    = "auth"
   content = var.vps_ipv4
   ttl     = 3600
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
+# WARNING: count + prevent_destroy interaction — see note above on njalla_record_aaaa.apex
 resource "njalla_record_aaaa" "auth" {
   count   = var.vps_ipv6 != "" ? 1 : 0
   domain  = var.domain_name
   name    = "auth"
   content = var.vps_ipv6
   ttl     = 3600
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
-# analytics - Grafana monitoring (proxied to Mac Mini via Tailscale)
+# analytics - Grafana monitoring (proxied to on-prem server via Tailscale)
 # Uncomment when ready to expose publicly
 # resource "njalla_record_a" "analytics" {
 #   domain  = var.domain_name
@@ -127,7 +154,7 @@ resource "njalla_record_aaaa" "auth" {
 # =============================================
 # - All public DNS points to single Njalla VPS
 # - VPS runs Caddy reverse proxy with automatic SSL
-# - Backend services on Mac Mini (private, Tailscale-only)
+# - Backend services on on-prem server (private, Tailscale-only)
 # - IPv6 optional (enable by setting vps_ipv6 variable)
 # - CAA records enforce Let's Encrypt certificates only
 # - TTL: 1 hour (3600s) for all records

@@ -1,6 +1,6 @@
 # =============================================
 # WilkesLiberty Production Docker Compose Stack
-# Architecture: All backend services on Mac Mini M4 Pro
+# Architecture: All backend services on on-prem server
 # =============================================
 # Services:
 #   Application: Drupal 11, PostgreSQL, Redis, Keycloak, Solr
@@ -212,7 +212,7 @@ services:
 
   # ================== FRONTEND (DEV — overridden by docker-compose.dev.yml) ==================
   # In production, Next.js runs on the Njalla VPS, not here.
-  # For Mac Mini development, this service is activated via docker-compose.dev.yml.
+  # For on-prem server development, this service is activated via docker-compose.dev.yml.
   nextjs:
     build:
       context: ../..           # ~/Repositories/ — parent of both infra and ui repos
