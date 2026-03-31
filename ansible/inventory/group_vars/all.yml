@@ -14,7 +14,7 @@ admin_allow_cidrs:
 # DNS server
 dns_int_ip: 10.10.0.10
 
-# Application infrastructure 
+# Application infrastructure
 app_int_ip: 10.10.0.2
 db_int_ip: 10.10.0.3
 search_int_ip: 10.10.0.4     # Solr search server
@@ -24,6 +24,24 @@ cache_int_ip: 10.10.0.9      # Varnish + Caddy cache node
 
 # Legacy aliases (for backward compatibility)
 solr_int_ip: "{{ search_int_ip }}"  # Alias for search_int_ip
+
+# ── Admin Device Internal IP Addresses ────────────────────────────────
+# TODO: Replace placeholders with actual LAN IPs from your router's DHCP table.
+# Assign static/reserved leases on your router for each device so these never drift.
+nas_int_ip: "10.10.0.20"       # NAS storage (Synology, TrueNAS, etc.)
+nas_admin_port: "5000"         # Synology DSM = 5000 (HTTP) / 5001 (HTTPS); TrueNAS = 80/443
+
+router_int_ip: "10.10.0.1"    # Router/gateway — usually the default gateway IP
+router_admin_port: "80"        # Change to 443 if your router uses HTTPS for admin
+
+switch_int_ip: "10.10.0.2"    # TP-Link managed switch — TODO: set actual IP (not the app server)
+switch_admin_port: "80"        # TP-Link smart switches default to port 80
+
+printer_int_ip: "10.10.0.30"  # Network printer — TODO: set actual IP
+printer_admin_port: "80"       # Most printers expose admin on port 80
+
+uptime_int_ip: "10.10.0.7"    # Uptime Kuma — same host as monitoring stack
+uptime_admin_port: "3002"      # Uptime Kuma default port
 
 # ── Repository URLs ───────────────────────────────────────────────────
 # Used by the wl-onprem role to clone the 'staging' branch for the staging stack.
