@@ -9,13 +9,46 @@
 # Global options
 {
     email {{ letsencrypt_email | default('admin@wilkesliberty.com') }}
-    
-    # Production settings
+
     admin off
-    
-    # Security headers
+
     servers {
         protocols h1 h2 h3
+    }
+
+    # Enforce TLS 1.2+ globally — no TLS 1.0 or 1.1
+    tls {
+        protocols tls1.2 tls1.3
+    }
+}
+
+# ── Shared security header snippets ──────────────────────────────────────────
+
+# Applied to all HTML-serving public vhosts (www)
+(public_headers_html) {
+    header {
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+        X-Frame-Options            "SAMEORIGIN"
+        X-Content-Type-Options     "nosniff"
+        X-XSS-Protection           "1; mode=block"
+        Referrer-Policy            "strict-origin-when-cross-origin"
+        Permissions-Policy         "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
+        # CSP: tighten per-app once inline scripts are audited
+        # 'unsafe-inline' retained for Next.js — remove once nonces are implemented
+        Content-Security-Policy    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.wilkesliberty.com; frame-ancestors 'self'; base-uri 'self'"
+        -Server
+        -X-Powered-By
+    }
+}
+
+# Applied to API vhosts (api, auth, search) — no HTML frame/CSP restrictions
+(public_headers_api) {
+    header {
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+        X-Content-Type-Options    "nosniff"
+        Referrer-Policy           "no-referrer"
+        -Server
+        -X-Powered-By
     }
 }
 
@@ -35,24 +68,9 @@ www.wilkesliberty.com {
         header_up X-Forwarded-For {remote_host}
         header_up X-Forwarded-Proto {scheme}
     }
-    
-    # Security headers
-    header {
-        # Enable HSTS
-        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-        
-        # Prevent clickjacking
-        X-Frame-Options "SAMEORIGIN"
-        
-        # XSS protection
-        X-Content-Type-Options "nosniff"
-        X-XSS-Protection "1; mode=block"
-        
-        # Remove server signature
-        -Server
-    }
-    
-    # Logging
+
+    import public_headers_html
+
     log {
         output file /var/log/caddy/www.log
         format json
@@ -74,17 +92,14 @@ api.wilkesliberty.com {
         health_timeout 10s
     }
     
-    # CORS headers for API access
+    import public_headers_api
+
+    # CORS — only allow the www frontend to call the API
     header {
-        Access-Control-Allow-Origin "https://www.wilkesliberty.com"
+        Access-Control-Allow-Origin  "https://www.wilkesliberty.com"
         Access-Control-Allow-Methods "GET, POST, OPTIONS"
         Access-Control-Allow-Headers "Content-Type, Authorization"
-        Access-Control-Max-Age "86400"
-        
-        # Security headers
-        Strict-Transport-Security "max-age=31536000; includeSubDomains"
-        X-Content-Type-Options "nosniff"
-        -Server
+        Access-Control-Max-Age       "86400"
     }
     
     # Handle preflight requests

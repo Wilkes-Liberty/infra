@@ -43,12 +43,17 @@
 }
 
 # Security headers applied to every internal vhost
+# Internal services are Tailscale-only so some external-facing headers are less critical,
+# but defence-in-depth means we apply them anyway.
 (internal_headers) {
     header {
-        Strict-Transport-Security "max-age=31536000; includeSubDomains"
-        X-Frame-Options "SAMEORIGIN"
-        X-Content-Type-Options "nosniff"
+        Strict-Transport-Security "max-age=63072000; includeSubDomains"
+        X-Frame-Options            "SAMEORIGIN"
+        X-Content-Type-Options     "nosniff"
+        Referrer-Policy            "no-referrer"
+        Permissions-Policy         "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
         -Server
+        -X-Powered-By
     }
 }
 
