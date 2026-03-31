@@ -23,7 +23,7 @@ cache      IN A 10.10.0.9   ; Redis/Varnish cache
 
 ; ── Monitoring & observability ────────────────────────────────────────────────
 monitor    IN A 10.10.0.7   ; Grafana dashboards
-prometheus IN A 10.10.0.7   ; Prometheus metrics (admin-CIDR restricted)
+metrics    IN A 10.10.0.7   ; Prometheus metrics (admin-CIDR restricted)
 alerts     IN A 10.10.0.7   ; Alertmanager (admin-CIDR restricted)
 uptime     IN A 10.10.0.7   ; Uptime Kuma
 

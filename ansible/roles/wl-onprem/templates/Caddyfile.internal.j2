@@ -159,8 +159,8 @@
     }
 
     # Prometheus — restricted to admin CIDRs even within Tailscale
-    @prometheus host prometheus.int.wilkesliberty.com
-    handle @prometheus {
+    @metrics host metrics.int.wilkesliberty.com
+    handle @metrics {
         import internal_tls
         import internal_headers
 
@@ -176,7 +176,7 @@
         }
 
         log {
-            output file /var/log/caddy/internal-prometheus.log
+            output file /var/log/caddy/internal-metrics.log
             format json
         }
     }

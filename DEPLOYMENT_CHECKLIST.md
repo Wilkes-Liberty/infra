@@ -476,7 +476,7 @@ From a Tailscale-connected device:
 | `https://app.int.wilkesliberty.com` | Drupal admin |
 | `https://sso.int.wilkesliberty.com` | Keycloak admin |
 | `https://monitor.int.wilkesliberty.com` | Grafana dashboards |
-| `https://prometheus.int.wilkesliberty.com` | Prometheus UI |
+| `https://metrics.int.wilkesliberty.com` | Prometheus UI |
 | `https://alerts.int.wilkesliberty.com` | Alertmanager |
 | `https://uptime.int.wilkesliberty.com` | Uptime Kuma |
 
@@ -515,7 +515,7 @@ From a Tailscale-connected device:
    - Go to **Configuration** → **Data Sources** → **Prometheus** → **Test**
    - Should show: "Data source is working"
 
-2. Open `https://prometheus.int.wilkesliberty.com` → Prometheus
+2. Open `https://metrics.int.wilkesliberty.com` → Prometheus
    - Go to **Status** → **Targets**
    - All targets should be **UP**
 
@@ -581,7 +581,7 @@ docker compose up -d drupal nextjs
 1. Check `https://monitor.int.wilkesliberty.com` for anomalies
 2. Review backup logs: `tail -100 ~/Backups/wilkesliberty/logs/backup.log`
 3. Check disk: `df -h ~/nas_docker`
-4. Review Prometheus targets at `https://prometheus.int.wilkesliberty.com/targets`
+4. Review Prometheus targets at `https://metrics.int.wilkesliberty.com/targets`
 
 ### Monthly Maintenance
 
@@ -679,7 +679,7 @@ Deployment is complete when:
 - [ ] `https://api.wilkesliberty.com` returns Drupal JSON:API response
 - [ ] `https://auth.wilkesliberty.com` shows Keycloak login
 - [ ] `https://monitor.int.wilkesliberty.com` shows Grafana (Tailscale required)
-- [ ] `https://prometheus.int.wilkesliberty.com` — all targets UP
+- [ ] `https://metrics.int.wilkesliberty.com` — all targets UP
 - [ ] Redis authentication working (`redis-cli -a $REDIS_PASSWORD ping` → PONG)
 - [ ] TLS 1.1 rejected on public endpoints
 - [ ] Security headers present on all public vhosts

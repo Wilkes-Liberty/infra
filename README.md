@@ -212,7 +212,7 @@ Backed up: PostgreSQL databases (prod + staging), Drupal files, configuration.
 Monitoring UIs are accessible **only over Tailscale** via `*.int.wilkesliberty.com`. They are not exposed to the public internet.
 
 - **Grafana**: https://monitor.int.wilkesliberty.com — dashboards for all services
-- **Prometheus**: https://prometheus.int.wilkesliberty.com — metrics and alert rules (16 rules configured)
+- **Prometheus**: https://metrics.int.wilkesliberty.com — metrics and alert rules (16 rules configured)
 - **Alertmanager**: https://alerts.int.wilkesliberty.com — email + Slack routing
 - **Uptime Kuma**: https://uptime.int.wilkesliberty.com — uptime monitoring
 

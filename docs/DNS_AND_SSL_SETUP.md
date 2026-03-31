@@ -124,7 +124,7 @@ terraform apply
 These services use `*.int.wilkesliberty.com` (CoreDNS, Tailscale Split DNS):
 
 - **Grafana** — `https://monitor.int.wilkesliberty.com`
-- **Prometheus** — `https://prometheus.int.wilkesliberty.com`
+- **Prometheus** — `https://metrics.int.wilkesliberty.com`
 - **Alertmanager** — `https://alerts.int.wilkesliberty.com`
 - **PostgreSQL, Redis** — never externally accessible
 - **Internal Drupal / Keycloak admin** — `https://app.int.wilkesliberty.com`, `https://sso.int.wilkesliberty.com`

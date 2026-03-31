@@ -348,7 +348,7 @@
       - "   - Keycloak SSO: https://sso.int.wilkesliberty.com"
       - "   - Solr:         https://search.int.wilkesliberty.com      (admin CIDRs only)"
       - "   - Grafana:      https://monitor.int.wilkesliberty.com"
-      - "   - Prometheus:   https://prometheus.int.wilkesliberty.com  (admin CIDRs only)"
+      - "   - Prometheus:   https://metrics.int.wilkesliberty.com  (admin CIDRs only)"
       - "   - Alertmanager: https://alerts.int.wilkesliberty.com      (admin CIDRs only)"
       - "   - Uptime Kuma:  https://uptime.int.wilkesliberty.com"
       - "   - Network:      https://network.int.wilkesliberty.com      (CNAME → login.tailscale.com)"

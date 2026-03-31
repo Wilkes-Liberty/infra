@@ -333,6 +333,7 @@ services:
       - GF_ANALYTICS_CHECK_FOR_UPDATES=false
       # ── Keycloak OAuth2 SSO (recommended — enables single sign-on with your Keycloak realm)
       # 1. Create a 'grafana' client in Keycloak (confidential, redirect URI: https://monitor.int.wilkesliberty.com/login/generic_oauth)
+      #    Note: Prometheus is at https://metrics.int.wilkesliberty.com
       # 2. Set GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET to the client secret
       # 3. Uncomment all lines below and remove GRAFANA_ADMIN_PASSWORD from active login use
       # - GF_AUTH_GENERIC_OAUTH_ENABLED=true

@@ -99,7 +99,7 @@ These names resolve to the on-prem server's LAN IP. Internal Caddy (`Caddyfile.i
 | Name | Type | Value | Service |
 |------|------|-------|---------|
 | `monitor.int.wilkesliberty.com` | A | `10.10.0.7` | Grafana dashboards |
-| `prometheus.int.wilkesliberty.com` | A | `10.10.0.7` | Prometheus metrics |
+| `metrics.int.wilkesliberty.com` | A | `10.10.0.7` | Prometheus metrics |
 | `alerts.int.wilkesliberty.com` | A | `10.10.0.7` | Alertmanager |
 | `uptime.int.wilkesliberty.com` | A | `10.10.0.7` | Uptime Kuma |
 

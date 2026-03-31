@@ -140,7 +140,7 @@ Staging containers join the shared `wl_monitoring` network — Prometheus auto-d
 - `https://app.int.wilkesliberty.com` — Drupal admin (via internal Caddy)
 - `https://sso.int.wilkesliberty.com` — Keycloak admin (via internal Caddy)
 - `https://monitor.int.wilkesliberty.com` — Grafana dashboards
-- `https://prometheus.int.wilkesliberty.com` — Prometheus metrics
+- `https://metrics.int.wilkesliberty.com` — Prometheus metrics
 - `https://alerts.int.wilkesliberty.com` — Alertmanager
 - `https://uptime.int.wilkesliberty.com` — Uptime Kuma
 
