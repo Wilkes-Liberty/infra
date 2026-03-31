@@ -28,13 +28,10 @@ A clear description of the infrastructure task to be completed.
 - [ ] All environments
 
 ## Affected Services
-- [ ] Application (app1)
-- [ ] Database (db1)
-- [ ] Search (search1)
-- [ ] Analytics (analytics1)
-- [ ] SSO (sso1)
-- [ ] Cache (cache1)
-- [ ] DNS (dns1)
+- [ ] On-prem server (Drupal, PostgreSQL, Solr, Redis, Keycloak, monitoring)
+- [ ] Njalla VPS (Caddy public ingress, Let's Encrypt)
+- [ ] Tailscale mesh / VPN
+- [ ] DNS (Terraform public records / CoreDNS internal)
 - [ ] All services
 
 ## Prerequisites
@@ -87,7 +84,7 @@ If something goes wrong, how do you roll back?
 
 ## Documentation Updates
 - [ ] Update runbooks
-- [ ] Update WARP.md
+- [ ] Update CLAUDE.md
 - [ ] Update README.md
 - [ ] Update configuration documentation
 - [ ] No documentation changes needed

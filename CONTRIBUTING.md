@@ -166,7 +166,7 @@ cd infra
 ansible-inventory -i ansible/inventory/hosts.ini --graph
 
 # Test variable resolution
-ansible-inventory -i ansible/inventory/hosts.ini --host app1.prod.wilkesliberty.com
+ansible-inventory -i ansible/inventory/hosts.ini --host <hostname>
 
 # Validate Terraform configuration  
 terraform init

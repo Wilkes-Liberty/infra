@@ -13,10 +13,8 @@ ansible/
 │   ├── group_vars/          # Inventory-specific group variables
 │   │   ├── all.yml          # Main infrastructure variables
 │   │   └── sso_secrets.yml  # Encrypted SSO secrets (SOPS)
-│   ├── host_vars/           # Host-specific variables
-│   │   ├── app1.prod.wilkesliberty.com.yml
-│   │   ├── cache1.prod.wilkesliberty.com.yml
-│   │   └── [...other host vars...]
+│   ├── host_vars/           # Host-specific variables (on-prem server, VPS)
+│   │   └── [...host var files...]
 │   └── hosts.ini            # Main inventory file
 ├── playbooks/               # Ansible playbooks
 ├── roles/                   # Ansible roles
@@ -90,15 +88,15 @@ admin_allow_cidrs:                          # Admin access CIDRs
   - 203.0.113.0/24
 ```
 
-### Service IP Addresses
+### Service IP Addresses (on-prem LAN, used by CoreDNS zone file)
 ```yaml
-dns_int_ip: 10.10.0.10           # CoreDNS server
-app_int_ip: 10.10.0.2            # Application server
-db_int_ip: 10.10.0.3             # Database server
-search_int_ip: 10.10.0.4         # Solr search server
-analytics_int_ip: 10.10.0.7     # Analytics/monitoring
-sso_int_ip: 10.10.0.8            # SSO/Authentik server
-cache_int_ip: 10.10.0.9          # Cache server (Varnish+Caddy)
+dns_int_ip:       10.10.0.10   # CoreDNS server (on-prem)
+app_int_ip:       10.10.0.2    # Drupal (webcms repo) — app.int.wilkesliberty.com
+db_int_ip:        10.10.0.3    # PostgreSQL
+search_int_ip:    10.10.0.4    # Solr
+analytics_int_ip: 10.10.0.7   # Grafana/Prometheus/Alertmanager/Uptime Kuma
+sso_int_ip:       10.10.0.8    # Keycloak SSO — sso.int.wilkesliberty.com
+cache_int_ip:     10.10.0.9    # Redis
 ```
 
 ### Domain Configuration
@@ -131,14 +129,14 @@ If encrypted variables can't be loaded:
 ## Variable Loading Commands
 
 ```bash
-# View all variables for a host
-ansible-inventory -i inventory/hosts.ini --host app1.prod.wilkesliberty.com
+# View all variables for a host (replace with your actual hostname)
+ansible-inventory -i inventory/hosts.ini --host <hostname>
 
 # View all groups and hosts
 ansible-inventory -i inventory/hosts.ini --graph
 
-# Test variable resolution
-ansible -i inventory/hosts.ini app1.prod.wilkesliberty.com -m debug -a "var=app_int_ip"
+# Test variable resolution on a host
+ansible -i inventory/hosts.ini <hostname> -m debug -a "var=app_int_ip"
 
 # Edit encrypted secrets
 sops inventory/group_vars/sso_secrets.yml
