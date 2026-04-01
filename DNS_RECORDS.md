@@ -1,25 +1,25 @@
 # DNS Records Configuration
 
-This document describes the DNS configuration for Wilkes Liberty — public records managed via Terraform + Njalla, and internal records served by CoreDNS over Tailscale.
+This document describes the DNS configuration for Wilkes Liberty — public records managed via Terraform, and internal records served by CoreDNS over Tailscale.
 
 ## Architecture Overview
 
 ```
-Internet → wilkesliberty.com (public DNS, Njalla)
+Internet → wilkesliberty.com (public DNS)
                ↓
-           Njalla VPS  ←── Tailscale mesh ──→  On-prem server
-           (Caddy, Next.js)                     (Docker Compose)
+           Cloud VPS  ←── Tailscale mesh ──→  On-prem server
+           (Caddy, Next.js)                    (Docker Compose)
 
 Internal clients (Tailscale) → *.int.wilkesliberty.com (CoreDNS on on-prem)
 ```
 
-All public records point to the **Njalla VPS** IP. The VPS Caddy instance either serves traffic locally (Next.js) or reverse-proxies to the on-prem server over the Tailscale mesh (Drupal, Keycloak, Solr).
+All public records point to the **cloud VPS** IP. The VPS Caddy instance either serves traffic locally (Next.js) or reverse-proxies to the on-prem server over the Tailscale mesh (Drupal, Keycloak, Solr).
 
 Internal `*.int.wilkesliberty.com` names are only resolvable on the Tailscale network via Tailscale Split DNS → CoreDNS on the on-prem server.
 
 ---
 
-## Public DNS Records (Terraform-managed, Njalla)
+## Public DNS Records (Terraform-managed)
 
 Source of truth: `records.tf`
 
@@ -46,9 +46,9 @@ Source of truth: `records.tf`
 
 Managed in `mail_proton.tf`. Includes MX, SPF TXT, DKIM TXT, and DMARC TXT records. Do not edit manually — these are managed by Terraform.
 
-### CAA Records (Manual — Njalla web UI only)
+### CAA Records (Manual — DNS provider web UI only)
 
-The Njalla Terraform provider (`sighery/njalla` v0.10.0) does not support CAA records. Add these manually in the Njalla web interface:
+The Terraform provider does not support CAA records. Add these manually in the DNS provider web interface:
 
 | Name | Tag | Value |
 |------|-----|-------|

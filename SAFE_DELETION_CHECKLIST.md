@@ -21,8 +21,8 @@ Your Terraform manages **26 DNS records** with these specific IDs:
 
 ## 📋 STEP-BY-STEP DELETION PROCESS
 
-### Step 1: Login to Njalla
-1. Go to [Njalla Control Panel](https://njalla.com/domains/)
+### Step 1: Login to DNS Provider
+1. Go to your DNS provider's control panel
 2. Select `wilkesliberty.com`
 3. Navigate to DNS Management
 
@@ -75,6 +75,7 @@ terraform apply
 ```bash
 # Check total Terraform records
 terraform show -json | jq '.values.root_module.resources[] | select(.type | startswith("njalla_record")) | .values.id' | wc -l
+# Note: resource type prefix "njalla_record" is the Terraform provider identifier and is expected
 
 # Check for DMARC duplicates
 dig +short _dmarc.wilkesliberty.com TXT

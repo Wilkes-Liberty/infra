@@ -56,16 +56,16 @@ variable "internal_domain" {
 #   sensitive   = true
 # }
 
-# Njalla DNS provider
+# DNS provider
 variable "njalla_api_token" {
-  description = "Njalla API token"
+  description = "DNS provider API token"
   type        = string
   sensitive   = true
 }
 
 # VPS configuration
 variable "vps_ipv4" {
-  description = "Njalla VPS public IPv4 address"
+  description = "Cloud VPS public IPv4 address"
   type        = string
   # Set this in terraform.tfvars after provisioning VPS
 }

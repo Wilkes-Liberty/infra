@@ -2,7 +2,7 @@
 ## WilkesLiberty Infrastructure
 
 **Last Updated**: March 30, 2026  
-**Domain**: wilkesliberty.com (managed at Njalla)
+**Domain**: wilkesliberty.com
 
 ---
 
@@ -13,11 +13,11 @@
 ```
 ┌──────────────────────────────────────────────────────────┐
 │ Internet (Public)                                        │
-│ All DNS records point to Njalla VPS                     │
+│ All DNS records point to cloud VPS                      │
 └────────────────────┬─────────────────────────────────────┘
                      │
          ┌───────────▼────────────┐
-         │   Njalla VPS           │  ← ONLY public server
+         │   Cloud VPS            │  ← ONLY public server
          │   Caddy Reverse Proxy  │
          │   • Ports 80, 443 open │
          │   • Auto SSL (Let's    │

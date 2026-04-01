@@ -1,15 +1,15 @@
 ---
 # =============================================================================
-# VPS Deployment Playbook — Njalla VPS
+# VPS Deployment Playbook — Cloud VPS
 # =============================================================================
-# Deploys the public ingress on the Njalla VPS:
-#   1. Obtains/renews wildcard Let's Encrypt certificate (DNS-01 via Njalla API)
+# Deploys the public ingress on the cloud VPS:
+#   1. Obtains/renews wildcard Let's Encrypt certificate (DNS-01 via DNS API)
 #   2. Installs and configures Caddy as the public reverse proxy
 #
 # Prerequisites:
 #   - Tailscale must be running on the VPS (Section 5.2 of deployment guide)
 #   - On-prem Tailscale IP must be resolvable from VPS
-#   - njalla_api_token must be set (via sso_secrets.yml or TF_VAR env)
+#   - dns_api_token must be set (via sso_secrets.yml or TF_VAR env)
 #
 # Usage:
 #   ansible-playbook -i inventory/hosts.ini playbooks/vps.yml
@@ -17,8 +17,8 @@
 #   make vps
 # =============================================================================
 
-- name: Deploy Njalla VPS — Let's Encrypt + Caddy
-  hosts: njalla-vps
+- name: Deploy Cloud VPS — Let's Encrypt + Caddy
+  hosts: cloud-vps
   become: yes
 
   roles:

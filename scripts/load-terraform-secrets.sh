@@ -61,7 +61,7 @@ load_terraform_secrets() {
 
     echo "✅ Terraform secrets loaded successfully!"
     echo "   Available variables:"
-    echo "   - TF_VAR_njalla_api_token"
+    echo "   - TF_VAR_njalla_api_token  (DNS provider API token)"
     echo "   - TF_VAR_proton_verification_token"
     echo "   - TF_VAR_proton_dkim1_target"
     echo "   - TF_VAR_proton_dkim2_target"

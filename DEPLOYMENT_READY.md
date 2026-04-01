@@ -9,7 +9,7 @@
 ## 🎉 What's Complete
 
 ### Infrastructure Modernization
-- ✅ **Simplified from 9 VPS hosts to 2-host architecture** (wl-onprem + future njalla-vps)
+- ✅ **Simplified from 9 VPS hosts to 2-host architecture** (wl-onprem + future cloud-vps)
 - ✅ **Removed 9 conflicting Ansible roles** - All functionality now in Docker Compose
 - ✅ **Created comprehensive Docker Compose stack** - 11 containers with health checks
 - ✅ **Implemented enterprise monitoring** - Prometheus/Grafana/Alertmanager with 16 alert rules
@@ -188,7 +188,7 @@ You've deployed successfully when:
 - Create operational runbooks
 
 ### Phase 2: Distributed Architecture (Future)
-- Deploy Njalla VPS with Next.js frontend
+- Deploy cloud VPS with Next.js frontend
 - Configure Tailscale mesh between VPS and on-prem server
 - Set up Caddy reverse proxy for public access
 - Configure Let's Encrypt SSL

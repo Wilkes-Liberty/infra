@@ -2,7 +2,7 @@
 # Let's Encrypt Certificate Management Playbook for Wilkes Liberty Infrastructure
 #
 # Deploys the wildcard certificate (wilkesliberty.com + *.wilkesliberty.com) to the
-# Njalla VPS. The same certificate is also copied to the on-prem server for use by
+# cloud VPS. The same certificate is also copied to the on-prem server for use by
 # internal Caddy (*.int.wilkesliberty.com vhosts).
 #
 # NOTE: Certificate must first be obtained manually on the VPS:
@@ -10,14 +10,14 @@
 #     -d "wilkesliberty.com" -d "*.wilkesliberty.com"
 # See LETSENCRYPT_SSL_GUIDE.md for full instructions.
 
-- name: Deploy and renew Let's Encrypt wildcard certificate (Njalla VPS)
-  hosts: vps
+- name: Deploy and renew Let's Encrypt wildcard certificate (Cloud VPS)
+  hosts: cloud-vps
   become: yes
   gather_facts: yes
 
   vars:
-    # Load Njalla API token from existing terraform secrets
-    njalla_api_token: "{{ lookup('community.sops.sops', '../../terraform_secrets.yml') | from_yaml | json_query('njalla_api_token') }}"
+    # Load DNS API token from existing terraform secrets
+    dns_api_token: "{{ lookup('community.sops.sops', '../../terraform_secrets.yml') | from_yaml | json_query('dns_api_token') }}"
     letsencrypt_certificates:
       - name: "wilkesliberty_wildcard"
         domains:
@@ -30,12 +30,12 @@
         description: "Wildcard certificate — all wilkesliberty.com subdomains"
 
   pre_tasks:
-    - name: Verify Njalla API token is defined
+    - name: Verify DNS API token is defined
       assert:
         that:
-          - njalla_api_token is defined
-          - njalla_api_token | length > 0
-        fail_msg: "Njalla API token must be present in terraform_secrets.yml"
+          - dns_api_token is defined
+          - dns_api_token | length > 0
+        fail_msg: "DNS API token must be present in terraform_secrets.yml"
 
     - name: Create ssl-cert group if it does not exist
       group:

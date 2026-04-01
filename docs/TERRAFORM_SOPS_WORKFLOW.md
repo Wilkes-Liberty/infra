@@ -4,7 +4,7 @@
 ## 🔐 **Security Architecture**
 
 All sensitive values are stored in **SOPS-encrypted** `terraform_secrets.yml`:
-- ✅ Njalla API token
+- ✅ DNS provider API token (`njalla_api_token`)
 - ✅ Proton Mail DKIM targets (3)
 - ✅ Proton Mail verification token
 
@@ -28,7 +28,7 @@ source scripts/load-terraform-secrets.sh
 🔒 Loading Terraform secrets from SOPS...
 ✅ Terraform secrets loaded successfully!
    Available variables:
-   - TF_VAR_njalla_api_token
+   - TF_VAR_njalla_api_token  (DNS provider API token)
    - TF_VAR_proton_dkim1_target
    - TF_VAR_proton_dkim2_target
    - TF_VAR_proton_dkim3_target

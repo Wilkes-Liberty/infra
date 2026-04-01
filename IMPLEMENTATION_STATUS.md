@@ -13,7 +13,7 @@
 - **File**: `ansible/inventory/hosts.ini`
 - **Changes**: 
   - Removed 7 non-existent VPS server entries (app1, db1, search1, analytics1, sso1, cache1, dns1)
-  - Simplified to 2-host configuration: `wl-onprem` (localhost) + `njalla-vps`
+  - Simplified to 2-host configuration: `wl-onprem` (localhost) + `cloud-vps`
   - Backup saved: `ansible/inventory/hosts.ini.backup`
 - **Result**: Clean, maintainable inventory reflecting actual infrastructure
 
@@ -34,7 +34,7 @@
   - `letsencrypt/` - SSL certificate management
   - `monitoring/` - Monitoring orchestration
   - `tailscale/` - VPN mesh networking
-  - `vps-proxy/` - Njalla VPS reverse proxy
+  - `vps-proxy/` - Cloud VPS reverse proxy
   - `wl-onprem/` - on-prem server server orchestration
 
 #### 1.3 Cleaned Up Ansible Playbooks ✅
@@ -47,7 +47,7 @@
   
 - **Kept 4 functional playbooks**:
   - `onprem.yml` - on-prem server deployment
-  - `vps.yml` - Njalla VPS deployment
+  - `vps.yml` - Cloud VPS deployment
   - `letsencrypt.yml` - SSL certificate automation
   - `monitoring.yml` - Monitoring stack setup
 
@@ -169,14 +169,14 @@
                           │ Tailscale encrypted tunnel
                           │
 ┌────────────────────────────────────────────────────────────┐
-│ Njalla VPS (Cloud)                                         │
+│ Cloud VPS                                                  │
 ├────────────────────────────────────────────────────────────┤
 │   • Next.js Frontend            :3000                      │
 │   • Caddy Reverse Proxy         :443                       │
 │                                                            │
 │ Proxies:                                                   │
-│   /api/*   → on-prem server Tailscale IP:8080 (Drupal)          │
-│   /auth/*  → on-prem server Tailscale IP:8081 (Keycloak)        │
+│   /api/*   → on-prem server Tailscale IP:8080 (Drupal)     │
+│   /auth/*  → on-prem server Tailscale IP:8081 (Keycloak)   │
 │   /*       → localhost:3000 (Next.js)                      │
 └────────────────────────────────────────────────────────────┘
 ```

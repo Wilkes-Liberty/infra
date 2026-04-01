@@ -18,14 +18,14 @@ vi terraform.tfvars
 **Fill in these required values:**
 
 ```hcl
-njalla_api_token = "your-token-from-njalla"
+njalla_api_token = "your-dns-api-token"
 vps_ipv4        = "1.2.3.4"  # Your VPS IP
 ```
 
 ### **2. Initialize Terraform**
 
 ```bash
-# First time only - downloads Njalla provider
+# First time only - downloads DNS provider
 terraform init
 ```
 
@@ -35,7 +35,7 @@ terraform init
 # Preview changes (always safe)
 terraform plan
 
-# Apply changes to Njalla DNS
+# Apply DNS changes
 terraform apply
 
 # Auto-approve (skip confirmation)

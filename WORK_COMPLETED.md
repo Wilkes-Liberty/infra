@@ -11,7 +11,7 @@
 ### **Phase 1: Infrastructure Cleanup** ✅ COMPLETE
 
 **Eliminated confusion and conflicts:**
-1. ✅ Simplified Ansible inventory from 9 hosts to 2 (wl-onprem + njalla-vps)
+1. ✅ Simplified Ansible inventory from 9 hosts to 2 (wl-onprem + cloud-vps)
 2. ✅ Removed 9 conflicting Ansible roles (app, db, solr, authentik, analytics_obs, cache, coredns, resolved, wireguard)
 3. ✅ Removed 5 obsolete playbooks (bootstrap, site, coredns, resolved, deploy-app)
 4. ✅ Kept 6 essential roles (common, letsencrypt, monitoring, tailscale, vps-proxy, wl-onprem)
@@ -241,7 +241,7 @@ launchctl load ~/Library/LaunchAgents/com.wilkesliberty.backup.plist
 
 2. **Consolidated on-prem** ✅
    - All backend services on on-prem server
-   - Only Next.js frontend on Njalla VPS
+   - Only Next.js frontend on cloud VPS
    - Saves $2K+/year vs distributed VPS
    - Better performance (no inter-service network latency)
 
@@ -278,13 +278,13 @@ launchctl load ~/Library/LaunchAgents/com.wilkesliberty.backup.plist
 
 ### **Performance Benefits**
 - **Zero network latency** between services (localhost)
-- **Faster than VPS** (M4 Pro > shared vCPU)
+- **Faster than shared VPS** (M4 Pro > shared vCPU)
 - **13 CPUs allocated** (< 50% of M4 Pro capacity)
 - **25GB RAM used** (comfortable margin)
 
 ### **Security Improvements**
 - **Network isolation** (frontend/backend/monitoring)
-- **Minimal public attack surface** (only Next.js VPS exposed)
+- **Minimal public attack surface** (only Next.js on cloud VPS exposed)
 - **Dual VPN layers** (Proton + Tailscale)
 - **Encrypted backups** (AES-256)
 
@@ -364,9 +364,9 @@ launchctl load ~/Library/LaunchAgents/com.wilkesliberty.backup.plist
 5. **Configure SMTP** for alert emails
 
 ### **Short-term (Next 2 Weeks)**
-1. **Set up Tailscale** VPN mesh between on-prem server and Njalla
-2. **Deploy Next.js frontend** to Njalla VPS (from `ui` repo)
-3. **Configure Caddy** reverse proxy on Njalla VPS
+1. **Set up Tailscale** VPN mesh between on-prem server and cloud VPS
+2. **Deploy Next.js frontend** to cloud VPS (from `ui` repo)
+3. **Configure Caddy** reverse proxy on cloud VPS
 4. **Test end-to-end flow** (frontend → API → database)
 5. **Establish performance baselines** (let run for 7 days)
 

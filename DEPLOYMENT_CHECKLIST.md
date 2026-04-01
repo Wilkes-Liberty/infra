@@ -9,11 +9,11 @@
 ## Architecture Summary
 
 ```
-Internet → Njalla VPS (Caddy, Next.js) ←── Tailscale ──→ On-prem server (Docker Compose)
+Internet → Cloud VPS (Caddy, Next.js) ←── Tailscale ──→ On-prem server (Docker Compose)
 Internal devices (Tailscale) → *.int.wilkesliberty.com (CoreDNS on on-prem)
 ```
 
-The **on-prem server** runs all backend services. The **Njalla VPS** is the single public ingress — it serves Next.js directly and proxies everything else (Drupal, Keycloak, Solr) over the Tailscale mesh to the on-prem server. Internal monitoring and admin services are accessible only over Tailscale via `*.int.wilkesliberty.com`.
+The **on-prem server** runs all backend services. The **cloud VPS** is the single public ingress — it serves Next.js directly and proxies everything else (Drupal, Keycloak, Solr) over the Tailscale mesh to the on-prem server. Internal monitoring and admin services are accessible only over Tailscale via `*.int.wilkesliberty.com`.
 
 ---
 
@@ -32,7 +32,7 @@ The **on-prem server** runs all backend services. The **Njalla VPS** is the sing
 - [ ] AGE private key present at `~/.config/sops/age/keys.txt`
 - [ ] `SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt` set in shell profile
 - [ ] Tailscale account created
-- [ ] Njalla VPS provisioned with static IPv4 (and optionally IPv6)
+- [ ] Cloud VPS provisioned with static IPv4 (and optionally IPv6)
 - [ ] Terraform CLI installed
 - [ ] Ansible CLI installed with required collections:
   ```bash
@@ -147,7 +147,7 @@ sudo tailscale up --advertise-routes=10.10.0.0/24
 tailscale ip -4
 ```
 
-### Step 2.2: Install and Connect Tailscale (Njalla VPS)
+### Step 2.2: Install and Connect Tailscale (Cloud VPS)
 
 ```bash
 # Install (on VPS — Linux)
@@ -203,7 +203,7 @@ sops -d terraform_secrets.yml
 
 # Create terraform.tfvars (gitignored)
 cat > terraform.tfvars << EOF
-njalla_api_token = "<your_njalla_api_token>"
+njalla_api_token = "<your_dns_api_token>"
 vps_ipv4         = "<your_vps_ipv4>"
 vps_ipv6         = "<your_vps_ipv6_or_empty_string>"
 EOF
@@ -221,9 +221,9 @@ terraform apply   # Apply when satisfied
 
 **Records applied**: apex A/AAAA, www, api, auth, search (all → VPS IP), network CNAME, Proton Mail records.
 
-### Step 3.3: Add CAA Records Manually (Njalla web UI)
+### Step 3.3: Add CAA Records Manually (DNS provider web UI)
 
-The Terraform provider doesn't support CAA. Log in to Njalla and add these three records manually for `wilkesliberty.com`:
+The Terraform provider doesn't support CAA. Log in to your DNS provider and add these three records manually for `wilkesliberty.com`:
 
 | Tag | Value |
 |-----|-------|
@@ -314,7 +314,7 @@ This playbook deploys to the cloud VPS:
 
 ### Step 5.1: Obtain Wildcard Certificate
 
-On the Njalla VPS:
+On the cloud VPS:
 
 ```bash
 # DNS-01 challenge for wildcard cert
@@ -325,7 +325,7 @@ certbot certonly \
   -d "*.wilkesliberty.com"
 ```
 
-Certbot will ask you to add a `_acme-challenge` TXT record to Njalla. Add it manually in the Njalla web UI, wait ~60 seconds for propagation, then press Enter.
+Certbot will ask you to add a `_acme-challenge` TXT record. Add it manually in your DNS provider's web UI, wait ~60 seconds for propagation, then press Enter.
 
 ### Step 5.2: Verify Certificate
 
@@ -713,7 +713,7 @@ Deployment is complete when:
 - [ ] Redis authentication working (`redis-cli -a $REDIS_PASSWORD ping` → PONG)
 - [ ] TLS 1.1 rejected on public endpoints
 - [ ] Security headers present on all public vhosts
-- [ ] CAA records in Njalla; `dig CAA wilkesliberty.com` returns 3 records
+- [ ] CAA records added in DNS provider web UI; `dig CAA wilkesliberty.com` returns 3 records
 - [ ] `*.int.wilkesliberty.com` NOT resolvable from non-Tailscale devices
 - [ ] Automated backups running daily at 4:00 AM (encrypted)
 - [ ] No critical alerts firing in Alertmanager

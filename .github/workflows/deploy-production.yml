@@ -92,7 +92,7 @@ jobs:
 
     - name: Deploy infrastructure to production
       env:
-        TF_VAR_njalla_api_token: ${{ secrets.PRODUCTION_NJALLA_API_TOKEN }}
+        TF_VAR_njalla_api_token: ${{ secrets.PRODUCTION_DNS_API_TOKEN }}
         TF_VAR_proton_dkim1_target: ${{ secrets.PROTON_DKIM1_TARGET }}
         TF_VAR_proton_dkim2_target: ${{ secrets.PROTON_DKIM2_TARGET }}
         TF_VAR_proton_dkim3_target: ${{ secrets.PROTON_DKIM3_TARGET }}

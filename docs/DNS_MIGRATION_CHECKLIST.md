@@ -1,5 +1,5 @@
 # DNS Migration Safety Checklist
-**WilkesLiberty - Njalla to Terraform**
+**WilkesLiberty - DNS to Terraform**
 
 ## ⚠️ **IMPORTANT: Read Before Running Terraform**
 
@@ -47,7 +47,7 @@ ls -l *.tf
 # Copy current values with Proton Mail settings
 cp terraform.tfvars.current terraform.tfvars
 
-# Edit to add your Njalla API token
+# Edit to add your DNS API token
 vi terraform.tfvars
 
 # Required NOW:
@@ -61,7 +61,7 @@ vi terraform.tfvars
 ### **4. Initialize Terraform**
 
 ```bash
-# Download Njalla provider
+# Download DNS provider
 terraform init
 
 # Verify provider installed

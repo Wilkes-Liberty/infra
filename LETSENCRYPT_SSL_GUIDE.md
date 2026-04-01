@@ -1,6 +1,6 @@
 # Let's Encrypt SSL Certificate Management for Wilkes Liberty
 
-SSL/TLS certificate management for the two-host infrastructure: Njalla VPS (public ingress) and on-prem server (internal services via Tailscale).
+SSL/TLS certificate management for the two-host infrastructure: cloud VPS (public ingress) and on-prem server (internal services via Tailscale).
 
 ## Certificate Strategy
 
@@ -18,7 +18,7 @@ This single cert covers `www`, `api`, `auth`, `search`, and any future subdomain
 
 ---
 
-## Quick Start: Obtain Wildcard Certificate (on Njalla VPS)
+## Quick Start: Obtain Wildcard Certificate (on Cloud VPS)
 
 ```bash
 certbot certonly \
@@ -28,7 +28,7 @@ certbot certonly \
   -d "*.wilkesliberty.com"
 ```
 
-certbot will prompt you to add a `_acme-challenge` TXT record in Njalla. Add it via the Njalla web UI, wait ~60 seconds for DNS propagation, then press Enter to continue.
+certbot will prompt you to add a `_acme-challenge` TXT record. Add it via your DNS provider's web UI, wait ~60 seconds for DNS propagation, then press Enter to continue.
 
 ### Verify Certificate
 
@@ -122,11 +122,11 @@ The wildcard cert (`*.wilkesliberty.com`) requires a DNS-01 challenge — HTTP-0
 **Manual process** (what we use):
 1. Run `certbot certonly --manual --preferred-challenges dns -d "wilkesliberty.com" -d "*.wilkesliberty.com"`
 2. certbot provides a TXT record value
-3. Add `_acme-challenge.wilkesliberty.com TXT "<value>"` in Njalla web UI
+3. Add `_acme-challenge.wilkesliberty.com TXT "<value>"` in the DNS provider web UI
 4. Verify propagation: `dig TXT _acme-challenge.wilkesliberty.com @8.8.8.8`
 5. Press Enter in certbot to complete
 
-**Automated renewal** can be set up with the `certbot-dns-njalla` plugin if available, or by scripting the Njalla API. For now, renewals are manual (certs are valid 90 days; renew before 30 days remaining).
+**Automated renewal** can be set up with the certbot DNS plugin or by scripting the DNS provider API. For now, renewals are manual (certs are valid 90 days; renew before 30 days remaining).
 
 ---
 
@@ -214,10 +214,10 @@ openssl req -x509 -nodes -days 7 -newkey rsa:2048 \
 
 ## Security Notes
 
-- **CAA records**: Manually added to Njalla — only `letsencrypt.org` can issue certificates for `wilkesliberty.com`. Run `dig CAA wilkesliberty.com` to verify.
+- **CAA records**: Manually added in the DNS provider web UI — only `letsencrypt.org` can issue certificates for `wilkesliberty.com`. Run `dig CAA wilkesliberty.com` to verify.
 - **Private key permissions**: Must be `600`, owned by root (or the user running Caddy)
 - **Key storage**: Never commit private keys to git. The cert is only on the VPS filesystem.
-- **API token**: The Njalla API token is in `terraform_secrets.yml` (SOPS-encrypted). DNS-01 manual renewal doesn't require the token at renewal time — only when running certbot interactively.
+- **API token**: The DNS provider API token is in `terraform_secrets.yml` (SOPS-encrypted). DNS-01 manual renewal doesn't require the token at renewal time — only when running certbot interactively.
 
 ---
 
