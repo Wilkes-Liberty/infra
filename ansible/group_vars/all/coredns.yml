@@ -12,19 +12,19 @@ upstream_dns: ["1.1.1.1","9.9.9.9"]
 
 internal_hosts:
   # Application services
-  app: "10.10.0.2"
-  sso: "10.10.0.8"
+  app: "{{ onprem_int_ip }}"
+  sso: "{{ onprem_int_ip }}"
 
   # Data services (not proxied — DNS only)
-  db: "10.10.0.3"
-  search: "10.10.0.4"
-  cache: "10.10.0.9"
+  db: "{{ onprem_int_ip }}"
+  search: "{{ onprem_int_ip }}"
+  cache: "{{ onprem_int_ip }}"
 
   # Monitoring
-  monitor: "10.10.0.7"
-  prometheus: "10.10.0.7"
-  alerts: "10.10.0.7"
-  uptime: "10.10.0.7"
+  monitor: "{{ onprem_int_ip }}"
+  prometheus: "{{ onprem_int_ip }}"
+  alerts: "{{ onprem_int_ip }}"
+  uptime: "{{ onprem_int_ip }}"
 
   # Admin devices — IPs are defined in network_secrets.yml (SOPS-encrypted).
   # Edit with: sops ansible/inventory/group_vars/network_secrets.yml
@@ -50,5 +50,5 @@ printer_admin_port: "80"     # Most printers default to port 80 for admin
 uptime_int_ip: "{{ internal_hosts.uptime }}"
 uptime_admin_port: "3002"    # Uptime Kuma default port
 
-reverse_cidr: "10.10.0.0/24"
-reverse_zone: "0.10.10.in-addr.arpa."
+reverse_cidr: "{{ dns_reverse_cidr }}"
+reverse_zone: "{{ dns_reverse_zone }}"
