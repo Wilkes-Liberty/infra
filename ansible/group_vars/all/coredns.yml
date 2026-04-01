@@ -2,10 +2,10 @@ int_domain: "int.wilkesliberty.com."
 
 # CoreDNS binds on the Tailscale IP, NOT the LAN IP.
 # This means the DNS server is only reachable when connected via Tailscale.
-# Set this to the actual Tailscale IP of the on-prem server.
-# Find it by running: tailscale ip -4
-# TODO: Update with your actual Tailscale IP before deploying.
-coredns_listen_ip: "{{ onprem_tailscale_ip }}"   # e.g. 100.82.73.91
+# onprem_tailscale_ip is defined in network_secrets.yml (SOPS-encrypted).
+# Edit with: sops ansible/inventory/group_vars/network_secrets.yml
+# Find the value by running: tailscale ip -4
+coredns_listen_ip: "{{ onprem_tailscale_ip }}"
 tailscale_cidr: "100.64.0.0/10"                   # Tailscale address space (do not change)
 
 upstream_dns: ["1.1.1.1","9.9.9.9"]
@@ -26,13 +26,13 @@ internal_hosts:
   alerts: "10.10.0.7"
   uptime: "10.10.0.7"
 
-  # Admin devices
-  # TODO: Replace placeholder IPs with actual LAN IPs.
-  # Assign static/reserved DHCP leases so these never change.
-  nas: "10.10.0.20"      # NAS storage (Synology, TrueNAS, etc.)
-  router: "10.10.0.1"    # Router/gateway admin UI
-  switch: "10.10.0.2"    # TP-Link managed switch — TODO: set actual IP
-  printer: "10.10.0.30"  # Network printer — TODO: set actual IP
+  # Admin devices — IPs are defined in network_secrets.yml (SOPS-encrypted).
+  # Edit with: sops ansible/inventory/group_vars/network_secrets.yml
+  # Assign static/reserved DHCP leases on your router so these never change.
+  nas: "{{ nas_int_ip }}"
+  router: "{{ router_int_ip }}"
+  switch: "{{ coredns_switch_ip }}"
+  printer: "{{ coredns_printer_ip }}"
 
 # Caddy admin port variables — used in Caddyfile.internal.j2
 nas_int_ip: "{{ internal_hosts.nas }}"

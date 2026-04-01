@@ -266,13 +266,43 @@ This playbook:
 7. Deploys launchd plist for daily backups (04:00 AM)
 8. Starts the production Docker stack (builds Drupal from `webcms`, Next.js from `ui`)
 
-### Step 4.3: Run the VPS Deployment Playbook
+### Step 4.3: Configure SSH Access to the Cloud VPS
+
+Ansible must be able to SSH into the VPS as root before running the VPS playbook. The inventory (`hosts.ini`) is already configured to use `~/.ssh/id_rsa`.
+
+**On your local machine — copy your public key to the VPS:**
+
+```bash
+# Replace <vps-ip> with your actual VPS public IP
+ssh-copy-id -i ~/.ssh/id_rsa.pub root@<vps-ip>
+```
+
+If `ssh-copy-id` is not available (rare on macOS), do it manually:
+
+```bash
+cat ~/.ssh/id_rsa.pub | ssh root@<vps-ip> "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+```
+
+**Verify Ansible can reach the VPS:**
+
+```bash
+cd ~/Repositories/infra
+ansible -i ansible/inventory/hosts.ini cloud-vps -m ping
+# Expected: <vps-ip> | SUCCESS => { "ping": "pong" }
+```
+
+If this fails, check:
+- VPS firewall allows port 22 from your IP
+- The `cloud_vps_ip` value in `network_secrets.yml` matches your actual VPS IP
+- Your VPS provider hasn't disabled root SSH (some require enabling it in the control panel first)
+
+### Step 4.4: Run the VPS Deployment Playbook
 
 ```bash
 ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/vps.yml
 ```
 
-This playbook deploys to the Njalla VPS:
+This playbook deploys to the cloud VPS:
 1. Installs Docker, Caddy, certbot
 2. Deploys `Caddyfile.production.j2` (binds on all interfaces; uses certbot wildcard certs)
 3. Deploys Next.js (built from `ui` repo)

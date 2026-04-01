@@ -13,39 +13,26 @@ admin_allow_cidrs:
 # ── Host Internal IP Addresses ────────────────────────────────────────
 # Two-host architecture: on-prem server + Njalla VPS.
 # All backend services run on on-prem; VPS is Caddy public ingress only.
-# Set onprem_int_ip to the LAN IP assigned by your router (check DHCP table).
-onprem_int_ip: 10.10.0.2      # On-prem server: Drupal, Postgres, Redis, Solr, Keycloak, monitoring
-
-# CoreDNS and internal Caddy bind on the on-prem Tailscale IP.
-# Populate after first `tailscale up` on on-prem: run `tailscale ip -4`
-coredns_ts_ip: ""              # e.g. 100.64.0.1
-
+#
+# Network IPs are stored in network_secrets.yml (SOPS-encrypted).
+# Edit with: sops ansible/inventory/group_vars/network_secrets.yml
+#
+# Variables defined there:
+#   onprem_int_ip   — on-prem server LAN IP
+#   coredns_ts_ip   — on-prem Tailscale IP (run `tailscale ip -4` after first `tailscale up`)
+#   cloud_vps_ip    — Cloud VPS public IP (used in hosts.ini)
+#
 # ── Admin Device Internal IP Addresses ────────────────────────────────
 # These are used by Caddyfile.internal.j2 to reverse-proxy device admin UIs
 # at *.int.wilkesliberty.com over HTTPS (wildcard cert).
-# TODO: Replace placeholders with actual static/reserved DHCP IPs.
 # Assign static leases on your router so these never drift.
-# Run `arp -a` or check your router's DHCP table to find current IPs.
-
-# Synology NAS — nas.int.wilkesliberty.com
-nas_int_ip: "10.10.0.20"       # TODO: set actual IP
-nas_admin_port: "5000"         # Synology DSM HTTP = 5000; HTTPS = 5001; TrueNAS = 80/443
-
-# AT&T router — router.int.wilkesliberty.com
-router_int_ip: "10.10.0.1"    # Usually the default gateway; confirm in router UI
-router_admin_port: "80"        # AT&T BGW320 = 80 (HTTP only internally)
-
-# TP-Link managed switch — switch.int.wilkesliberty.com
-switch_int_ip: "10.10.0.50"   # TODO: set actual IP (check router DHCP table)
-switch_admin_port: "80"        # TP-Link smart switches default to port 80
-
-# Network printer — print.int.wilkesliberty.com
-printer_int_ip: "10.10.0.30"  # TODO: set actual IP
-printer_admin_port: "80"       # Most printers expose admin on port 80
-
-# Uptime Kuma — uptime.int.wilkesliberty.com (runs on on-prem server)
-uptime_int_ip: "10.10.0.7"    # Same host as monitoring stack
-uptime_admin_port: "3002"      # Uptime Kuma default port
+#
+# Variables defined in network_secrets.yml:
+#   nas_int_ip / nas_admin_port         — Synology NAS (nas.int.wilkesliberty.com)
+#   router_int_ip / router_admin_port   — AT&T router (router.int.wilkesliberty.com)
+#   switch_int_ip / switch_admin_port   — TP-Link switch (switch.int.wilkesliberty.com)
+#   printer_int_ip / printer_admin_port — Network printer (print.int.wilkesliberty.com)
+#   uptime_int_ip / uptime_admin_port   — Uptime Kuma (uptime.int.wilkesliberty.com)
 
 # ── Repository URLs ───────────────────────────────────────────────────
 # webcms = Drupal CMS (headless backend) — built into the Drupal Docker image; serves api.wilkesliberty.com
