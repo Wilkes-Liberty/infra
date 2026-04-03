@@ -282,16 +282,16 @@ Replace these placeholders:
 # Run this ON ON-PREM SERVER:
 tailscale ip -4
 
-# Example output: 100.82.73.91
+# Example output: {{ coredns_ts_ip }}
 ```
 
 **Update Caddyfile:**
 ```caddyfile
 # Replace this:
-reverse_proxy {{ onprem_tailscale_ip | default('100.82.73.91') }}:8080
+reverse_proxy {{ onprem_tailscale_ip }}:8080
 
 # With your actual IP:
-reverse_proxy 100.82.73.91:8080
+reverse_proxy {{ coredns_ts_ip }}:8080
 ```
 
 **Update email:**
@@ -674,7 +674,7 @@ Now access Grafana at: `https://grafana.wilkesliberty.com`
 - [ ] CAA records added manually in Njalla web UI (3 records)
 - [ ] Njalla VPS provisioned (Ubuntu 24.04, 1+ GB RAM)
 - [ ] Tailscale installed and connected on VPS and on-prem server
-- [ ] Subnet route `10.10.0.0/24` approved in Tailscale admin
+- [ ] Subnet route `{{ dns_reverse_cidr }}` approved in Tailscale admin
 - [ ] Tailscale Split DNS configured for `int.wilkesliberty.com`
 - [ ] Caddy installed on VPS
 - [ ] Firewall configured (ports 22, 80, 443 only + Tailscale interface)

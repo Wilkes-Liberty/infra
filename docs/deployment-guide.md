@@ -29,12 +29,12 @@ Complete every item below in order before running make deploy. Tick each checkbo
 | ☐                                        |           | Add CAA records manually            | Njalla web UI → wilkesliberty.com → Add 3 CAA records (letsencrypt.org)                                                                            |
 | ☐                                        |           | Verify CAA records                  | dig CAA wilkesliberty.com (expect 3 records)                                                                                                       |
 | **PHASE 3 — Tailscale VPN Mesh**         |           |                                     |                                                                                                                                                    |
-| ☐                                        |           | Install Tailscale on-prem           | brew install tailscale                                                                                                                             |
-| ☐                                        |           | Connect on-prem to tailnet          | sudo tailscale up --advertise-routes=10.10.0.0/24 --hostname=wilkesliberty-onprem                                                                  |
+| ☐                                        |           | Install Tailscale on-prem           | brew install --cask tailscale                                                                                                                             |
+| ☐                                        |           | Connect on-prem to tailnet          | sudo tailscale up --advertise-routes={{ dns_reverse_cidr }} --hostname=wilkesliberty-onprem                                                                  |
 | ☐                                        |           | Note on-prem Tailscale IP           | tailscale ip -4 (record this — needed for Caddyfile)                                                                                               |
 | ☐                                        |           | Install Tailscale on VPS            | curl -fsSL https://tailscale.com/install.sh | sh                                                                                                   |
 | ☐                                        |           | Connect VPS to tailnet              | sudo tailscale up --hostname=wilkesliberty-vps                                                                                                     |
-| ☐                                        |           | Approve subnet route                | Tailscale admin → wilkesliberty-onprem → Subnet routes → approve 10.10.0.0/24                                                                      |
+| ☐                                        |           | Approve subnet route                | Tailscale admin → wilkesliberty-onprem → Subnet routes → approve {{ dns_reverse_cidr }}                                                                      |
 | ☐                                        |           | Configure Split DNS                 | Tailscale admin → DNS → Custom Nameservers → int.wilkesliberty.com → on-prem Tailscale IP                                                          |
 | ☐                                        |           | Verify mesh connectivity            | ping -c 3 \<ON\_PREM\_TAILSCALE\_IP\> (from VPS)                                                                                                   |
 | **PHASE 4 — On-prem Server (Ansible)**   |           |                                     |                                                                                                                                                    |
@@ -43,7 +43,7 @@ Complete every item below in order before running make deploy. Tick each checkbo
 | ☐                                        |           | Verify all containers running       | docker compose -f \~/nas\_docker/docker-compose.yml ps (all healthy)                                                                               |
 | ☐                                        |           | Verify Redis auth                   | docker exec wl\_redis redis-cli -a "$REDIS\_PASSWORD" ping (expect PONG)                                                                           |
 | ☐                                        |           | Create Solr core                    | docker exec -it wl\_solr bash -c "solr create -c drupal"                                                                                           |
-| ☐                                        |           | Verify internal DNS                 | dig @\<ON\_PREM\_TAILSCALE\_IP\> app.int.wilkesliberty.com (expect 10.10.0.2)                                                                      |
+| ☐                                        |           | Verify internal DNS                 | dig @\<ON\_PREM\_TAILSCALE\_IP\> app.int.wilkesliberty.com (expect {{ onprem_int_ip }})                                                                      |
 | **PHASE 5 — VPS Deployment (Ansible)**   |           |                                     |                                                                                                                                                    |
 | ☐                                        |           | Deploy VPS                          | make vps (certbot wildcard cert via Njalla DNS plugin + Caddy)                                                                                     |
 | ☐                                        |           | Verify TLS certificate              | openssl x509 -in /etc/letsencrypt/live/wilkesliberty.com/fullchain.pem -noout -dates                                                               |
@@ -119,7 +119,7 @@ Every command, script, and Makefile target used in this infrastructure. Run all 
 | **Check cron**                   | crontab -l -u root | grep certbot                                                    | VPS                      | Verify the daily auto-renewal cron job is installed                                                                         |
 | **Monitor issuance**             | https://crt.sh/?q=wilkesliberty.com                                                  | Browser                  | Check Certificate Transparency logs for unauthorized cert issuance                                                          |
 | **CoreDNS**                      |                                                                                      |                          |                                                                                                                             |
-| **Test resolution**              | dig @\<TS\_IP\> app.int.wilkesliberty.com                                            | Any TS device            | Query CoreDNS directly by Tailscale IP — expect 10.10.0.2                                                                   |
+| **Test resolution**              | dig @\<TS\_IP\> app.int.wilkesliberty.com                                            | Any TS device            | Query CoreDNS directly by Tailscale IP — expect {{ onprem_int_ip }}                                                                   |
 | **Internal test**                | docker exec wl\_coredns dig @127.0.0.1 app.int.wilkesliberty.com                     | On-prem                  | Test CoreDNS from inside the container                                                                                      |
 | **Isolation test**               | dig monitor.int.wilkesliberty.com                                                    | Non-TS device            | Confirm internal DNS returns NXDOMAIN outside Tailscale                                                                     |
 | **Post-Deployment Verification** |                                                                                      |                          |                                                                                                                             |
@@ -187,7 +187,7 @@ Run ./scripts/bootstrap.sh from the infra/ repo root to install all required too
 | **Software**               | **Install Command**                                                | **Purpose**                 |
 | -------------------------- | ------------------------------------------------------------------ | --------------------------- |
 | Docker Desktop             | brew install --cask docker                                         | Runs all backend containers |
-| Tailscale                  | brew install tailscale                                             | VPN mesh                    |
+| Tailscale                  | brew install --cask tailscale                                             | VPN mesh                    |
 | SOPS                       | brew install sops                                                  | Secrets encryption          |
 | AGE                        | brew install age                                                   | Encryption key backend      |
 | Ansible                    | pip install ansible --break-system-packages                        | Deployment automation       |
@@ -303,7 +303,7 @@ terraform apply \# Apply when satisfied
 | --------- | -------------------------------- |
 | issue     | "letsencrypt.org"                |
 | issuewild | "letsencrypt.org"                |
-| iodef     | "mailto:admin@wilkesliberty.com" |
+| iodef     | "mailto:security@wilkesliberty.com" |
 
 ```bash
 dig CAA wilkesliberty.com \# Verify after adding
@@ -315,24 +315,43 @@ Monitor for unauthorized certificate issuance: https://crt.sh/?q=wilkesliberty.c
 
 Tailscale must be running on both hosts before deploying the application stack. VPS Caddy's reverse\_proxy directives reference the on-prem Tailscale IP.
 
+> **Both steps are automated by Ansible.** `make onprem` handles on-prem; `make vps` handles the VPS. Manual commands are included for reference and recovery.
+
 ## 5.1 On-prem Server
 
+**Automated by**: `make onprem` — installs via Homebrew Cask, runs `tailscale up` with auth key from SOPS, configures Split DNS, advertises LAN subnet (`{{ dns_reverse_cidr }}`). Idempotent — skips if already connected.
+
+> ⚠ **First install only**: macOS requires manual approval of the Tailscale network extension at **System Settings → Privacy & Security → Network Extensions → Allow Tailscale**. Ansible will prompt you to do this if needed.
+
+Manual equivalent:
+
 ```bash
-brew install tailscale
+brew install --cask tailscale
 
-sudo tailscaled &
+sudo tailscale up \
+  --authkey=$(sops -d ansible/inventory/group_vars/tailscale_secrets.yml | grep tailscale_auth_key | awk '{print $2}') \
+  --advertise-routes={{ dns_reverse_cidr }} \
+  --hostname=wilkesliberty-onprem \
+  --accept-routes \
+  --accept-dns=false
 
-sudo tailscale up --advertise-routes=10.10.0.0/24 --hostname=wilkesliberty-onprem
-
-tailscale ip -4 \# Note this — needed for VPS Caddyfile
+tailscale ip -4 \# Record this — stored as onprem_tailscale_ip in network_secrets.yml
 ```
 
 ## 5.2 Njalla VPS
 
+**Automated by**: `make vps` — installs Tailscale (Linux), runs `tailscale up` with auth key from SOPS, joins tailnet as `wilkesliberty-vps`. Idempotent — skips if already connected.
+
+Manual equivalent:
+
 ```bash
 curl -fsSL https://tailscale.com/install.sh | sh
 
-sudo tailscale up --hostname=wilkesliberty-vps
+sudo tailscale up \
+  --authkey=$(sops -d ansible/inventory/group_vars/tailscale_secrets.yml | grep tailscale_auth_key | awk '{print $2}') \
+  --hostname=wilkesliberty-vps \
+  --accept-routes \
+  --accept-dns=false
 
 tailscale ip -4
 ```
@@ -343,7 +362,7 @@ In the Tailscale admin console (https://login.tailscale.com or network.wilkeslib
 
   - Find the wilkesliberty-onprem machine
 
-  - Under Subnet routes, approve 10.10.0.0/24
+  - Under Subnet routes, approve {{ dns_reverse_cidr }}
 
 This allows the VPS to reach all on-prem Docker services over Tailscale.
 
@@ -364,7 +383,7 @@ This routes all \*.int.wilkesliberty.com queries to CoreDNS on the on-prem serve
 
 ping -c 3 \<ON\_PREM\_TAILSCALE\_IP\>
 
-\# From Tailscale device — should resolve to 10.10.0.7
+\# From Tailscale device — should resolve to {{ onprem_int_ip }}
 
 dig monitor.int.wilkesliberty.com
 ```
@@ -437,15 +456,15 @@ ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/vps.yml
 
 This playbook:
 
-  - Installs Docker, Caddy, certbot on VPS
+  - Installs and connects Tailscale (joins tailnet as `wilkesliberty-vps`, idempotent)
 
-  - Deploys Caddyfile.production.j2 (public vhosts with TLS 1.2+, security headers)
+  - Obtains wildcard Let's Encrypt certificate via Njalla DNS-01 plugin (idempotent — skips if valid cert exists)
 
-  - Deploys Next.js built from ui repo
+  - Installs Caddy and deploys Caddyfile.production.j2 (public vhosts, TLS 1.2+, security headers)
 
-  - Starts Caddy and Next.js
+  - Starts and enables Caddy
 
-> Before running vps.yml: ensure the wildcard Let's Encrypt certificate is in place (Section 6) and Tailscale is connected on the VPS (Section 5.2).
+> Tailscale and Let's Encrypt are handled automatically inside the playbook — no manual pre-steps required for a clean VPS.
 
 # 8\. Docker Stack Verification
 
@@ -511,16 +530,16 @@ coredns/zones/int.wilkesliberty.com.zone
 
 | **Name**   | **Type** | **Value**            | **Service**                                  |
 | ---------- | -------- | -------------------- | -------------------------------------------- |
-| ns         | A        | 10.10.0.10           | CoreDNS itself                               |
-| app        | A        | 10.10.0.2            | Drupal (webcms) — also api.wilkesliberty.com |
-| sso        | A        | 10.10.0.8            | Keycloak — also auth.wilkesliberty.com       |
-| db         | A        | 10.10.0.3            | PostgreSQL                                   |
-| search     | A        | 10.10.0.4            | Solr                                         |
-| cache      | A        | 10.10.0.9            | Redis                                        |
-| monitor    | A        | 10.10.0.7            | Grafana                                      |
-| metrics    | A        | 10.10.0.7            | Prometheus                                   |
-| alerts     | A        | 10.10.0.7            | Alertmanager                                 |
-| uptime     | A        | 10.10.0.7            | Uptime Kuma                                  |
+| ns         | A        | {{ coredns_ts_ip }}           | CoreDNS itself                               |
+| app        | A        | {{ onprem_int_ip }}            | Drupal (webcms) — also api.wilkesliberty.com |
+| sso        | A        | {{ onprem_int_ip }}            | Keycloak — also auth.wilkesliberty.com       |
+| db         | A        | {{ onprem_int_ip }}            | PostgreSQL                                   |
+| search     | A        | {{ onprem_int_ip }}            | Solr                                         |
+| cache      | A        | {{ onprem_int_ip }}            | Redis                                        |
+| monitor    | A        | {{ onprem_int_ip }}            | Grafana                                      |
+| metrics    | A        | {{ onprem_int_ip }}            | Prometheus                                   |
+| alerts     | A        | {{ onprem_int_ip }}            | Alertmanager                                 |
+| uptime     | A        | {{ onprem_int_ip }}            | Uptime Kuma                                  |
 | network    | CNAME    | login.tailscale.com. | VPN admin                                    |
 
 ## 9.3 Update Zone Serial When Editing
@@ -532,7 +551,7 @@ The zone file serial must be incremented in YYYYMMDDNN format before each redepl
 ```bash
 dig @\<ON\_PREM\_TAILSCALE\_IP\> app.int.wilkesliberty.com
 
-\# Expected: 10.10.0.2
+\# Expected: {{ onprem_int_ip }}
 
 dig @\<ON\_PREM\_TAILSCALE\_IP\> network.int.wilkesliberty.com
 

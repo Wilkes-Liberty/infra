@@ -2,6 +2,8 @@
 
 This document describes the DNS configuration for Wilkes Liberty — public records managed via Terraform, and internal records served by CoreDNS over Tailscale.
 
+> **Variable notation**: Values shown as `{{ variable_name }}` are SOPS-encrypted in `ansible/inventory/group_vars/network_secrets.yml`. Decrypt with `sops -d ansible/inventory/group_vars/network_secrets.yml` to see actual values.
+
 ## Architecture Overview
 
 ```
@@ -27,8 +29,8 @@ Source of truth: `records.tf`
 
 | Name | Type | Value | Notes |
 |------|------|-------|-------|
-| `wilkesliberty.com` | A | `<VPS_IPV4>` | Apex → VPS |
-| `wilkesliberty.com` | AAAA | `<VPS_IPV6>` | Optional; enabled when `vps_ipv6` variable is set |
+| `wilkesliberty.com` | A | `{{ cloud_vps_ip }}` | Apex → VPS |
+| `wilkesliberty.com` | AAAA | `{{ vps_ipv6 }}` | Optional; enabled when `vps_ipv6` variable is set |
 
 ### Services
 
@@ -54,7 +56,7 @@ The Terraform provider does not support CAA records. Add these manually in the D
 |------|-----|-------|
 | `wilkesliberty.com` | `issue` | `"letsencrypt.org"` |
 | `wilkesliberty.com` | `issuewild` | `"letsencrypt.org"` |
-| `wilkesliberty.com` | `iodef` | `"mailto:admin@wilkesliberty.com"` |
+| `wilkesliberty.com` | `iodef` | `"mailto:security@wilkesliberty.com"` |
 
 Verify after adding:
 ```bash
@@ -75,7 +77,7 @@ Internal names resolve only on the Tailscale network. Tailscale Split DNS routes
 
 | Name | Type | Value |
 |------|------|-------|
-| `ns.int.wilkesliberty.com` | A | `10.10.0.10` |
+| `ns.int.wilkesliberty.com` | A | `{{ coredns_ts_ip }}` |
 
 ### Application Services (on-prem server)
 
@@ -83,25 +85,25 @@ These names resolve to the on-prem server's LAN IP. Internal Caddy (`Caddyfile.i
 
 | Name | Type | Value | Public equivalent |
 |------|------|-------|-------------------|
-| `app.int.wilkesliberty.com` | A | `10.10.0.2` | `api.wilkesliberty.com` (Drupal/webcms) |
-| `sso.int.wilkesliberty.com` | A | `10.10.0.8` | `auth.wilkesliberty.com` (Keycloak) |
+| `app.int.wilkesliberty.com` | A | `{{ onprem_int_ip }}` | `api.wilkesliberty.com` (Drupal/webcms) |
+| `sso.int.wilkesliberty.com` | A | `{{ onprem_int_ip }}` | `auth.wilkesliberty.com` (Keycloak) |
 
 ### Data & Search Services (direct access, no Caddy)
 
 | Name | Type | Value | Service |
 |------|------|-------|---------|
-| `db.int.wilkesliberty.com` | A | `10.10.0.3` | PostgreSQL |
-| `search.int.wilkesliberty.com` | A | `10.10.0.4` | Solr (internal) |
-| `cache.int.wilkesliberty.com` | A | `10.10.0.9` | Redis |
+| `db.int.wilkesliberty.com` | A | `{{ onprem_int_ip }}` | PostgreSQL |
+| `search.int.wilkesliberty.com` | A | `{{ onprem_int_ip }}` | Solr (internal) |
+| `cache.int.wilkesliberty.com` | A | `{{ onprem_int_ip }}` | Redis |
 
 ### Monitoring & Observability (via internal Caddy)
 
 | Name | Type | Value | Service |
 |------|------|-------|---------|
-| `monitor.int.wilkesliberty.com` | A | `10.10.0.7` | Grafana dashboards |
-| `metrics.int.wilkesliberty.com` | A | `10.10.0.7` | Prometheus metrics |
-| `alerts.int.wilkesliberty.com` | A | `10.10.0.7` | Alertmanager |
-| `uptime.int.wilkesliberty.com` | A | `10.10.0.7` | Uptime Kuma |
+| `monitor.int.wilkesliberty.com` | A | `{{ onprem_int_ip }}` | Grafana dashboards |
+| `metrics.int.wilkesliberty.com` | A | `{{ onprem_int_ip }}` | Prometheus metrics |
+| `alerts.int.wilkesliberty.com` | A | `{{ onprem_int_ip }}` | Alertmanager |
+| `uptime.int.wilkesliberty.com` | A | `{{ onprem_int_ip }}` | Uptime Kuma |
 
 ### Network Admin
 
@@ -115,10 +117,10 @@ These names resolve to the on-prem server's LAN IP. Internal Caddy (`Caddyfile.i
 
 | Name | Type | Placeholder IP | Device |
 |------|------|---------------|--------|
-| `nas.int.wilkesliberty.com` | A | `10.10.0.20` | Synology NAS |
-| `router.int.wilkesliberty.com` | A | `10.10.0.1` | AT&T router/gateway |
-| `switch.int.wilkesliberty.com` | A | `10.10.0.50` | TP-Link managed switch |
-| `printer.int.wilkesliberty.com` | A | `10.10.0.30` | Network printer |
+| `nas.int.wilkesliberty.com` | A | `{{ onprem_int_ip }}` | Synology NAS |
+| `router.int.wilkesliberty.com` | A | `{{ router_int_ip }}` | Router/gateway |
+| `switch.int.wilkesliberty.com` | A | `{{ switch_int_ip }}` | TP-Link managed switch |
+| `printer.int.wilkesliberty.com` | A | `{{ printer_int_ip }}` | Network printer |
 | `print.int.wilkesliberty.com` | CNAME | → `printer.int.wilkesliberty.com` | Alias for printer |
 
 ---
@@ -142,7 +144,7 @@ Browser → DNS → VPS IP → Caddy (VPS) → Tailscale → Keycloak:8081 (on-p
 
 ### Internal Request: `monitor.int.wilkesliberty.com` (Grafana)
 ```
-Admin device (on Tailscale) → Tailscale Split DNS → CoreDNS → 10.10.0.7
+Admin device (on Tailscale) → Tailscale Split DNS → CoreDNS → {{ onprem_int_ip }}
 → Caddy (on-prem, Tailscale-bound) → Grafana:3001 → response
 ```
 

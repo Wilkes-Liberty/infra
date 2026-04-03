@@ -90,13 +90,13 @@ admin_allow_cidrs:                          # Admin access CIDRs
 
 ### Service IP Addresses (on-prem LAN, used by CoreDNS zone file)
 ```yaml
-dns_int_ip:       10.10.0.10   # CoreDNS server (on-prem)
-app_int_ip:       10.10.0.2    # Drupal (webcms repo) — app.int.wilkesliberty.com
-db_int_ip:        10.10.0.3    # PostgreSQL
-search_int_ip:    10.10.0.4    # Solr
-analytics_int_ip: 10.10.0.7   # Grafana/Prometheus/Alertmanager/Uptime Kuma
-sso_int_ip:       10.10.0.8    # Keycloak SSO — sso.int.wilkesliberty.com
-cache_int_ip:     10.10.0.9    # Redis
+dns_int_ip:       {{ onprem_int_ip }}   # CoreDNS server (on-prem)
+app_int_ip:       {{ onprem_int_ip }}    # Drupal (webcms repo) — app.int.wilkesliberty.com
+db_int_ip:        {{ onprem_int_ip }}    # PostgreSQL
+search_int_ip:    {{ onprem_int_ip }}    # Solr
+analytics_int_ip: {{ onprem_int_ip }}   # Grafana/Prometheus/Alertmanager/Uptime Kuma
+sso_int_ip:       {{ onprem_int_ip }}    # Keycloak SSO — sso.int.wilkesliberty.com
+cache_int_ip:     {{ onprem_int_ip }}    # Redis
 ```
 
 ### Domain Configuration

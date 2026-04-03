@@ -4,8 +4,9 @@ Installs and configures Tailscale on all hosts, creating a secure mesh network.
 
 ## Requirements
 
-- Ubuntu/Debian or RHEL/CentOS based systems
-- Tailscale auth key (generate at https://login.tailscale.com/admin/settings/keys)
+- **VPS (Linux)**: Ubuntu/Debian or RHEL/CentOS — managed by this role directly via `vps.yml`
+- **On-prem (macOS)**: Handled by the `wl-onprem` role (Homebrew Cask install + idempotent `tailscale up`)
+- Tailscale auth key stored in SOPS-encrypted `ansible/inventory/group_vars/tailscale_secrets.yml`
 
 ## Role Variables
 
@@ -25,7 +26,7 @@ tailscale_up_args: "--accept-routes --accept-dns=false"
 tailscale_hostname: ""
 
 # Routes to advertise from this node (example for subnet router)
-tailscale_advertise_routes: ["10.10.0.0/24"]
+tailscale_advertise_routes: ["{{ dns_reverse_cidr }}"]
 
 # Exit node to use (hostname or IP)
 tailscale_exit_node: ""
@@ -79,7 +80,7 @@ For hosts that need to advertise routes (subnet routers):
 
 ```yaml
 # ansible/inventory/host_vars/wilkesliberty-onprem.yml
-tailscale_advertise_routes: ["10.10.0.0/24"]
+tailscale_advertise_routes: ["{{ dns_reverse_cidr }}"]
 tailscale_hostname: "wilkesliberty-onprem"
 ```
 
@@ -89,14 +90,14 @@ tailscale_hostname: "wilkesliberty-onprem"
 
 ```bash
 # Deploy Tailscale role to all hosts
-ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/site.yml
+ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/onprem.yml
 ```
 
 ### Deploy Only Tailscale
 
 ```bash
 # Run only the Tailscale role
-ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/site.yml --tags tailscale
+ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/onprem.yml # (or vps.yml for VPS)
 ```
 
 ### Verify Installation

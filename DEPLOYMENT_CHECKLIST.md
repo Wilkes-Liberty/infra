@@ -1,8 +1,10 @@
 # WilkesLiberty Infrastructure — Complete Deployment Checklist
 
-**Version**: 2.0
-**Last Updated**: March 2026
+**Version**: 2.1
+**Last Updated**: April 2026
 **Estimated Time**: 3–4 hours for initial setup
+
+> **Variable notation**: Values shown as `{{ variable_name }}` are stored in SOPS-encrypted secrets files. Decrypt with `sops -d ansible/inventory/group_vars/network_secrets.yml` to see actual values. Never commit plaintext IPs or credentials.
 
 ---
 
@@ -129,55 +131,63 @@ EOF
 
 ## PHASE 2: TAILSCALE VPN MESH
 
-Tailscale must be running on both the on-prem server and the VPS **before** deploying the application stack, because production Caddy routes depend on Tailscale IPs.
+> **Steps 2.1 and 2.2 are fully automated by Ansible.** `make onprem` handles the on-prem server; `make vps` handles the VPS. The manual steps below are included for reference and recovery.
 
 ### Step 2.1: Install and Connect Tailscale (On-prem server)
 
+**Automated by `make onprem`** — installs via Homebrew Cask, authenticates with SOPS-decrypted auth key, advertises `{{ dns_reverse_cidr }}`, configures Split DNS. Idempotent.
+
+> ⚠ **First install only (manual step):** Approve the Tailscale network extension at **System Settings → Privacy & Security → Network Extensions → Allow Tailscale**.
+
+Manual equivalent:
 ```bash
-# Install
-brew install tailscale
+brew install --cask tailscale
 
-# Start daemon
-sudo tailscaled &
+sudo tailscale up \
+  --authkey=<from tailscale_secrets.yml> \
+  --advertise-routes={{ dns_reverse_cidr }} \
+  --hostname=wilkesliberty-onprem \
+  --accept-routes \
+  --accept-dns=false
 
-# Authenticate and enable subnet routing
-sudo tailscale up --advertise-routes=10.10.0.0/24
-
-# Note your Tailscale IP (100.x.x.x range)
-tailscale ip -4
+tailscale ip -4  # Note this — stored as onprem_tailscale_ip in network_secrets.yml
 ```
 
 ### Step 2.2: Install and Connect Tailscale (Cloud VPS)
 
+**Automated by `make vps`** — installs Tailscale (Linux apt), authenticates with SOPS-decrypted auth key, joins tailnet as `wilkesliberty-vps`. Idempotent.
+
+Manual equivalent:
 ```bash
-# Install (on VPS — Linux)
 curl -fsSL https://tailscale.com/install.sh | sh
 
-# Authenticate
-sudo tailscale up
+sudo tailscale up \
+  --authkey=<from tailscale_secrets.yml> \
+  --hostname=wilkesliberty-vps \
+  --accept-routes \
+  --accept-dns=false
 
-# Note VPS Tailscale IP
 tailscale ip -4
 ```
 
 ### Step 2.3: Approve Subnet Routes in Tailscale Admin
 
+> **Manual step — required regardless of automation.** Tailscale admin console approval cannot be automated.
+
 1. Open https://login.tailscale.com (or `network.wilkesliberty.com` once DNS is live)
-2. Find the on-prem server machine
-3. Under **Subnet routes**, approve `10.10.0.0/24`
+2. Find the `wilkesliberty-onprem` machine
+3. Under **Subnet routes**, approve `{{ dns_reverse_cidr }}`
 4. This allows the VPS to reach on-prem LAN services directly over Tailscale
 
 ### Step 2.4: Configure Tailscale Split DNS
 
-In the Tailscale admin console:
+**Automated by `make onprem`** — runs `tailscale set --dns-domain=int.wilkesliberty.com={{ coredns_ts_ip }}` automatically.
 
-1. Go to **DNS** tab
-2. Under **Nameservers**, add a custom nameserver:
-   - **Domain**: `int.wilkesliberty.com`
-   - **Nameserver**: `<on-prem Tailscale IP>` (the 100.x.x.x address from Step 2.1)
-3. Save
+Manual equivalent — in Tailscale admin → DNS tab → Custom Nameservers:
+- **Domain**: `int.wilkesliberty.com`
+- **Nameserver**: `{{ coredns_ts_ip }}` (on-prem Tailscale IP from network_secrets.yml)
 
-This routes all `*.int.wilkesliberty.com` DNS queries to CoreDNS on the on-prem server, only for devices connected to Tailscale.
+This routes all `*.int.wilkesliberty.com` queries to CoreDNS on the on-prem server, only for Tailscale-connected devices.
 
 ### Step 2.5: Verify Tailscale Connectivity
 
@@ -229,7 +239,7 @@ The Terraform provider doesn't support CAA. Log in to your DNS provider and add 
 |-----|-------|
 | `issue` | `"letsencrypt.org"` |
 | `issuewild` | `"letsencrypt.org"` |
-| `iodef` | `"mailto:admin@wilkesliberty.com"` |
+| `iodef` | `"mailto:security@wilkesliberty.com"` |
 
 Verify:
 ```bash
@@ -457,10 +467,10 @@ From a Tailscale-connected device:
 ```bash
 # Query CoreDNS directly
 dig @<on-prem-tailscale-ip> app.int.wilkesliberty.com
-# Expected: 10.10.0.2
+# Expected: {{ onprem_int_ip }}
 
 dig @<on-prem-tailscale-ip> monitor.int.wilkesliberty.com
-# Expected: 10.10.0.7
+# Expected: {{ onprem_int_ip }}
 
 dig @<on-prem-tailscale-ip> network.int.wilkesliberty.com
 # Expected: CNAME login.tailscale.com.
@@ -473,7 +483,7 @@ After Tailscale Split DNS is configured (Phase 2, Step 2.4):
 ```bash
 # From any Tailscale-connected device (should resolve without specifying @)
 ping app.int.wilkesliberty.com
-# Expected: resolves to 10.10.0.2
+# Expected: resolves to {{ onprem_int_ip }}
 
 # These should NOT resolve (no public DNS for int.wilkesliberty.com)
 # Test from a non-Tailscale device — should get NXDOMAIN

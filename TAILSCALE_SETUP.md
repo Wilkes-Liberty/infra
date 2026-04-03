@@ -26,7 +26,7 @@ A client must be on the Tailscale network to resolve `*.int.wilkesliberty.com`, 
 
 | Host | Role | Tailscale function |
 |------|------|--------------------|
-| On-prem server | Backend services, CoreDNS, monitoring | Subnet router (advertises `10.10.0.0/24`), Split DNS nameserver |
+| On-prem server | Backend services, CoreDNS, monitoring | Subnet router (advertises `{{ dns_reverse_cidr }}`), Split DNS nameserver |
 | Njalla VPS | Public ingress, Next.js, Caddy (public) | Client; proxies `api`, `auth`, `search` to on-prem via Tailscale IP |
 
 ---
@@ -73,7 +73,7 @@ Save and exit — SOPS encrypts automatically.
 
 ```bash
 # Install via Homebrew (macOS)
-brew install tailscale
+brew install --cask tailscale
 
 # Start daemon
 sudo tailscaled &
@@ -81,7 +81,7 @@ sudo tailscaled &
 # Authenticate; advertise internal subnet for VPS access
 sudo tailscale up \
   --authkey=<your_auth_key> \
-  --advertise-routes=10.10.0.0/24 \
+  --advertise-routes={{ dns_reverse_cidr }} \
   --hostname=wilkesliberty-onprem
 
 # Note the assigned Tailscale IP
@@ -92,7 +92,7 @@ tailscale ip -4
 
 1. Go to https://login.tailscale.com (or `network.wilkesliberty.com` after DNS is live)
 2. Find the `wilkesliberty-onprem` machine
-3. Under **Subnet routes**, approve `10.10.0.0/24`
+3. Under **Subnet routes**, approve `{{ dns_reverse_cidr }}`
 4. This allows the VPS to reach all on-prem Docker services directly
 
 ---
@@ -143,7 +143,7 @@ ping -c 3 <vps-tailscale-ip>
 ### Split DNS Resolution (from a Tailscale-connected device)
 
 ```bash
-# Should resolve to 10.10.0.7 (on-prem LAN IP)
+# Should resolve to {{ onprem_int_ip }} (on-prem LAN IP)
 dig monitor.int.wilkesliberty.com
 nslookup monitor.int.wilkesliberty.com
 
