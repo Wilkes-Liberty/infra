@@ -1,11 +1,11 @@
 wilkesliberty.com {
     # Proxy API calls to the on-prem server via Tailscale (inner mesh)
-    reverse_proxy /api* http://100.82.73.91:8080 {
+    reverse_proxy /api* http://{{ onprem_tailscale_ip }}:8080 {
         header_up X-Forwarded-For {remote_host}
     }
 
     # Proxy Keycloak SSO
-    reverse_proxy /auth* http://100.82.73.91:8081
+    reverse_proxy /auth* http://{{ onprem_tailscale_ip }}:8081
 
     # Proxy Next.js UI (running on the VPS itself)
     reverse_proxy / http://127.0.0.1:3000 {

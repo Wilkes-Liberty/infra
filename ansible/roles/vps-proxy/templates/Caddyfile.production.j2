@@ -80,7 +80,7 @@ www.wilkesliberty.com {
 # Drupal GraphQL API (headless CMS)
 api.wilkesliberty.com {
     # Proxy to on-prem server Drupal via Tailscale
-    reverse_proxy {{ onprem_tailscale_ip | default('100.82.73.91') }}:8080 {
+    reverse_proxy {{ onprem_tailscale_ip }}:8080 {
         header_up Host {host}
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-For {remote_host}
@@ -126,7 +126,7 @@ api.wilkesliberty.com {
 # Keycloak SSO/Auth
 auth.wilkesliberty.com {
     # Proxy to on-prem server Keycloak via Tailscale
-    reverse_proxy {{ onprem_tailscale_ip | default('100.82.73.91') }}:8081 {
+    reverse_proxy {{ onprem_tailscale_ip }}:8081 {
         header_up Host {host}
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-For {remote_host}
@@ -159,7 +159,7 @@ search.wilkesliberty.com {
 
     }
     handle @admin_allowed {
-        reverse_proxy {{ onprem_tailscale_ip | default('100.82.73.91') }}:8983 {
+        reverse_proxy {{ onprem_tailscale_ip }}:8983 {
             header_up Host {host}
             header_up X-Real-IP {remote_host}
             header_up X-Forwarded-For {remote_host}
@@ -188,7 +188,7 @@ search.wilkesliberty.com {
 
 # analytics.wilkesliberty.com {
 #     # Proxy to on-prem server Grafana via Tailscale
-#     reverse_proxy {{ onprem_tailscale_ip | default('100.82.73.91') }}:3001 {
+#     reverse_proxy {{ onprem_tailscale_ip }}:3001 {
 #         header_up Host {host}
 #         header_up X-Real-IP {remote_host}
 #         header_up X-Forwarded-For {remote_host}

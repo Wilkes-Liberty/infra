@@ -34,8 +34,6 @@ resource "njalla_firewall_rule" "default_deny" {
   source      = "0.0.0.0/0"
 }
 
-# Output the Tailscale IP of the on-prem server for easy reference
-output "onprem_tailscale_ip" {
-  value       = "100.82.73.91"   # Your current Tailscale IP from earlier
-  description = "Use this in Caddy reverse_proxy on the Njalla VPS"
-}
+# The on-prem Tailscale IP is stored in SOPS-encrypted network_secrets.yml
+# as onprem_tailscale_ip. It is consumed by Ansible (Caddyfile.production.j2),
+# not managed here in Terraform.
