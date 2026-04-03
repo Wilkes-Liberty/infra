@@ -18,7 +18,7 @@ tailscale_hostname: ""
 # (e.g. admin device IPs like 10.10.0.1 for the router).
 # Requires approval in the Tailscale admin console under "Subnets".
 tailscale_advertise_routes:
-  - "10.10.0.0/24"
+  - "192.168.4.0/24"
 
 # Optional: Set exit node
 tailscale_exit_node: ""
