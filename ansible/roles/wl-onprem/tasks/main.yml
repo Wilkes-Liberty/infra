@@ -188,63 +188,10 @@
 # PHASE 5: VPN & NETWORKING
 # ============================================================================
 
-# ── Tailscale ─────────────────────────────────────────────────────────────────
-
 - name: Install Tailscale (inner private mesh)
   community.general.homebrew_cask:
     name: tailscale
     state: present
-
-- name: Check if Tailscale CLI is available
-  command: which tailscale
-  register: tailscale_cli_check
-  changed_when: false
-  failed_when: false
-
-- name: Check Tailscale connection status
-  command: tailscale status
-  register: tailscale_status
-  changed_when: false
-  failed_when: false
-  when: tailscale_cli_check.rc == 0
-
-- name: Connect to Tailscale network (if not already connected)
-  command: >-
-    tailscale up
-    --authkey={{ tailscale_auth_key }}
-    --hostname=wilkesliberty-onprem
-    --advertise-routes={{ tailscale_advertise_routes | join(',') }}
-    --accept-routes
-    --accept-dns=false
-  no_log: true
-  when:
-    - tailscale_cli_check.rc == 0
-    - >
-      tailscale_status.rc != 0 or
-      'Logged out' in (tailscale_status.stdout | default('')) or
-      'Logged out' in (tailscale_status.stderr | default(''))
-  register: tailscale_up_result
-
-- name: Configure Split DNS for int.wilkesliberty.com
-  command: >-
-    tailscale set
-    --dns-domain={{ tailscale_split_dns_domain }}={{ coredns_ts_ip }}
-  when: tailscale_cli_check.rc == 0
-  register: split_dns_result
-  changed_when: split_dns_result.rc == 0
-
-- name: Remind operator of required manual steps after first Tailscale install
-  debug:
-    msg:
-      - "⚠️  If this is a fresh Tailscale install, two manual steps are required:"
-      - "   1. Approve the network extension:"
-      - "      System Settings → Privacy & Security → Network Extensions → Allow Tailscale"
-      - "   2. Approve subnet routes in Tailscale admin console:"
-      - "      https://login.tailscale.com/admin/machines"
-      - "      Find 'wilkesliberty-onprem' → Edit → Subnets → Approve: {{ tailscale_advertise_routes | join(', ') }}"
-  when: tailscale_cli_check.rc == 0
-
-# ── Proton VPN ────────────────────────────────────────────────────────────────
 
 - name: Install Proton VPN (outer kill-switch)
   community.general.homebrew_cask:
