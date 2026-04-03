@@ -14,11 +14,11 @@ tailscale_up_args: "--accept-routes --accept-dns=false"
 # If empty, uses system hostname
 tailscale_hostname: ""
 
-# Advertise the LAN subnet so other Tailscale devices can reach LAN IPs
-# (e.g. admin device IPs like 10.10.0.1 for the router).
+# Advertise the LAN subnet so other Tailscale devices can reach LAN IPs.
 # Requires approval in the Tailscale admin console under "Subnets".
-tailscale_advertise_routes:
-  - "192.168.4.0/24"
+# Set the actual subnet in group_vars (references dns_reverse_cidr from network_secrets.yml).
+# VPS overrides this to [] since it does not advertise any subnet.
+tailscale_advertise_routes: []
 
 # Optional: Set exit node
 tailscale_exit_node: ""
