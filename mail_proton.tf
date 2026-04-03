@@ -35,7 +35,7 @@ resource "njalla_record_mx" "mx_secondary" {
 resource "njalla_record_txt" "proton_verification" {
   domain  = "wilkesliberty.com"
   name    = "@"
-  content = var.proton_verification_token
+  content = "protonmail-verification=${var.proton_verification_token}"
   ttl     = 10800 # 3h as shown in Njalla
 
   lifecycle {
