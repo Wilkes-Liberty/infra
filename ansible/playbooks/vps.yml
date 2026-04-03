@@ -17,11 +17,18 @@
 #   make vps
 # =============================================================================
 
-- name: Deploy Cloud VPS — Let's Encrypt + Caddy
+- name: Deploy Cloud VPS — Tailscale + Let's Encrypt + Caddy
   hosts: cloud-vps
   become: yes
 
   roles:
+    - role: tailscale
+      vars:
+        tailscale_hostname: "wilkesliberty-vps"
+        tailscale_advertise_routes: []       # VPS does not advertise subnets
+        tailscale_split_dns_enabled: false   # VPS does not run CoreDNS
+        tailscale_up_args: "--accept-routes --accept-dns=false"
+
     - role: letsencrypt
 
   tasks:
