@@ -7,11 +7,20 @@
   changed_when: false
   failed_when: false
 
+- name: Ensure gnupg is installed (required for apt_key)
+  apt:
+    name: gnupg
+    state: present
+    update_cache: yes
+  when:
+    - ansible_os_family == "Debian"
+    - tailscale_installed.rc != 0
+
 - name: Add Tailscale GPG key (Debian/Ubuntu)
   apt_key:
     url: https://pkgs.tailscale.com/stable/ubuntu/jammy.noarmor.gpg
     state: present
-  when: 
+  when:
     - ansible_os_family == "Debian"
     - tailscale_installed.rc != 0
 
