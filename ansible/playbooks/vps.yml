@@ -21,10 +21,20 @@
   hosts: cloud-vps
   become: yes
 
+  pre_tasks:
+    - name: Load SOPS-encrypted secrets
+      community.sops.load_vars:
+        file: "{{ inventory_dir }}/group_vars/{{ item }}"
+      loop:
+        - network_secrets.yml
+        - sso_secrets.yml
+        - tailscale_secrets.yml
+      no_log: true
+
   roles:
     - role: tailscale
       vars:
-        tailscale_hostname: "wilkesliberty-vps"
+        tailscale_hostname: "wl-vps"
         tailscale_advertise_routes: []       # VPS does not advertise subnets
         tailscale_split_dns_enabled: false   # VPS does not run CoreDNS
         tailscale_up_args: "--accept-routes --accept-dns=false"
