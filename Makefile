@@ -26,15 +26,15 @@ check:
 
 # Deploy the on-prem server (wl-onprem role)
 onprem:
-	ansible-playbook -i inventory/hosts.ini playbooks/onprem.yml --limit wl-onprem
+	ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/onprem.yml --limit wl-onprem
 
 # Deploy monitoring stack
 monitoring:
-	ansible-playbook -i inventory/hosts.ini playbooks/monitoring.yml
+	ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/monitoring.yml
 
 # Deploy Njalla VPS reverse proxy
 vps:
-	ansible-playbook -i inventory/hosts.ini playbooks/vps.yml
+	ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/vps.yml
 
 # Full deployment (recommended)
 deploy: onprem monitoring vps
