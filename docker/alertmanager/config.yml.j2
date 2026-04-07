@@ -11,8 +11,8 @@
 global:
   smtp_smarthost: '{{ alert_smtp_host }}:{{ alert_smtp_port }}'
   smtp_from: '{{ alert_email_from }}'
-  smtp_auth_username: '{{ alert_smtp_user }}'
-  smtp_auth_password: '{{ alert_smtp_password }}'
+  smtp_auth_username: '{{ alert_smtp_user | default("") }}'
+  smtp_auth_password: '{{ alert_smtp_password | default("") }}'
   smtp_require_tls: true
 
 # Templates for notifications
