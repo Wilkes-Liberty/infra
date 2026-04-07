@@ -2,5 +2,19 @@
 - name: Deploy Wilkes On-Prem Server
   hosts: wl-onprem
   become: false
+
+  vars_files:
+    - "../inventory/group_vars/all.yml"
+
+  pre_tasks:
+    - name: Load SOPS-encrypted secrets
+      community.sops.load_vars:
+        file: "{{ playbook_dir }}/../inventory/group_vars/{{ item }}"
+      loop:
+        - network_secrets.yml
+        - sso_secrets.yml
+        - tailscale_secrets.yml
+      no_log: true
+
   roles:
     - wl-onprem
