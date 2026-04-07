@@ -17,10 +17,17 @@
   args:
     creates: /opt/homebrew/bin/brew
 
+- name: Check if Docker is already installed
+  command: which docker
+  register: docker_check
+  changed_when: false
+  failed_when: false
+
 - name: Install Docker Desktop
   community.general.homebrew_cask:
     name: docker
     state: present
+  when: docker_check.rc != 0
 
 - name: Wait for Docker to be available
   wait_for:
@@ -190,10 +197,17 @@
 
 # ── Tailscale ─────────────────────────────────────────────────────────────────
 
+- name: Check if Tailscale is already installed
+  command: which tailscale
+  register: tailscale_onprem_check
+  changed_when: false
+  failed_when: false
+
 - name: Install Tailscale (inner private mesh)
   community.general.homebrew_cask:
     name: tailscale
     state: present
+  when: tailscale_onprem_check.rc != 0
 
 - name: Check if Tailscale CLI is available
   command: which tailscale
@@ -245,10 +259,16 @@
 
 # ── Proton VPN ────────────────────────────────────────────────────────────────
 
+- name: Check if Proton VPN is already installed
+  stat:
+    path: /Applications/Proton VPN.app
+  register: protonvpn_check
+
 - name: Install Proton VPN (outer kill-switch)
   community.general.homebrew_cask:
     name: protonvpn
     state: present
+  when: not protonvpn_check.stat.exists
 
 # ============================================================================
 # PHASE 6: DOCKER DEPLOYMENT
