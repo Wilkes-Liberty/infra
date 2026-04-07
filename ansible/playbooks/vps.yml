@@ -21,6 +21,9 @@
   hosts: cloud-vps
   become: yes
 
+  vars_files:
+    - "../inventory/group_vars/all.yml"
+
   pre_tasks:
     - name: Load SOPS-encrypted secrets
       community.sops.load_vars:
