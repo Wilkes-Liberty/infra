@@ -238,13 +238,15 @@
       'Logged out' in (tailscale_status.stdout | default('')) or
       'Logged out' in (tailscale_status.stderr | default(''))
 
-- name: Configure Split DNS for int.wilkesliberty.com
-  command: >-
-    tailscale set
-    --dns-domain={{ tailscale_split_dns_domain }}={{ coredns_ts_ip }}
+- name: Remind operator to configure Split DNS in Tailscale admin console
+  debug:
+    msg:
+      - "⚠️  ACTION REQUIRED — configure Split DNS manually:"
+      - "   https://login.tailscale.com/admin/dns"
+      - "   Under 'Nameservers' → 'Add nameserver' → 'Custom'"
+      - "   Domain: {{ tailscale_split_dns_domain }}"
+      - "   Nameserver: {{ coredns_ts_ip }} (on-prem Tailscale IP)"
   when: tailscale_cli_check.rc == 0
-  register: split_dns_result
-  changed_when: split_dns_result.rc == 0
 
 - name: Remind operator of required manual steps after first Tailscale install
   debug:

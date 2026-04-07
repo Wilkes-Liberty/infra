@@ -124,17 +124,14 @@
          else tailscale_self_ip.stdout | trim }}
   when: tailscale_split_dns_enabled | bool
 
-- name: Configure Tailscale Split DNS for int.wilkesliberty.com
-  command: >-
-    tailscale set
-    --dns-domain={{ tailscale_split_dns_domain }}={{ _split_dns_server }}
-  when: tailscale_split_dns_enabled | bool
-  register: split_dns_result
-  changed_when: split_dns_result.rc == 0
-
-- name: Show Split DNS configuration result
+- name: Remind operator to configure Split DNS in Tailscale admin console
   debug:
-    msg: "Split DNS configured: {{ tailscale_split_dns_domain }} → {{ _split_dns_server }}"
+    msg:
+      - "⚠️  ACTION REQUIRED — configure Split DNS manually:"
+      - "   https://login.tailscale.com/admin/dns"
+      - "   Under 'Nameservers' → 'Add nameserver' → 'Custom'"
+      - "   Domain: {{ tailscale_split_dns_domain }}"
+      - "   Nameserver: {{ _split_dns_server }} (on-prem Tailscale IP)"
   when: tailscale_split_dns_enabled | bool
 
 - name: Remind operator to approve subnet routes in Tailscale admin console

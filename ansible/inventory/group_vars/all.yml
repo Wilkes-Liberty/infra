@@ -4,6 +4,7 @@ int_domain: int.wilkesliberty.com
 
 # ── Network & Access Control ─────────────────────────────────────────
 tailscale_network_cidr: "100.64.0.0/10"    # Tailscale mesh subnet
+tailscale_split_dns_domain: "int.wilkesliberty.com"
 
 # LAN subnet to advertise via Tailscale subnet router (on-prem only).
 # References dns_reverse_cidr from network_secrets.yml (SOPS-encrypted).
