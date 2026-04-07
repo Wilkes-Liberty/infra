@@ -58,7 +58,7 @@
         src: "{{ playbook_dir }}/../roles/vps-proxy/templates/Caddyfile.production.j2"
         dest: /etc/caddy/Caddyfile
         mode: '0644'
-        validate: caddy validate --config %s
+        validate: caddy validate --config %s --adapter caddyfile
       notify: Reload Caddy
 
     - name: Ensure Caddy is enabled and running
