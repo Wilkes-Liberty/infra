@@ -14,6 +14,7 @@
         - network_secrets.yml
         - sso_secrets.yml
         - tailscale_secrets.yml
+        - app_secrets.yml
       no_log: true
 
   roles:
