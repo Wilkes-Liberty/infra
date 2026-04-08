@@ -242,7 +242,7 @@
 
 - name: Check if Proton VPN is already installed
   stat:
-    path: /Applications/Proton VPN.app
+    path: /Applications/ProtonVPN.app
   register: protonvpn_check
 
 - name: Install Proton VPN (outer kill-switch)
