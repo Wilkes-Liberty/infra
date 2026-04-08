@@ -9,7 +9,7 @@
 # Prerequisites:
 #   - Tailscale must be running on the VPS (Section 5.2 of deployment guide)
 #   - On-prem Tailscale IP must be resolvable from VPS
-#   - dns_api_token must be set (via sso_secrets.yml or TF_VAR env)
+#   - njalla_api_token must be present in terraform_secrets.yml (SOPS-encrypted)
 #
 # Usage:
 #   ansible-playbook -i inventory/hosts.ini playbooks/vps.yml
@@ -30,8 +30,12 @@
         file: "{{ inventory_dir }}/group_vars/{{ item }}"
       loop:
         - network_secrets.yml
-        - sso_secrets.yml
         - tailscale_secrets.yml
+      no_log: true
+
+    - name: Load Terraform secrets (provides njalla_api_token for DNS-01 challenge)
+      community.sops.load_vars:
+        file: "{{ playbook_dir }}/../../terraform_secrets.yml"
       no_log: true
 
   roles:

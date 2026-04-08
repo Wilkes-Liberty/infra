@@ -16,8 +16,6 @@
   gather_facts: yes
 
   vars:
-    # Load DNS API token from existing terraform secrets
-    dns_api_token: "{{ lookup('community.sops.sops', '../../terraform_secrets.yml') | from_yaml | json_query('dns_api_token') }}"
     letsencrypt_certificates:
       - name: "wilkesliberty_wildcard"
         domains:
@@ -30,12 +28,17 @@
         description: "Wildcard certificate — all wilkesliberty.com subdomains"
 
   pre_tasks:
-    - name: Verify DNS API token is defined
+    - name: Load Terraform secrets (provides njalla_api_token for DNS-01 challenge)
+      community.sops.load_vars:
+        file: "{{ playbook_dir }}/../../terraform_secrets.yml"
+      no_log: true
+
+    - name: Verify njalla_api_token is defined
       assert:
         that:
-          - dns_api_token is defined
-          - dns_api_token | length > 0
-        fail_msg: "DNS API token must be present in terraform_secrets.yml"
+          - njalla_api_token is defined
+          - njalla_api_token | length > 0
+        fail_msg: "njalla_api_token must be present in terraform_secrets.yml"
 
     - name: Create ssl-cert group if it does not exist
       group:
