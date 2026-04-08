@@ -77,35 +77,14 @@
 # PHASE 3: CONFIGURATION FILES
 # ============================================================================
 
-- name: Check if .env already exists
-  stat:
-    path: "{{ ansible_env.HOME }}/nas_docker/.env"
-  register: env_file
-
-- name: Copy .env.example if .env doesn't exist
-  copy:
-    src: ../../../../docker/.env.example
+- name: Render .env from SOPS-backed template
+  # All secrets are injected by community.sops.load_vars in onprem.yml pre_tasks.
+  # After Drupal is installed: populate app_secrets.yml and re-run make onprem
+  # to fill DRUPAL_CLIENT_ID / DRUPAL_CLIENT_SECRET / DRUPAL_REVALIDATE_SECRET / DRUPAL_PREVIEW_SECRET.
+  template:
+    src: ../../../../docker/.env.j2
     dest: "{{ ansible_env.HOME }}/nas_docker/.env"
     mode: '0600'
-  when: not env_file.stat.exists
-
-- name: Generate random passwords for .env (if new)
-  shell: openssl rand -base64 32
-  register: generated_password
-  changed_when: false
-  when: not env_file.stat.exists
-
-- name: Display .env reminder
-  debug:
-    msg:
-      - "⚠️  IMPORTANT: Configure passwords in ~/nas_docker/.env"
-      - "   Edit the file and set:"
-      - "   - DRUPAL_DB_PASSWORD"
-      - "   - KEYCLOAK_ADMIN_PASSWORD"
-      - "   - GRAFANA_ADMIN_PASSWORD"
-      - "   - BACKUP_ENCRYPTION_KEY"
-      - "   - SMTP settings (optional)"
-  when: not env_file.stat.exists
 
 - name: Deploy Grafana Prometheus datasource
   copy:
