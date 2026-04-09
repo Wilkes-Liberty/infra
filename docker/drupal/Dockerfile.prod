@@ -21,8 +21,18 @@ FROM composer:2 AS composer_build
 
 WORKDIR /build
 
+# composer:2 is Alpine-based and does not include the patch binary.
+# cweagans/composer-patches v2 needs it as a fallback when git apply
+# cannot run outside a git repository context.
+RUN apk add --no-cache patch
+
 # Copy webcms composer files first (Docker cache layer)
 COPY webcms/composer.json webcms/composer.lock ./
+
+# Copy local patches so cweagans/composer-patches can apply them during install.
+# This is a separate layer so changes to patches (but not composer.json/lock)
+# only bust the cache from this point forward.
+COPY webcms/patches/ ./patches/
 
 # Install production dependencies (no dev packages)
 # --ignore-platform-reqs: the composer:2 image may run a newer PHP version than
