@@ -16,7 +16,7 @@
 #     ../..
 # =============================================
 
-# ── Stage 1: Install dependencies ──────────────────────────────────────────────
+# ── Stage 1: Install production dependencies (for runtime) ─────────────────────
 FROM node:20-alpine AS deps
 
 RUN apk add --no-cache libc6-compat
@@ -26,17 +26,21 @@ WORKDIR /app
 # Copy only package files to leverage Docker layer caching
 COPY ui/package.json ui/package-lock.json* ./
 
-# Install production dependencies only
+# Install production dependencies only (used in final runner stage)
 RUN npm ci --only=production && npm cache clean --force
 
 
 # ── Stage 2: Build the application ─────────────────────────────────────────────
 FROM node:20-alpine AS builder
 
+RUN apk add --no-cache libc6-compat
+
 WORKDIR /app
 
-# Copy dependencies from Stage 1
-COPY --from=deps /app/node_modules ./node_modules
+# Copy package files and install ALL dependencies (including devDeps for build)
+# next build requires TypeScript, @types/*, tailwindcss, etc. to compile .tsx files
+COPY ui/package.json ui/package-lock.json* ./
+RUN npm ci && npm cache clean --force
 
 # Copy application source
 COPY ui/ .
