@@ -176,7 +176,9 @@ infra/
 │   │   └── group_vars/
 │   │       ├── all.yml              # Non-secret variables
 │   │       ├── sso_secrets.yml      # SOPS-encrypted secrets
-│   │       └── tailscale_secrets.yml # SOPS-encrypted
+│   │       ├── tailscale_secrets.yml # SOPS-encrypted
+│   │       ├── network_secrets.yml  # SOPS-encrypted (IPs, CIDRs)
+│   │       └── app_secrets.yml      # SOPS-encrypted (Drupal OAuth2 — empty until post-install)
 ├── scripts/
 │   └── backup-onprem.sh             # Backup with --dry-run support
 ├── terraform_secrets.yml            # SOPS-encrypted (DO NOT edit directly)
@@ -194,6 +196,22 @@ infra/
 - **`chmod 600 ~/nas_docker/.env`** — set immediately after creating
 - Key Docker secrets: `DRUPAL_DB_PASSWORD`, `REDIS_PASSWORD`, `KEYCLOAK_ADMIN_PASSWORD`, `GRAFANA_ADMIN_PASSWORD`, `BACKUP_ENCRYPTION_KEY`
 - See **SECRETS_MANAGEMENT.md** for full guide
+
+### Bootstrap Ordering for app_secrets.yml
+
+`app_secrets.yml` holds Drupal OAuth2 credentials that only exist after Drupal is fully installed and configured. On a fresh deployment:
+
+1. Encrypt the file with empty values so the playbook can load it:
+   ```bash
+   sops --encrypt --in-place ansible/inventory/group_vars/app_secrets.yml
+   ```
+2. Run `make onprem` — the stack comes up, Next.js starts but cannot authenticate to Drupal yet.
+3. Install Drupal, then create an OAuth2 consumer at `/admin/config/services/consumer` and configure the Next.js module at `/admin/config/services/next`.
+4. Decrypt, fill in the values, and re-encrypt:
+   ```bash
+   sops ansible/inventory/group_vars/app_secrets.yml
+   ```
+5. Re-run `make onprem` — Ansible injects the real values and Next.js becomes fully functional.
 
 ## Security Notes
 
