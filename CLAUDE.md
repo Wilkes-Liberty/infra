@@ -38,12 +38,19 @@ ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/onprem.yml
 
 ### Manual Docker Operations — Production
 ```bash
+# Build/start — must run from the source repo so build context ../.. resolves correctly.
+# The compose project name is locked to 'nas_docker' via the name: key in docker-compose.yml.
+cd ~/Repositories/infra/docker
+docker compose --env-file ~/nas_docker/.env up -d
+docker compose --env-file ~/nas_docker/.env pull
+
+# Read-only operations — can run from either directory; ~/nas_docker is convenient.
 cd ~/nas_docker
-docker compose up -d          # Start all services
-docker compose down           # Stop all services
-docker compose ps             # Check status
-docker compose logs -f        # Stream logs
+docker compose down
+docker compose ps
+docker compose logs -f
 docker compose logs drupal    # Service-specific logs
+docker compose restart prometheus   # e.g. after config change
 ```
 
 ### Manual Docker Operations — Staging
@@ -229,6 +236,8 @@ Dockerfiles in `infra/` reference code from sibling repos using `context: ../..`
 - Drupal: `COPY webcms/composer.json ...` → reads from `~/Repositories/webcms/`
 - Next.js: `COPY ui/package.json ...` → reads from `~/Repositories/ui/`
 - Staging uses absolute paths rendered by Ansible from `docker-compose.staging.yml.j2`
+
+**Important:** `docker compose build`/`pull`/`up` must always be invoked from `~/Repositories/infra/docker/` so the relative build context resolves correctly. The compose file is also copied to `~/nas_docker/` by Ansible for reference and for read-only operations (`ps`, `logs`, `down`). The project name is hardcoded as `name: nas_docker` in `docker-compose.yml` so it is consistent regardless of invocation directory.
 
 ## Ansible Role: wl-onprem
 
