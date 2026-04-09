@@ -325,7 +325,7 @@
     dest: "{{ ansible_env.HOME }}/Repositories/staging/webcms"
     version: "staging"
     update: true
-    force: false
+    force: true
   when: webcms_repo_url is defined
 
 - name: Clone or update ui repo at staging branch
@@ -334,7 +334,7 @@
     dest: "{{ ansible_env.HOME }}/Repositories/staging/ui"
     version: "staging"
     update: true
-    force: false
+    force: true
   when: ui_repo_url is defined
 
 - name: Check if staging infra is a symlink
