@@ -44,8 +44,8 @@ admin_allow_cidrs:
 # webcms = Drupal CMS (headless backend) — built into the Drupal Docker image; serves api.wilkesliberty.com
 # ui     = Next.js frontend — built into the Next.js Docker image; serves www.wilkesliberty.com
 # Both repos are cloned at the 'staging' branch for the staging stack.
-webcms_repo_url: "git@github.com:wilkesliberty/webcms.git"
-ui_repo_url: "git@github.com:wilkesliberty/ui.git"
+webcms_repo_url: "git@github.com:Wilkes-Liberty/webcms.git"
+ui_repo_url: "git@github.com:Wilkes-Liberty/ui.git"
 
 # ── Software Versions ─────────────────────────────────────────────────
 php_version: "8.3"
