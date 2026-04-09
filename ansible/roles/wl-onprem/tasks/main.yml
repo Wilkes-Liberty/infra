@@ -337,12 +337,20 @@
     force: false
   when: ui_repo_url is defined
 
-- name: Symlink infra repo into staging directory (shared — not branched separately)
+- name: Remove legacy infra symlink if present
   file:
-    src: "{{ ansible_env.HOME }}/Repositories/infra"
+    path: "{{ ansible_env.HOME }}/Repositories/staging/infra"
+    state: absent
+  when: ansible_env.HOME ~ '/Repositories/staging/infra' is link
+
+- name: Clone or update infra repo at staging branch
+  git:
+    repo: "{{ infra_repo_url }}"
     dest: "{{ ansible_env.HOME }}/Repositories/staging/infra"
-    state: link
+    version: "staging"
+    update: true
     force: false
+  when: infra_repo_url is defined
 
 - name: Render staging .env from SOPS-backed template
   # All staging secrets are injected by community.sops.load_vars in onprem.yml pre_tasks.
