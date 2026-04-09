@@ -12,6 +12,8 @@
 #   Prod: docker compose up (builds images from webcms/ui repos)
 # =============================================
 
+name: nas_docker
+
 services:
   # ================== APPLICATION SERVICES ==================
 
@@ -251,9 +253,9 @@ services:
       # This is baked in at build time (NEXT_PUBLIC_) and also set at runtime for SSR.
       - NEXT_PUBLIC_DRUPAL_BASE_URL=${NEXT_PUBLIC_DRUPAL_BASE_URL:-https://api.wilkesliberty.com}
       - NEXT_IMAGE_DOMAIN=${NEXT_IMAGE_DOMAIN:-api.wilkesliberty.com}
-      - DRUPAL_CLIENT_ID=${DRUPAL_CLIENT_ID:?DRUPAL_CLIENT_ID is required}
-      - DRUPAL_CLIENT_SECRET=${DRUPAL_CLIENT_SECRET:?DRUPAL_CLIENT_SECRET is required}
-      - DRUPAL_REVALIDATE_SECRET=${DRUPAL_REVALIDATE_SECRET:?DRUPAL_REVALIDATE_SECRET is required}
+      - DRUPAL_CLIENT_ID=${DRUPAL_CLIENT_ID:-}
+      - DRUPAL_CLIENT_SECRET=${DRUPAL_CLIENT_SECRET:-}
+      - DRUPAL_REVALIDATE_SECRET=${DRUPAL_REVALIDATE_SECRET:-}
       - DRUPAL_PREVIEW_SECRET=${DRUPAL_PREVIEW_SECRET}
     networks:
       - frontend
