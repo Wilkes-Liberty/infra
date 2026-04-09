@@ -260,6 +260,20 @@
   args:
     chdir: "{{ ansible_env.HOME }}/Repositories/infra/docker"
 
+- name: Check if Docker Compose stack is running
+  command: docker compose --env-file {{ ansible_env.HOME }}/nas_docker/.env ps -q
+  args:
+    chdir: "{{ ansible_env.HOME }}/Repositories/infra/docker"
+  register: compose_ps
+  changed_when: false
+  failed_when: false
+
+- name: Stop existing Docker Compose stack (ensures clean port binding on redeploy)
+  command: docker compose --env-file {{ ansible_env.HOME }}/nas_docker/.env down
+  args:
+    chdir: "{{ ansible_env.HOME }}/Repositories/infra/docker"
+  when: compose_ps.stdout | length > 0
+
 - name: Start Docker Compose stack
   command: docker compose --env-file {{ ansible_env.HOME }}/nas_docker/.env up -d
   args:
