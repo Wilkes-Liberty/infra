@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides context to Claude (claude.ai) when working with code in this repository.
+This file provides context to AI agents (Claude, etc.) when working with code in this repository.
 
 ## Project Scope
 
@@ -190,7 +190,7 @@ infra/
 │   └── backup-onprem.sh             # Backup with --dry-run support
 ├── terraform_secrets.yml            # SOPS-encrypted (DO NOT edit directly)
 ├── .sops.yaml                       # Auto-encryption rules
-└── docs/                            # Additional documentation
+└── docs/                            # All supplementary documentation (see Documentation Index)
 ```
 
 ## Secrets Management
@@ -202,7 +202,7 @@ infra/
 - Docker env secrets: `~/nas_docker/.env` (never committed; use `.env.example` as template)
 - **`chmod 600 ~/nas_docker/.env`** — set immediately after creating
 - Key Docker secrets: `DRUPAL_DB_PASSWORD`, `REDIS_PASSWORD`, `KEYCLOAK_ADMIN_PASSWORD`, `GRAFANA_ADMIN_PASSWORD`, `BACKUP_ENCRYPTION_KEY`
-- See **SECRETS_MANAGEMENT.md** for full guide
+- See **docs/SECRETS_MANAGEMENT.md** for full guide
 
 ### Bootstrap Ordering for app_secrets.yml
 
@@ -255,11 +255,18 @@ Deploys and configures everything on the on-prem server in a single playbook run
 ## Documentation Index
 
 - **README.md** — Architecture overview and quick start
-- **DEPLOYMENT_CHECKLIST.md** — Step-by-step deployment guide
-- **SECRETS_MANAGEMENT.md** — SOPS/AGE encryption guide
-- **TAILSCALE_SETUP.md** — Tailscale VPN setup
-- **DNS_RECORDS.md** — Public DNS configuration reference
-- **LETSENCRYPT_SSL_GUIDE.md** — SSL certificate management (for VPS)
-- **GITHUB_ACTIONS_STRATEGY.md** — CI/CD roadmap (future)
 - **ansible/README.md** — Variable precedence and configuration structure
-- **docs/** — DNS, Terraform, and SOPS workflow references
+- **docs/DEPLOYMENT_CHECKLIST.md** — Step-by-step deployment guide
+- **docs/SECRETS_MANAGEMENT.md** — SOPS/AGE encryption guide
+- **docs/TAILSCALE_SETUP.md** — Tailscale VPN setup
+- **docs/DNS_RECORDS.md** — Public DNS configuration reference
+- **docs/LETSENCRYPT_SSL_GUIDE.md** — SSL certificate management (for VPS)
+- **docs/GITHUB_ACTIONS_STRATEGY.md** — CI/CD roadmap (future)
+- **docs/ENVIRONMENT_OVERVIEW.md** — Environment comparison (prod vs staging vs dev)
+- **docs/MULTI_ENVIRONMENT_STRATEGY.md** — Multi-environment design decisions
+- **docs/TERRAFORM_ORGANIZATION.md** — Terraform layout and DNS management
+- **docs/DNS_AND_SSL_SETUP.md** — DNS + SSL setup walkthrough
+- **docs/DNS_MIGRATION_CHECKLIST.md** — Checklist for DNS migrations
+- **docs/TERRAFORM_DNS_QUICKSTART.md** — Quick reference for Terraform DNS ops
+- **docs/TERRAFORM_SOPS_WORKFLOW.md** — Terraform + SOPS secrets workflow
+- **docs/deployment-guide.md** — Detailed deployment guide
