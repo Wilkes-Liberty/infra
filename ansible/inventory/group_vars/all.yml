@@ -46,6 +46,7 @@ admin_allow_cidrs:
 # Both repos are cloned at the 'staging' branch for the staging stack.
 webcms_repo_url: "git@github.com:Wilkes-Liberty/webcms.git"
 ui_repo_url: "git@github.com:Wilkes-Liberty/ui.git"
+infra_repo_url: "git@github.com:Wilkes-Liberty/infra.git"
 
 # ── Software Versions ─────────────────────────────────────────────────
 php_version: "8.3"
