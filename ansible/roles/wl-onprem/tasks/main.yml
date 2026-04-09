@@ -337,31 +337,34 @@
     force: false
   when: ui_repo_url is defined
 
-- name: Symlink infra repo into staging directory (shared — not branched separately)
-  file:
-    src: "{{ ansible_env.HOME }}/Repositories/infra"
-    dest: "{{ ansible_env.HOME }}/Repositories/staging/infra"
-    state: link
-    force: false
-
-- name: Check if staging .env already exists
+- name: Check if staging infra is a symlink
   stat:
-    path: "{{ ansible_env.HOME }}/nas_docker_staging/.env"
-  register: staging_env_file
+    path: "{{ ansible_env.HOME }}/Repositories/staging/infra"
+  register: staging_infra_stat
 
-- name: Copy staging .env.example if .env doesn't exist
-  copy:
-    src: ../../../../docker/.env.staging.example
+- name: Remove legacy infra symlink if present
+  file:
+    path: "{{ ansible_env.HOME }}/Repositories/staging/infra"
+    state: absent
+  when: staging_infra_stat.stat.exists and staging_infra_stat.stat.islnk
+
+- name: Clone or update infra repo at staging branch
+  git:
+    repo: "{{ infra_repo_url }}"
+    dest: "{{ ansible_env.HOME }}/Repositories/staging/infra"
+    version: "staging"
+    update: true
+    force: false
+  when: infra_repo_url is defined
+
+- name: Render staging .env from SOPS-backed template
+  # All staging secrets are injected by community.sops.load_vars in onprem.yml pre_tasks.
+  # After staging Drupal is installed: populate staging_secrets.yml and re-run make onprem
+  # to fill STG_DRUPAL_CLIENT_ID / STG_DRUPAL_CLIENT_SECRET / STG_DRUPAL_REVALIDATE_SECRET.
+  template:
+    src: ../../../../docker/.env.staging.j2
     dest: "{{ ansible_env.HOME }}/nas_docker_staging/.env"
     mode: '0600'
-  when: not staging_env_file.stat.exists
-
-- name: Display staging .env reminder
-  debug:
-    msg:
-      - "⚠️  IMPORTANT: Configure staging passwords in ~/nas_docker_staging/.env"
-      - "   All variables are prefixed STG_ — see docker/.env.staging.example"
-  when: not staging_env_file.stat.exists
 
 - name: Render staging docker-compose from template
   template:

@@ -220,6 +220,7 @@ services:
       args:
         NEXT_PUBLIC_DRUPAL_BASE_URL: http://drupal:80
         NEXT_PUBLIC_SITE_URL: https://staging.wilkesliberty.com
+        NEXT_IMAGE_DOMAIN: drupal
     container_name: wl_stg_nextjs
     restart: unless-stopped
     ports:
@@ -228,10 +229,10 @@ services:
       - NODE_ENV=production
       - NEXT_PUBLIC_DRUPAL_BASE_URL=http://drupal:80
       - NEXT_IMAGE_DOMAIN=${NEXT_STG_IMAGE_DOMAIN:-drupal}
-      - DRUPAL_CLIENT_ID=${STG_DRUPAL_CLIENT_ID:?STG_DRUPAL_CLIENT_ID is required}
-      - DRUPAL_CLIENT_SECRET=${STG_DRUPAL_CLIENT_SECRET:?STG_DRUPAL_CLIENT_SECRET is required}
-      - DRUPAL_REVALIDATE_SECRET=${STG_DRUPAL_REVALIDATE_SECRET:?STG_DRUPAL_REVALIDATE_SECRET is required}
-      - DRUPAL_PREVIEW_SECRET=${STG_DRUPAL_PREVIEW_SECRET}
+      - DRUPAL_CLIENT_ID=${STG_DRUPAL_CLIENT_ID:-}
+      - DRUPAL_CLIENT_SECRET=${STG_DRUPAL_CLIENT_SECRET:-}
+      - DRUPAL_REVALIDATE_SECRET=${STG_DRUPAL_REVALIDATE_SECRET:-}
+      - DRUPAL_PREVIEW_SECRET=${STG_DRUPAL_PREVIEW_SECRET:-}
     networks:
       - frontend
     depends_on:
