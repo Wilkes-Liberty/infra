@@ -25,12 +25,17 @@ WORKDIR /build
 COPY webcms/composer.json webcms/composer.lock ./
 
 # Install production dependencies (no dev packages)
+# --ignore-platform-reqs: the composer:2 image may run a newer PHP version than
+# the runtime stage (drupal:11-apache). Platform checks (ext-gd, PHP version)
+# are irrelevant here — dependencies run in the drupal:11-apache runtime, not
+# in this build stage.
 RUN composer install \
     --no-dev \
     --no-scripts \
     --no-interaction \
     --optimize-autoloader \
-    --prefer-dist
+    --prefer-dist \
+    --ignore-platform-reqs
 
 # Copy remaining source code
 COPY webcms/ .
