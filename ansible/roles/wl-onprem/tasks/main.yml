@@ -344,24 +344,14 @@
     state: link
     force: false
 
-- name: Check if staging .env already exists
-  stat:
-    path: "{{ ansible_env.HOME }}/nas_docker_staging/.env"
-  register: staging_env_file
-
-- name: Copy staging .env.example if .env doesn't exist
-  copy:
-    src: ../../../../docker/.env.staging.example
+- name: Render staging .env from SOPS-backed template
+  # All staging secrets are injected by community.sops.load_vars in onprem.yml pre_tasks.
+  # After staging Drupal is installed: populate staging_secrets.yml and re-run make onprem
+  # to fill STG_DRUPAL_CLIENT_ID / STG_DRUPAL_CLIENT_SECRET / STG_DRUPAL_REVALIDATE_SECRET.
+  template:
+    src: ../../../../docker/.env.staging.j2
     dest: "{{ ansible_env.HOME }}/nas_docker_staging/.env"
     mode: '0600'
-  when: not staging_env_file.stat.exists
-
-- name: Display staging .env reminder
-  debug:
-    msg:
-      - "⚠️  IMPORTANT: Configure staging passwords in ~/nas_docker_staging/.env"
-      - "   All variables are prefixed STG_ — see docker/.env.staging.example"
-  when: not staging_env_file.stat.exists
 
 - name: Render staging docker-compose from template
   template:
