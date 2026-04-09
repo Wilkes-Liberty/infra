@@ -354,7 +354,7 @@
     dest: "{{ ansible_env.HOME }}/Repositories/staging/infra"
     version: "staging"
     update: true
-    force: false
+    force: true
   when: infra_repo_url is defined
 
 - name: Render staging .env from SOPS-backed template
