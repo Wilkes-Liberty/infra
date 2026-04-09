@@ -337,11 +337,16 @@
     force: false
   when: ui_repo_url is defined
 
+- name: Check if staging infra is a symlink
+  stat:
+    path: "{{ ansible_env.HOME }}/Repositories/staging/infra"
+  register: staging_infra_stat
+
 - name: Remove legacy infra symlink if present
   file:
     path: "{{ ansible_env.HOME }}/Repositories/staging/infra"
     state: absent
-  when: ansible_env.HOME ~ '/Repositories/staging/infra' is link
+  when: staging_infra_stat.stat.exists and staging_infra_stat.stat.islnk
 
 - name: Clone or update infra repo at staging branch
   git:
