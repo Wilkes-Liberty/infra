@@ -256,23 +256,23 @@
 # ============================================================================
 
 - name: Pull Docker images
-  command: docker compose pull
+  command: docker compose --env-file {{ ansible_env.HOME }}/nas_docker/.env pull
   args:
-    chdir: "{{ ansible_env.HOME }}/nas_docker"
+    chdir: "{{ ansible_env.HOME }}/Repositories/infra/docker"
 
 - name: Start Docker Compose stack
-  command: docker compose up -d
+  command: docker compose --env-file {{ ansible_env.HOME }}/nas_docker/.env up -d
   args:
-    chdir: "{{ ansible_env.HOME }}/nas_docker"
+    chdir: "{{ ansible_env.HOME }}/Repositories/infra/docker"
 
 - name: Wait for services to be healthy
   pause:
     seconds: 30
 
 - name: Check Docker service status
-  command: docker compose ps
+  command: docker compose --env-file {{ ansible_env.HOME }}/nas_docker/.env ps
   args:
-    chdir: "{{ ansible_env.HOME }}/nas_docker"
+    chdir: "{{ ansible_env.HOME }}/Repositories/infra/docker"
   register: docker_status
   changed_when: false
 
