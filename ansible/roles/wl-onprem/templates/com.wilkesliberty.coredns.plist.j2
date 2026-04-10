@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  CoreDNS LaunchDaemon for WilkesLiberty on-prem server.
+  Runs as root (required to bind port 53 on macOS).
+  Managed by Ansible (wl-onprem role). Do not edit manually.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.wilkesliberty.coredns</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/coredns</string>
+        <string>-conf</string>
+        <string>/opt/homebrew/etc/coredns/Corefile</string>
+    </array>
+
+    <!-- Start immediately when loaded and on every boot -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Restart automatically if CoreDNS crashes -->
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/var/log/coredns.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/var/log/coredns-error.log</string>
+</dict>
+</plist>
