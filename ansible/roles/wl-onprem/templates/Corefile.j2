@@ -1,0 +1,23 @@
+# CoreDNS configuration for WilkesLiberty on-prem server
+# Binds exclusively on the Tailscale IP — unreachable from the public internet
+# or LAN without an active Tailscale connection.
+#
+# Managed by Ansible (wl-onprem role). Do not edit manually.
+
+# Internal zone: *.int.wilkesliberty.com
+int.wilkesliberty.com {
+    file /opt/homebrew/etc/coredns/int.wilkesliberty.com.zone
+    bind {{ coredns_listen_ip }}
+    log
+    errors
+    reload 30s
+}
+
+# Upstream forwarding for all other queries
+. {
+    forward . {{ upstream_dns | join(' ') }}
+    bind {{ coredns_listen_ip }}
+    cache 60
+    log
+    errors
+}

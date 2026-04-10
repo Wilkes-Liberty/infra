@@ -217,14 +217,84 @@
       'Logged out' in (tailscale_status.stdout | default('')) or
       'Logged out' in (tailscale_status.stderr | default(''))
 
+# ── CoreDNS ───────────────────────────────────────────────────────────────────
+
+- name: Install CoreDNS
+  community.general.homebrew:
+    name: coredns
+    state: present
+
+- name: Create CoreDNS config directory
+  file:
+    path: /opt/homebrew/etc/coredns
+    state: directory
+    mode: '0755'
+
+- name: Deploy Corefile
+  template:
+    src: Corefile.j2
+    dest: /opt/homebrew/etc/coredns/Corefile
+    mode: '0644'
+  register: coredns_corefile
+
+- name: Deploy int.wilkesliberty.com zone file
+  template:
+    src: int.wilkesliberty.com.zone.j2
+    dest: /opt/homebrew/etc/coredns/int.wilkesliberty.com.zone
+    mode: '0644'
+  register: coredns_zonefile
+
+- name: Deploy CoreDNS LaunchDaemon plist
+  template:
+    src: com.wilkesliberty.coredns.plist.j2
+    dest: /Library/LaunchDaemons/com.wilkesliberty.coredns.plist
+    mode: '0644'
+  become: true
+  register: coredns_plist
+
+- name: Check if CoreDNS LaunchDaemon is already loaded
+  command: launchctl list com.wilkesliberty.coredns
+  register: coredns_loaded
+  changed_when: false
+  failed_when: false
+  become: true
+
+- name: Load CoreDNS LaunchDaemon (first run)
+  command: launchctl bootstrap system /Library/LaunchDaemons/com.wilkesliberty.coredns.plist
+  become: true
+  when: coredns_loaded.rc != 0
+
+- name: Restart CoreDNS if config changed
+  command: launchctl kickstart -k system/com.wilkesliberty.coredns
+  become: true
+  when:
+    - coredns_loaded.rc == 0
+    - coredns_corefile.changed or coredns_zonefile.changed or coredns_plist.changed
+
+- name: Configure macOS resolver for int.wilkesliberty.com
+  copy:
+    content: "nameserver {{ coredns_listen_ip }}\n"
+    dest: /etc/resolver/int.wilkesliberty.com
+    mode: '0644'
+  become: true
+
+- name: Verify CoreDNS is responding
+  command: >
+    dig +short +time=3 +tries=1 @{{ coredns_listen_ip }} ns1.int.wilkesliberty.com
+  register: coredns_verify
+  changed_when: false
+  failed_when: coredns_verify.rc != 0 and coredns_verify.stdout == ''
+  retries: 5
+  delay: 2
+
 - name: Remind operator to configure Split DNS in Tailscale admin console
   debug:
     msg:
-      - "⚠️  ACTION REQUIRED — configure Split DNS manually:"
+      - "⚠️  ACTION REQUIRED — configure Split DNS manually (one-time, if not already done):"
       - "   https://login.tailscale.com/admin/dns"
       - "   Under 'Nameservers' → 'Add nameserver' → 'Custom'"
       - "   Domain: {{ tailscale_split_dns_domain }}"
-      - "   Nameserver: {{ coredns_ts_ip }} (on-prem Tailscale IP)"
+      - "   Nameserver: {{ coredns_listen_ip }} (on-prem Tailscale IP)"
   when: tailscale_cli_check.rc == 0
 
 - name: Remind operator of required manual steps after first Tailscale install

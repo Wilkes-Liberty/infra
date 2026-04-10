@@ -1,0 +1,30 @@
+; Zone file for int.wilkesliberty.com
+; Served by CoreDNS on the Tailscale IP ({{ coredns_listen_ip }}) — internal use only.
+; Managed by Ansible (wl-onprem role). Do not edit manually.
+;
+; Serial uses Unix epoch truncated to hours — auto-increments on each playbook run.
+; No secondary DNS servers in this setup, so serial only matters for cache invalidation.
+
+$ORIGIN int.wilkesliberty.com.
+$TTL 300
+
+@    IN SOA  ns1.int.wilkesliberty.com. admin.wilkesliberty.com. (
+             {{ ansible_date_time.epoch | int // 3600 }} ; serial (epoch/hour)
+             3600  ; refresh
+             900   ; retry
+             604800 ; expire
+             300 ) ; minimum TTL
+
+     IN NS   ns1.int.wilkesliberty.com.
+
+; ── Nameserver ────────────────────────────────────────────────────────────────
+ns1  IN A    {{ coredns_listen_ip }}
+
+; ── Application services (on-prem server LAN IP) ─────────────────────────────
+{% for host, ip in internal_hosts.items() %}
+{{ "%-12s" | format(host) }} IN A     {{ ip }}
+{% endfor %}
+
+; ── Special: VPN admin console shortcut ──────────────────────────────────────
+; Note: SSL will not work when accessed via this CNAME — use login.tailscale.com directly.
+network      IN CNAME login.tailscale.com.
