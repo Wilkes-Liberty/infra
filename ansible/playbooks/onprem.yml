@@ -5,6 +5,7 @@
 
   vars_files:
     - "../inventory/group_vars/all.yml"
+    - "../group_vars/all/coredns.yml"
 
   pre_tasks:
     - name: Load SOPS-encrypted secrets
