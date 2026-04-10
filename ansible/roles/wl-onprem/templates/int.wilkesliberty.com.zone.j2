@@ -10,20 +10,33 @@ $TTL 300
 
 @    IN SOA  ns1.int.wilkesliberty.com. admin.wilkesliberty.com. (
              {{ ansible_date_time.epoch | int // 3600 }} ; serial (epoch/hour)
-             3600  ; refresh
-             900   ; retry
+             3600   ; refresh
+             900    ; retry
              604800 ; expire
-             300 ) ; minimum TTL
+             300 )  ; minimum TTL
 
      IN NS   ns1.int.wilkesliberty.com.
 
 ; ── Nameserver ────────────────────────────────────────────────────────────────
-ns1  IN A    {{ coredns_listen_ip }}
+ns1          IN A    {{ coredns_listen_ip }}
 
-; ── Application services (on-prem server LAN IP) ─────────────────────────────
-{% for host, ip in internal_hosts.items() %}
-{{ "%-12s" | format(host) }} IN A     {{ ip }}
-{% endfor %}
+; ── Application services (resolve to on-prem LAN IP) ─────────────────────────
+app          IN A    {{ onprem_int_ip }}
+sso          IN A    {{ onprem_int_ip }}
+db           IN A    {{ onprem_int_ip }}
+search       IN A    {{ onprem_int_ip }}
+cache        IN A    {{ onprem_int_ip }}
+monitor      IN A    {{ onprem_int_ip }}
+prometheus   IN A    {{ onprem_int_ip }}
+metrics      IN A    {{ onprem_int_ip }}
+alerts       IN A    {{ onprem_int_ip }}
+uptime       IN A    {{ onprem_int_ip }}
+
+; ── Admin devices (static LAN IPs from network_secrets.yml) ──────────────────
+nas          IN A    {{ nas_int_ip }}
+router       IN A    {{ router_int_ip }}
+switch       IN A    {{ coredns_switch_ip }}
+printer      IN A    {{ coredns_printer_ip }}
 
 ; ── Special: VPN admin console shortcut ──────────────────────────────────────
 ; Note: SSL will not work when accessed via this CNAME — use login.tailscale.com directly.
