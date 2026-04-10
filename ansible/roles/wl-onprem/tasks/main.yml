@@ -271,6 +271,13 @@
     - coredns_loaded.rc == 0
     - coredns_corefile.changed or coredns_zonefile.changed or coredns_plist.changed
 
+- name: Create /etc/resolver directory
+  file:
+    path: /etc/resolver
+    state: directory
+    mode: '0755'
+  become: true
+
 - name: Configure macOS resolver for int.wilkesliberty.com
   copy:
     content: "nameserver {{ coredns_listen_ip }}\n"
