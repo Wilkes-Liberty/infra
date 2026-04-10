@@ -25,8 +25,13 @@ check:
 	./scripts/dev-environment-check.sh
 
 # Deploy the on-prem server (wl-onprem role)
+# Decrypts sudo password from SOPS at run time and passes via --become-password-file.
+# The temp file is always removed, even if the playbook fails.
 onprem:
-	ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/onprem.yml --limit wl-onprem
+	@tmpfile=$$(mktemp) && \
+	  sops -d --extract '["ansible_become_pass"]' ansible/inventory/group_vars/become.sops.yml > "$$tmpfile" && \
+	  ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/onprem.yml --limit wl-onprem --become-password-file "$$tmpfile"; \
+	  rc=$$?; rm -f "$$tmpfile"; exit $$rc
 
 # Deploy monitoring stack
 monitoring:
@@ -37,7 +42,13 @@ vps:
 	ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/vps.yml
 
 # Full deployment (recommended)
-deploy: onprem monitoring vps
+deploy:
+	@tmpfile=$$(mktemp) && \
+	  sops -d --extract '["ansible_become_pass"]' ansible/inventory/group_vars/become.sops.yml > "$$tmpfile" && \
+	  ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/onprem.yml --limit wl-onprem --become-password-file "$$tmpfile" && \
+	  ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/monitoring.yml && \
+	  ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/vps.yml; \
+	  rc=$$?; rm -f "$$tmpfile"; exit $$rc
 
 # Clean Docker services on the on-prem server
 clean:
