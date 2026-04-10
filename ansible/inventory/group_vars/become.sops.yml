@@ -1,0 +1,26 @@
+hello: ENC[AES256_GCM,data:axnAZ9apt0ygoeBAzZ9uIxeKw5+kdqDFHDdMdgd6B2WkQxZHYfu0sp0vYWH2Rg==,iv:wm634FZLAmEMdEuJRmfBmTyOVXDaz/trPreL1Zv1Fy4=,tag:La0RD27EF5mE1FdjZM+vLA==,type:str]
+example_key: ENC[AES256_GCM,data:PHyAXegsKYLTkxxh4Q==,iv:dLq0DAeYbOTypcyj2t15oBHuUyijDvqBIlmXGXheTDM=,tag:l/yb0586ZcWB6WUz0kNiMA==,type:str]
+# Example comment
+example_array:
+    - ENC[AES256_GCM,data:NTia+ulUwS5gADwR8bk=,iv:zkfEnDgnitIsGnT2GYt5eHP9Ag6WkIr7o7DlGs9ZJL0=,tag:7pFa6Pkkq50fUCrxQTnNJw==,type:str]
+    - ENC[AES256_GCM,data:oN9IAysH0B4OfzgYqJk=,iv:R8C05+/B+Ztznia0QU2dV25hwFmQnps8MkOwGQOtQdo=,tag:8yplq/qhDtaDcNOmZN5rWA==,type:str]
+example_number: ENC[AES256_GCM,data:rXizncT5aANgow==,iv:XnevmRjbN7WyYG9NJoEsHWiAWLByAiydbvXYSD1C4hU=,tag:JaVXLI5QZvVw79qQqTC+iQ==,type:float]
+example_booleans:
+    - ENC[AES256_GCM,data:JUisNg==,iv:D6Uw8NxVVNebr+RCJQJALT2IWRYout5qZuk6CWn6ZqI=,tag:8P25T6EKpzZs6BeWAOysmA==,type:bool]
+    - ENC[AES256_GCM,data:J/OYPh0=,iv:vly6+StExXsEL31V+oacL9n6g8oKgii61ABlE7Pwdm0=,tag:BWvxWMtdHHw2GxjWbEh/nw==,type:bool]
+ansible_become_pass: ENC[AES256_GCM,data:BQvGAI7RURHc,iv:Z66aUzYUEuTpidQRlho9eeuHTyzjDe6nM2U3gtQ7fIc=,tag:8jPkeHIKP2eM+ypVg3OY4A==,type:str]
+sops:
+    age:
+        - recipient: age10q0tj8gewf6rgx8plzz0lh9z8mamha6zw5qa7k2ea0d7q7kt8f5srrzmmn
+          enc: |
+            -----BEGIN AGE ENCRYPTED FILE-----
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBoOGxCc3JHMHF3cUU4NE5M
+            emJOZDUvbnpEVHJ3d3pyaVduZHV4RHpZRnlBCkdiNmwvVlA1bDltckQ0TUVpMmxs
+            M2FMaTBnQmI0cW5XT0FPZGk0YXhFZmcKLS0tIE9sa3h4QkRmTXR6TzErdk8wYmRV
+            UWxITW1WY1A3MTdEWVZ6WWtLWWkvYkkKRNLuYtYD1tbekgRf630PZIwjgBZFFi5A
+            mlpqSg8kgxcWg3FbS5m82mSdbFaWpw6F8ClyjtAwJjPLEe/QlEVXrQ==
+            -----END AGE ENCRYPTED FILE-----
+    lastmodified: "2026-04-10T04:29:16Z"
+    mac: ENC[AES256_GCM,data:DvZfXI/INLynK5461p3LmgzELs1HXj+hznldzdS49WYIQApHEAun+I0hSq23zmOgNfpF5DYxFLisPoqkgHYBzMKFlqcve6eTuMd1/A82qYRdocl+xd4aAHE0wbuSB6u0JXnUJM4yOwpfE7PRFEM9RmFfkDOQmC7RHsw9wi0SDGs=,iv:qlVPIK/E2JLQeN8/E9+IUyDjQtvyEbJGbAw3RkUahEE=,tag:dNr8FFl3zvcklALvX5fdew==,type:str]
+    encrypted_regex: ^(.*)$
+    version: 3.12.2
