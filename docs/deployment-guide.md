@@ -346,7 +346,7 @@ ssh root@<VPS_IP> "ping -c 3 <ON_PREM_TAILSCALE_IP>"
 From any Tailscale-connected device, confirm internal DNS resolves:
 
 ```bash
-dig monitor.int.wilkesliberty.com   # Expect: on-prem LAN IP
+dig monitor.int.wilkesliberty.com   # Expect: on-prem Tailscale IP (100.x.x.x)
 ```
 
 From a device NOT on Tailscale, confirm internal DNS is isolated:
@@ -375,7 +375,27 @@ Verify:
 curl http://localhost:8983/solr/admin/cores?action=STATUS
 ```
 
-## 6.2 Verify Container Health
+## 6.2 Verify Keycloak Database Exists
+
+The init script at `docker/postgres/init/01-init-databases.sh` only runs when the Postgres data directory is first created. If Postgres was already initialized (e.g., from a prior `make onprem` run) before the init script existed, the `keycloak` database and user will be missing, and Keycloak will crash-loop with `FATAL: password authentication failed for user "keycloak"`.
+
+Check if the keycloak role exists:
+
+```bash
+docker exec wl_postgres psql -U drupal -d drupal -c "\du"
+```
+
+If `keycloak` is not listed, create it manually using the password from the container environment:
+
+```bash
+KEYCLOAK_PW=$(docker exec wl_postgres env | grep KEYCLOAK_DB_PASSWORD | cut -d= -f2-)
+docker exec wl_postgres psql -U drupal -d drupal -c "CREATE USER keycloak WITH PASSWORD '$KEYCLOAK_PW';"
+docker exec wl_postgres psql -U drupal -d drupal -c "CREATE DATABASE keycloak OWNER keycloak ENCODING 'UTF8' LC_COLLATE='C' LC_CTYPE='C' TEMPLATE template0;"
+docker exec wl_postgres psql -U drupal -d drupal -c "GRANT ALL PRIVILEGES ON DATABASE keycloak TO keycloak;"
+docker restart wl_keycloak
+```
+
+## 6.3 Verify Container Health
 
 All 11 containers should report `healthy` or `running`. Allow 2–3 minutes after stack start for health checks to pass.
 
