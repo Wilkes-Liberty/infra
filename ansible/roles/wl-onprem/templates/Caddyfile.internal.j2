@@ -234,7 +234,61 @@ http://*.int.wilkesliberty.com {
         }
     }
 
-    # Catch-all for this IP — reject anything not matched above
+    # ==============================================================================
+    # STAGING ENVIRONMENT
+    # Staging containers run on offset ports (8090, 8091, 8993, 3010).
+    # Hyphenated hostnames stay within the *.int.wilkesliberty.com wildcard cert.
+    # ==============================================================================
+
+    # Next.js staging frontend
+    @stg host stg.int.wilkesliberty.com
+    handle @stg {
+        import internal_headers
+
+        reverse_proxy localhost:3010 {
+            header_up Host {host}
+            header_up X-Forwarded-Proto https
+        }
+    }
+
+    # Drupal staging API
+    @api-stg host api-stg.int.wilkesliberty.com
+    handle @api-stg {
+        import internal_headers
+
+        reverse_proxy localhost:8090 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-Proto https
+        }
+    }
+
+    # Keycloak staging SSO
+    @sso-stg host sso-stg.int.wilkesliberty.com
+    handle @sso-stg {
+        import internal_headers
+
+        reverse_proxy localhost:8091 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-Proto https
+            header_up X-Forwarded-Host {host}
+            header_up X-Forwarded-Port 443
+        }
+    }
+
+    # Solr staging search
+    @search-stg host search-stg.int.wilkesliberty.com
+    handle @search-stg {
+        import internal_headers
+
+        reverse_proxy localhost:8993 {
+            header_up Host {host}
+            header_up X-Forwarded-Proto https
+        }
+    }
+
+    # Catch-all — reject anything not matched above
     handle {
         respond "Not Found" 404
     }

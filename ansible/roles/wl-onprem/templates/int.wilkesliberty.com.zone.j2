@@ -26,7 +26,7 @@ ns1          IN A    {{ coredns_listen_ip }}
 
 ; ── Application services ──────────────────────────────────────────────────────
 ; Caddy (on Tailscale IP) reverse proxies these to localhost Docker ports
-app          IN A    {{ coredns_listen_ip }}
+api          IN A    {{ coredns_listen_ip }}
 sso          IN A    {{ coredns_listen_ip }}
 db           IN A    {{ coredns_listen_ip }}
 search       IN A    {{ coredns_listen_ip }}
@@ -46,6 +46,14 @@ nas          IN A    {{ coredns_listen_ip }}
 router       IN A    {{ coredns_listen_ip }}
 switch       IN A    {{ coredns_listen_ip }}
 printer      IN A    {{ coredns_listen_ip }}
+
+; ── Staging ───────────────────────────────────────────────────────────────
+; Caddy proxies these to staging Docker ports (8090, 8091, 8993, 3010)
+; Hyphenated names keep us within the *.int.wilkesliberty.com wildcard cert
+stg          IN A    {{ coredns_listen_ip }}
+api-stg      IN A    {{ coredns_listen_ip }}
+sso-stg      IN A    {{ coredns_listen_ip }}
+search-stg   IN A    {{ coredns_listen_ip }}
 
 ; ── Special ───────────────────────────────────────────────────────────────────
 ; Note: SSL will not work for this CNAME — use login.tailscale.com directly.

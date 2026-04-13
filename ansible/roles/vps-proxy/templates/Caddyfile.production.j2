@@ -81,10 +81,6 @@ api.wilkesliberty.com {
         header_up X-Forwarded-For {remote_host}
         header_up X-Forwarded-Proto {scheme}
         
-        # Health check
-        health_uri /user/login
-        health_interval 30s
-        health_timeout 10s
     }
     
     import public_headers_api
@@ -131,10 +127,6 @@ auth.wilkesliberty.com {
         header_up X-Forwarded-Host {host}
         header_up X-Forwarded-Port 443
         
-        # Health check
-        health_uri /health/ready
-        health_interval 30s
-        health_timeout 10s
     }
     
     import public_headers_api
@@ -160,10 +152,6 @@ search.wilkesliberty.com {
             header_up X-Forwarded-For {remote_host}
             header_up X-Forwarded-Proto {scheme}
 
-            # Health check — 404 is expected until a Solr core is created
-            health_uri /solr/
-            health_interval 30s
-            health_timeout 10s
         }
     }
     handle {

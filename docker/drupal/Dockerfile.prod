@@ -64,6 +64,12 @@ ENV APACHE_DOCUMENT_ROOT=/opt/drupal/web
 RUN sed -ri -e 's!/opt/drupal/web!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
     && sed -ri -e 's!/opt/drupal!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf || true
 
+# Remove base image's bundled Drupal to prevent version conflicts.
+# The drupal:11-apache image ships its own core (e.g., 11.3.x) but we install
+# a specific version via composer. Without this cleanup, files unique to the
+# base image's core version leak through and break the service container.
+RUN rm -rf /opt/drupal/*
+
 # Copy built application from Stage 1
 COPY --from=composer_build /build /opt/drupal
 
