@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Internal Caddy LaunchDaemon for WilkesLiberty on-prem server.
+  Serves *.int.wilkesliberty.com over HTTPS on the Tailscale interface only.
+  Runs as root (required to bind ports 80/443 on macOS).
+  Managed by Ansible (wl-onprem role). Do not edit manually.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.wilkesliberty.caddy-internal</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/caddy</string>
+        <string>run</string>
+        <string>--config</string>
+        <string>/opt/homebrew/etc/caddy/Caddyfile.internal</string>
+        <string>--adapter</string>
+        <string>caddyfile</string>
+    </array>
+
+    <!-- Start immediately when loaded and on every boot -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Restart automatically if Caddy crashes -->
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/var/log/caddy/internal.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/var/log/caddy/internal-error.log</string>
+</dict>
+</plist>

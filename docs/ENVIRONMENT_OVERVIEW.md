@@ -161,7 +161,7 @@ Developers working only on `webcms` or `ui` do not need SOPS access. Only those 
 ### Internal (Tailscale required)
 | URL | Service |
 |-----|---------|
-| `https://app.int.wilkesliberty.com` | Drupal admin |
+| `https://api.int.wilkesliberty.com` | Drupal admin |
 | `https://sso.int.wilkesliberty.com` | Keycloak admin |
 | `https://monitor.int.wilkesliberty.com` | Grafana dashboards |
 | `https://metrics.int.wilkesliberty.com` | Prometheus |

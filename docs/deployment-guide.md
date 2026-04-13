@@ -29,12 +29,23 @@ All `*.int.wilkesliberty.com` services are accessible only over Tailscale. Three
 
 | Internal URL | Service | Port |
 | --- | --- | --- |
-| https://app.int.wilkesliberty.com | Drupal admin | 8080 |
+| https://api.int.wilkesliberty.com | Drupal admin | 8080 |
 | https://sso.int.wilkesliberty.com | Keycloak admin | 8081 |
 | https://monitor.int.wilkesliberty.com | Grafana dashboards | 3001 |
 | https://metrics.int.wilkesliberty.com | Prometheus | 9090 |
 | https://alerts.int.wilkesliberty.com | Alertmanager | 9093 |
-| https://uptime.int.wilkesliberty.com | Uptime Kuma | — |
+| https://uptime.int.wilkesliberty.com | Uptime Kuma | 3002 |
+
+## Admin Device Proxies (Tailscale-only)
+
+Internal Caddy reverse-proxies to LAN devices, re-wrapping their self-signed or HTTP admin UIs in the trusted wildcard cert. Device IPs are configured in `ansible/group_vars/all/coredns.yml` and `network_secrets.yml`.
+
+| Internal URL | Device | Backend |
+| --- | --- | --- |
+| https://nas.int.wilkesliberty.com | Synology NAS (DSM) | 192.168.4.60:5001 (HTTPS) |
+| https://router.int.wilkesliberty.com | Router | 192.168.1.254:80 |
+| https://switch.int.wilkesliberty.com | Switch | 192.168.4.20:80 |
+| https://printer.int.wilkesliberty.com | Printer | 192.168.4.250:80 |
 
 ## Docker Compose Services (On-prem)
 
@@ -228,9 +239,12 @@ make vps
 1. Installs Tailscale on the VPS and connects it to the tailnet as `wl-vps`
 2. Installs certbot with the custom Njalla DNS plugin
 3. Obtains a wildcard Let's Encrypt certificate for `*.wilkesliberty.com` via DNS-01 (fully automated — no TXT record pasting required)
-4. Sets up a daily auto-renewal cron job with a Caddy reload hook
-5. Installs Caddy from the apt repository
-6. Deploys the production Caddyfile with TLS, security headers, and reverse proxy rules
+4. Obtains a second wildcard certificate for `*.int.wilkesliberty.com` (internal services) and deploys a sync script that copies it to on-prem over Tailscale SSH after each renewal
+5. Sets up a daily auto-renewal cron job with a Caddy reload hook
+6. Installs Caddy from the apt repository
+7. Deploys the production Caddyfile with TLS, security headers, and reverse proxy rules
+
+> **Internal wildcard cert:** The `*.int.wilkesliberty.com` cert is obtained on the VPS (which has the Njalla DNS plugin) and synced to on-prem at `/etc/letsencrypt/live/int.wilkesliberty.com/` via the deploy hook at `/etc/letsencrypt/renewal-hooks/deploy/sync-int-cert-to-onprem.sh`. The on-prem internal Caddy uses this cert. Run `make vps` before `make onprem` on a fresh deploy to ensure the cert is present.
 
 **Verify the certificate was issued:**
 
@@ -254,8 +268,10 @@ curl -I https://www.wilkesliberty.com   # Expect: HTTP/2 200
 # Phase 4 — Deploy the On-Prem Server (`make onprem`)
 
 > ⚠ **Prerequisites before running this command:**
+> - `SOPS_AGE_KEY_FILE` must be exported in your shell (Phase 1.2) — `make onprem` uses it to decrypt both secrets and the become password (`become.sops.yml`)
 > - All required SOPS secrets must be populated (Phase 1.4)
 > - Tailscale must already be connected on the VPS (Phase 3)
+> - The internal wildcard cert must be synced to on-prem (run `make vps` first)
 > - The on-prem Tailscale IP must be recorded in `ansible/inventory/group_vars/network_secrets.yml` as `coredns_ts_ip`
 
 ```bash
@@ -330,7 +346,7 @@ ssh root@<VPS_IP> "ping -c 3 <ON_PREM_TAILSCALE_IP>"
 From any Tailscale-connected device, confirm internal DNS resolves:
 
 ```bash
-dig monitor.int.wilkesliberty.com   # Expect: on-prem LAN IP
+dig monitor.int.wilkesliberty.com   # Expect: on-prem Tailscale IP (100.x.x.x)
 ```
 
 From a device NOT on Tailscale, confirm internal DNS is isolated:
@@ -359,7 +375,27 @@ Verify:
 curl http://localhost:8983/solr/admin/cores?action=STATUS
 ```
 
-## 6.2 Verify Container Health
+## 6.2 Verify Keycloak Database Exists
+
+The init script at `docker/postgres/init/01-init-databases.sh` only runs when the Postgres data directory is first created. If Postgres was already initialized (e.g., from a prior `make onprem` run) before the init script existed, the `keycloak` database and user will be missing, and Keycloak will crash-loop with `FATAL: password authentication failed for user "keycloak"`.
+
+Check if the keycloak role exists:
+
+```bash
+docker exec wl_postgres psql -U drupal -d drupal -c "\du"
+```
+
+If `keycloak` is not listed, create it manually using the password from the container environment:
+
+```bash
+KEYCLOAK_PW=$(docker exec wl_postgres env | grep KEYCLOAK_DB_PASSWORD | cut -d= -f2-)
+docker exec wl_postgres psql -U drupal -d drupal -c "CREATE USER keycloak WITH PASSWORD '$KEYCLOAK_PW';"
+docker exec wl_postgres psql -U drupal -d drupal -c "CREATE DATABASE keycloak OWNER keycloak ENCODING 'UTF8' LC_COLLATE='C' LC_CTYPE='C' TEMPLATE template0;"
+docker exec wl_postgres psql -U drupal -d drupal -c "GRANT ALL PRIVILEGES ON DATABASE keycloak TO keycloak;"
+docker restart wl_keycloak
+```
+
+## 6.3 Verify Container Health
 
 All 11 containers should report `healthy` or `running`. Allow 2–3 minutes after stack start for health checks to pass.
 
@@ -448,11 +484,15 @@ curl -I https://auth.wilkesliberty.com   # Expect: 200 OK (Keycloak login)
 
 | URL | Expected |
 | --- | --- |
-| https://app.int.wilkesliberty.com | Drupal admin (200 OK) |
+| https://api.int.wilkesliberty.com | Drupal admin (200 OK) |
 | https://sso.int.wilkesliberty.com | Keycloak admin (200 OK) |
 | https://monitor.int.wilkesliberty.com | Grafana login (200 OK) |
 | https://metrics.int.wilkesliberty.com | Prometheus UI (200 OK) |
 | https://alerts.int.wilkesliberty.com | Alertmanager (200 OK) |
+| https://nas.int.wilkesliberty.com | Synology DSM login (200 OK) |
+| https://router.int.wilkesliberty.com | Router admin (200/302) |
+| https://switch.int.wilkesliberty.com | Switch admin (200 OK) |
+| https://printer.int.wilkesliberty.com | Printer admin (200 OK) |
 
 ## 7.3 Security Checks
 
@@ -544,9 +584,31 @@ All local commands run from the `infra/` repo root. Load Terraform secrets befor
 | `ansible/inventory/group_vars/app_secrets.yml` | SOPS-encrypted: Drupal OAuth2 client + Next.js integration secrets (populated post-Drupal) |
 | `ansible/inventory/group_vars/tailscale_secrets.yml` | SOPS-encrypted: Tailscale auth key |
 | `ansible/inventory/group_vars/network_secrets.yml` | SOPS-encrypted: LAN IPs, Tailscale IPs |
+| `ansible/group_vars/all/coredns.yml` | Device ports and non-secret network vars |
+| `become.sops.yml` | SOPS-encrypted: macOS become (sudo) password for `make onprem` |
 | `terraform_secrets.yml` | SOPS-encrypted: Njalla API token, DNS secrets |
 | `.sops.yaml` | SOPS encryption rules (which files encrypt, which AGE key) |
 | `ansible.cfg` | Ansible configuration (inventory, SSH, SOPS binary path) |
+
+**Deployed file locations (on-prem):**
+
+| File | Purpose |
+| --- | --- |
+| `/opt/homebrew/etc/caddy/Caddyfile.internal` | Deployed internal Caddyfile |
+| `/Library/LaunchDaemons/com.wilkesliberty.caddy-internal.plist` | Caddy LaunchDaemon |
+| `/opt/homebrew/etc/coredns/Corefile` | Deployed CoreDNS config |
+| `/etc/letsencrypt/live/int.wilkesliberty.com/` | Internal wildcard cert (synced from VPS) |
+| `/var/log/caddy/internal.log` | Caddy access log |
+| `/var/log/caddy/internal-error.log` | Caddy error log |
+
+**Deployed file locations (VPS):**
+
+| File | Purpose |
+| --- | --- |
+| `/etc/caddy/Caddyfile` | Production Caddyfile |
+| `/etc/letsencrypt/live/wilkesliberty.com/` | Public wildcard cert |
+| `/etc/letsencrypt/live/int.wilkesliberty.com/` | Internal wildcard cert (source, synced to on-prem) |
+| `/etc/letsencrypt/renewal-hooks/deploy/sync-int-cert-to-onprem.sh` | Internal cert sync script |
 
 ## CoreDNS Zone Management
 
@@ -555,15 +617,11 @@ The zone file at `coredns/zones/int.wilkesliberty.com.zone` must have its serial
 Test CoreDNS from any Tailscale-connected device:
 
 ```bash
-dig @<ON_PREM_TAILSCALE_IP> app.int.wilkesliberty.com    # Expect: on-prem LAN IP
+dig @<ON_PREM_TAILSCALE_IP> api.int.wilkesliberty.com    # Expect: Tailscale IP (100.x.x.x)
 dig @<ON_PREM_TAILSCALE_IP> network.int.wilkesliberty.com  # Expect: CNAME login.tailscale.com.
 ```
 
-Test from inside the CoreDNS container (on-prem):
-
-```bash
-docker exec wl_coredns dig @127.0.0.1 app.int.wilkesliberty.com
-```
+> **Note:** CoreDNS runs as a Homebrew LaunchDaemon on macOS (not in Docker). Test it directly with `dig` against the Tailscale IP.
 
 ## Drupal Trusted Host Patterns
 
@@ -571,7 +629,7 @@ Drupal uses an explicit allowlist of trusted hostnames (no wildcards). The follo
 
 - `localhost`, `drupal` (Docker internal)
 - `api.wilkesliberty.com` (public)
-- `app.int.wilkesliberty.com` (internal Caddy)
+- `api.int.wilkesliberty.com` (internal Caddy)
 - `auth.wilkesliberty.com`, `sso.int.wilkesliberty.com` (Keycloak SSO)
 
 To add a new hostname, edit `docker/drupal/settings.docker.php`.

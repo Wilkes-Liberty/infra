@@ -37,7 +37,7 @@ internal_hosts:
 # Caddy admin port variables — used in Caddyfile.internal.j2
 # nas_int_ip and router_int_ip come directly from network_secrets.yml (SOPS-encrypted).
 # Redefining them here as {{ internal_hosts.nas/router }} creates a circular reference.
-nas_admin_port: "5000"       # Synology DSM default; change to 443 if using HTTPS internally
+nas_admin_port: "5001"       # Synology DSM HTTPS port (5000 is HTTP; Caddy needs TLS upstream)
 
 router_admin_port: "80"      # Most routers default to port 80 for admin
 

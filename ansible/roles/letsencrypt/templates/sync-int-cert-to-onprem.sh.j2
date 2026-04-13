@@ -1,0 +1,36 @@
+#!/bin/bash
+# Sync *.int.wilkesliberty.com wildcard cert from VPS to on-prem after renewal.
+# Runs as a certbot deploy hook — called automatically after successful renewal.
+# Managed by Ansible (letsencrypt role). Do not edit manually.
+#
+# The on-prem cert directory is owned by {{ onprem_user }} so no sudo is needed
+# for file operations. Only the Caddy reload signal requires sudo, covered by
+# /etc/sudoers.d/wilkesliberty-certsync on the on-prem machine.
+
+set -euo pipefail
+
+CERT_DIR="/etc/letsencrypt/live/int.wilkesliberty.com"
+ONPREM_USER="{{ onprem_user }}"
+ONPREM_IP="{{ onprem_tailscale_ip }}"
+ONPREM_CERT_DIR="/etc/letsencrypt/live/int.wilkesliberty.com"
+SSH_KEY="/root/.ssh/id_ed25519_onprem"
+SSH_OPTS="-i ${SSH_KEY} -o StrictHostKeyChecking=no -o BatchMode=yes"
+LOG="/var/log/letsencrypt/sync-to-onprem.log"
+
+log() { echo "$(date '+%Y-%m-%d %H:%M:%S') $*" | tee -a "$LOG"; }
+
+log "Starting cert sync: int.wilkesliberty.com → ${ONPREM_USER}@${ONPREM_IP}"
+
+# Copy cert files directly — no sudo needed, directory is owned by onprem_user
+for f in fullchain.pem privkey.pem cert.pem chain.pem; do
+    scp ${SSH_OPTS} \
+        "${CERT_DIR}/${f}" \
+        "${ONPREM_USER}@${ONPREM_IP}:${ONPREM_CERT_DIR}/${f}"
+    log "Synced ${f}"
+done
+
+# Reload internal Caddy — requires sudo (covered by sudoers.d/wilkesliberty-certsync)
+ssh ${SSH_OPTS} "${ONPREM_USER}@${ONPREM_IP}" \
+    "pgrep -x caddy > /dev/null && sudo pkill -HUP caddy && echo 'Caddy reloaded' || echo 'Caddy not running, skipping reload'"
+
+log "Cert sync complete."

@@ -2,6 +2,11 @@
 domain: wilkesliberty.com
 int_domain: int.wilkesliberty.com
 
+# ── On-Prem Machine ───────────────────────────────────────────────────
+# macOS username on the on-prem machine — used by the VPS cert sync script
+# to SSH in as the correct user (not root).
+onprem_user: jmcerda
+
 # ── Network & Access Control ─────────────────────────────────────────
 tailscale_network_cidr: "100.64.0.0/10"    # Tailscale mesh subnet
 tailscale_split_dns_domain: "int.wilkesliberty.com"

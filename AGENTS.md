@@ -144,7 +144,7 @@ Staging containers join the shared `wl_monitoring` network — Prometheus auto-d
 - `https://network.wilkesliberty.com` — CNAME to `login.tailscale.com` (VPN admin)
 
 ### Internal URLs (Tailscale required — *.int.wilkesliberty.com)
-- `https://app.int.wilkesliberty.com` — Drupal admin (via internal Caddy)
+- `https://api.int.wilkesliberty.com` — Drupal admin (via internal Caddy)
 - `https://sso.int.wilkesliberty.com` — Keycloak admin (via internal Caddy)
 - `https://monitor.int.wilkesliberty.com` — Grafana dashboards
 - `https://metrics.int.wilkesliberty.com` — Prometheus metrics
@@ -224,7 +224,7 @@ infra/
 
 - **Redis** requires authentication (`REDIS_PASSWORD`) — unauthenticated connections are rejected
 - **Prometheus** does NOT have `--web.enable-lifecycle` enabled (unauthenticated reload removed); use `docker compose restart prometheus` to reload config
-- **Drupal trusted_host_patterns** uses an explicit allowlist (not a wildcard) — only `localhost`, `drupal`, `api.wilkesliberty.com`, `app.int.wilkesliberty.com`, `auth.wilkesliberty.com`, `sso.int.wilkesliberty.com` are accepted
+- **Drupal trusted_host_patterns** uses an explicit allowlist (not a wildcard) — only `localhost`, `drupal`, `api.wilkesliberty.com`, `api.int.wilkesliberty.com`, `auth.wilkesliberty.com`, `sso.int.wilkesliberty.com` are accepted
 - **Internal services** (`*.int.wilkesliberty.com`) are triple-protected: CoreDNS binds on Tailscale IP only → Tailscale Split DNS → Caddy internal binds on Tailscale IP only
 - **TLS**: Caddy (VPS) enforces TLS 1.2+ minimum via global block; security headers (HSTS, CSP, Referrer-Policy, Permissions-Policy) on all public vhosts
 - **CAA records**: manually added in Njalla web UI (provider doesn't support CAA via Terraform)

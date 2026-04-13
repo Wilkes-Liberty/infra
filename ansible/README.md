@@ -91,7 +91,7 @@ admin_allow_cidrs:                          # Admin access CIDRs
 ### Service IP Addresses (on-prem LAN, used by CoreDNS zone file)
 ```yaml
 dns_int_ip:       {{ onprem_int_ip }}   # CoreDNS server (on-prem)
-app_int_ip:       {{ onprem_int_ip }}    # Drupal (webcms repo) — app.int.wilkesliberty.com
+app_int_ip:       {{ onprem_int_ip }}    # Drupal (webcms repo) — api.int.wilkesliberty.com
 db_int_ip:        {{ onprem_int_ip }}    # PostgreSQL
 search_int_ip:    {{ onprem_int_ip }}    # Solr
 analytics_int_ip: {{ onprem_int_ip }}   # Grafana/Prometheus/Alertmanager/Uptime Kuma

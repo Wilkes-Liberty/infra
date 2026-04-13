@@ -2,8 +2,12 @@
 ; Served by CoreDNS on the Tailscale IP ({{ coredns_listen_ip }}) — internal use only.
 ; Managed by Ansible (wl-onprem role). Do not edit manually.
 ;
+; ALL entries resolve to the Tailscale IP ({{ coredns_listen_ip }}) where internal
+; Caddy listens. Caddy handles TLS and proxies each hostname to the correct backend.
+; Do NOT resolve directly to LAN IPs here — Caddy binds only on the Tailscale
+; interface and will not receive requests sent to a LAN IP.
+;
 ; Serial uses Unix epoch truncated to hours — auto-increments on each playbook run.
-; No secondary DNS servers in this setup, so serial only matters for cache invalidation.
 
 $ORIGIN int.wilkesliberty.com.
 $TTL 300
@@ -20,24 +24,37 @@ $TTL 300
 ; ── Nameserver ────────────────────────────────────────────────────────────────
 ns1          IN A    {{ coredns_listen_ip }}
 
-; ── Application services (resolve to on-prem LAN IP) ─────────────────────────
-app          IN A    {{ onprem_int_ip }}
-sso          IN A    {{ onprem_int_ip }}
-db           IN A    {{ onprem_int_ip }}
-search       IN A    {{ onprem_int_ip }}
-cache        IN A    {{ onprem_int_ip }}
-monitor      IN A    {{ onprem_int_ip }}
-prometheus   IN A    {{ onprem_int_ip }}
-metrics      IN A    {{ onprem_int_ip }}
-alerts       IN A    {{ onprem_int_ip }}
-uptime       IN A    {{ onprem_int_ip }}
+; ── Application services ──────────────────────────────────────────────────────
+; Caddy (on Tailscale IP) reverse proxies these to localhost Docker ports
+api          IN A    {{ coredns_listen_ip }}
+sso          IN A    {{ coredns_listen_ip }}
+db           IN A    {{ coredns_listen_ip }}
+search       IN A    {{ coredns_listen_ip }}
+cache        IN A    {{ coredns_listen_ip }}
 
-; ── Admin devices (static LAN IPs from network_secrets.yml) ──────────────────
-nas          IN A    {{ nas_int_ip }}
-router       IN A    {{ router_int_ip }}
-switch       IN A    {{ coredns_switch_ip }}
-printer      IN A    {{ coredns_printer_ip }}
+; ── Monitoring ────────────────────────────────────────────────────────────────
+monitor      IN A    {{ coredns_listen_ip }}
+prometheus   IN A    {{ coredns_listen_ip }}
+metrics      IN A    {{ coredns_listen_ip }}
+alerts       IN A    {{ coredns_listen_ip }}
+uptime       IN A    {{ coredns_listen_ip }}
 
-; ── Special: VPN admin console shortcut ──────────────────────────────────────
-; Note: SSL will not work when accessed via this CNAME — use login.tailscale.com directly.
+; ── Admin devices ─────────────────────────────────────────────────────────────
+; Caddy proxies these to their LAN IPs (nas_int_ip, router_int_ip, etc.)
+; with tls_insecure_skip_verify since devices use self-signed certs internally
+nas          IN A    {{ coredns_listen_ip }}
+router       IN A    {{ coredns_listen_ip }}
+switch       IN A    {{ coredns_listen_ip }}
+printer      IN A    {{ coredns_listen_ip }}
+
+; ── Staging ───────────────────────────────────────────────────────────────
+; Caddy proxies these to staging Docker ports (8090, 8091, 8993, 3010)
+; Hyphenated names keep us within the *.int.wilkesliberty.com wildcard cert
+stg          IN A    {{ coredns_listen_ip }}
+api-stg      IN A    {{ coredns_listen_ip }}
+sso-stg      IN A    {{ coredns_listen_ip }}
+search-stg   IN A    {{ coredns_listen_ip }}
+
+; ── Special ───────────────────────────────────────────────────────────────────
+; Note: SSL will not work for this CNAME — use login.tailscale.com directly.
 network      IN CNAME login.tailscale.com.

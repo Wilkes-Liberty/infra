@@ -47,8 +47,61 @@
         tailscale_up_args: "--accept-routes --accept-dns=false"
 
     - role: letsencrypt
+      vars:
+        letsencrypt_certificates:
+          - name: "wilkesliberty_wildcard"
+            domains:
+              - "wilkesliberty.com"
+              - "*.wilkesliberty.com"
+            challenge: "dns-01"
+            services_to_restart:
+              - caddy
+            deploy_hook: "/etc/letsencrypt/renewal-hooks/deploy/reload-caddy.sh"
+            description: "Wildcard certificate for all public wilkesliberty.com subdomains"
+          - name: "int_wildcard"
+            domains:
+              - "int.wilkesliberty.com"
+              - "*.int.wilkesliberty.com"
+            challenge: "dns-01"
+            services_to_restart: []
+            deploy_hook: "/etc/letsencrypt/renewal-hooks/deploy/sync-int-cert-to-onprem.sh"
+            description: "Wildcard certificate for internal *.int.wilkesliberty.com (synced to on-prem)"
 
   tasks:
+
+    # ── Cert sync: int.wilkesliberty.com → on-prem ────────────────────────────
+    # The VPS obtains the *.int.wilkesliberty.com cert and pushes it to the
+    # on-prem machine over Tailscale after each renewal via a deploy hook.
+    # An SSH key pair is used so the hook can run unattended as root.
+
+    - name: Generate SSH key pair for cert sync (root → on-prem)
+      openssh_keypair:
+        path: /root/.ssh/id_ed25519_onprem
+        type: ed25519
+        comment: "vps-cert-sync@wilkesliberty"
+        force: false
+      register: sync_keypair
+
+    - name: Display public key for on-prem authorized_keys (one-time manual step)
+      debug:
+        msg:
+          - "⚠️  ONE-TIME MANUAL STEP (only needed on first run):"
+          - "   Add this public key to ~/.ssh/authorized_keys on the on-prem machine:"
+          - "   {{ sync_keypair.public_key }}"
+          - "   Run on on-prem: echo '{{ sync_keypair.public_key }}' >> ~/.ssh/authorized_keys"
+      when: sync_keypair.changed
+
+    - name: Deploy cert sync hook script
+      template:
+        src: "{{ playbook_dir }}/../roles/letsencrypt/templates/sync-int-cert-to-onprem.sh.j2"
+        dest: /etc/letsencrypt/renewal-hooks/deploy/sync-int-cert-to-onprem.sh
+        mode: '0750'
+        owner: root
+        group: root
+
+    - name: Run initial cert sync to on-prem (push cert immediately after obtaining)
+      command: /etc/letsencrypt/renewal-hooks/deploy/sync-int-cert-to-onprem.sh
+      ignore_errors: true
 
     # ── Caddy ─────────────────────────────────────────────────────────────────
     - name: Install Caddy
@@ -75,4 +128,4 @@
     - name: Reload Caddy
       systemd:
         name: caddy
-        state: reloaded
+        state: restarted
