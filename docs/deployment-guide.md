@@ -617,15 +617,11 @@ The zone file at `coredns/zones/int.wilkesliberty.com.zone` must have its serial
 Test CoreDNS from any Tailscale-connected device:
 
 ```bash
-dig @<ON_PREM_TAILSCALE_IP> app.int.wilkesliberty.com    # Expect: on-prem LAN IP
+dig @<ON_PREM_TAILSCALE_IP> app.int.wilkesliberty.com    # Expect: Tailscale IP (100.x.x.x)
 dig @<ON_PREM_TAILSCALE_IP> network.int.wilkesliberty.com  # Expect: CNAME login.tailscale.com.
 ```
 
-Test from inside the CoreDNS container (on-prem):
-
-```bash
-docker exec wl_coredns dig @127.0.0.1 app.int.wilkesliberty.com
-```
+> **Note:** CoreDNS runs as a Homebrew LaunchDaemon on macOS (not in Docker). Test it directly with `dig` against the Tailscale IP.
 
 ## Drupal Trusted Host Patterns
 
