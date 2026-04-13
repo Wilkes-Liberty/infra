@@ -489,6 +489,10 @@ curl -I https://auth.wilkesliberty.com   # Expect: 200 OK (Keycloak login)
 | https://monitor.int.wilkesliberty.com | Grafana login (200 OK) |
 | https://metrics.int.wilkesliberty.com | Prometheus UI (200 OK) |
 | https://alerts.int.wilkesliberty.com | Alertmanager (200 OK) |
+| https://nas.int.wilkesliberty.com | Synology DSM login (200 OK) |
+| https://router.int.wilkesliberty.com | Router admin (200/302) |
+| https://switch.int.wilkesliberty.com | Switch admin (200 OK) |
+| https://printer.int.wilkesliberty.com | Printer admin (200 OK) |
 
 ## 7.3 Security Checks
 
@@ -580,9 +584,31 @@ All local commands run from the `infra/` repo root. Load Terraform secrets befor
 | `ansible/inventory/group_vars/app_secrets.yml` | SOPS-encrypted: Drupal OAuth2 client + Next.js integration secrets (populated post-Drupal) |
 | `ansible/inventory/group_vars/tailscale_secrets.yml` | SOPS-encrypted: Tailscale auth key |
 | `ansible/inventory/group_vars/network_secrets.yml` | SOPS-encrypted: LAN IPs, Tailscale IPs |
+| `ansible/group_vars/all/coredns.yml` | Device ports and non-secret network vars |
+| `become.sops.yml` | SOPS-encrypted: macOS become (sudo) password for `make onprem` |
 | `terraform_secrets.yml` | SOPS-encrypted: Njalla API token, DNS secrets |
 | `.sops.yaml` | SOPS encryption rules (which files encrypt, which AGE key) |
 | `ansible.cfg` | Ansible configuration (inventory, SSH, SOPS binary path) |
+
+**Deployed file locations (on-prem):**
+
+| File | Purpose |
+| --- | --- |
+| `/opt/homebrew/etc/caddy/Caddyfile.internal` | Deployed internal Caddyfile |
+| `/Library/LaunchDaemons/com.wilkesliberty.caddy-internal.plist` | Caddy LaunchDaemon |
+| `/opt/homebrew/etc/coredns/Corefile` | Deployed CoreDNS config |
+| `/etc/letsencrypt/live/int.wilkesliberty.com/` | Internal wildcard cert (synced from VPS) |
+| `/var/log/caddy/internal.log` | Caddy access log |
+| `/var/log/caddy/internal-error.log` | Caddy error log |
+
+**Deployed file locations (VPS):**
+
+| File | Purpose |
+| --- | --- |
+| `/etc/caddy/Caddyfile` | Production Caddyfile |
+| `/etc/letsencrypt/live/wilkesliberty.com/` | Public wildcard cert |
+| `/etc/letsencrypt/live/int.wilkesliberty.com/` | Internal wildcard cert (source, synced to on-prem) |
+| `/etc/letsencrypt/renewal-hooks/deploy/sync-int-cert-to-onprem.sh` | Internal cert sync script |
 
 ## CoreDNS Zone Management
 
