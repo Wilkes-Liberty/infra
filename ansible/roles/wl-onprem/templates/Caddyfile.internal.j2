@@ -76,8 +76,8 @@ http://*.int.wilkesliberty.com {
         format json
     }
 
-    @app host app.int.wilkesliberty.com
-    handle @app {
+    @api host api.int.wilkesliberty.com
+    handle @api {
         import internal_headers
 
         reverse_proxy localhost:8080 {

@@ -577,7 +577,7 @@
       - "   - Network:      https://network.wilkesliberty.com    (CNAME → login.tailscale.com admin console)"
       - ""
       - "🔒 Internal URLs (Tailscale-only via *.int.wilkesliberty.com):"
-      - "   - Drupal:       https://app.int.wilkesliberty.com        (webcms repo)"
+      - "   - Drupal:       https://api.int.wilkesliberty.com        (webcms repo)"
       - "   - Keycloak SSO: https://sso.int.wilkesliberty.com"
       - "   - Solr:         https://search.int.wilkesliberty.com      (admin CIDRs only)"
       - "   - Grafana:      https://monitor.int.wilkesliberty.com"

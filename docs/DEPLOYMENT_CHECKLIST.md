@@ -400,8 +400,8 @@ docker exec wl_redis redis-cli -a "$REDIS_PASSWORD" ping
 From a device connected to Tailscale:
 
 ```bash
-# Internal Caddy serves Drupal at app.int.wilkesliberty.com
-curl -I https://app.int.wilkesliberty.com
+# Internal Caddy serves Drupal at api.int.wilkesliberty.com
+curl -I https://api.int.wilkesliberty.com
 # Expected: 200 OK
 
 # Verify Redis connection in Drupal
@@ -466,7 +466,7 @@ From a Tailscale-connected device:
 
 ```bash
 # Query CoreDNS directly
-dig @<on-prem-tailscale-ip> app.int.wilkesliberty.com
+dig @<on-prem-tailscale-ip> api.int.wilkesliberty.com
 # Expected: {{ onprem_int_ip }}
 
 dig @<on-prem-tailscale-ip> monitor.int.wilkesliberty.com
@@ -482,7 +482,7 @@ After Tailscale Split DNS is configured (Phase 2, Step 2.4):
 
 ```bash
 # From any Tailscale-connected device (should resolve without specifying @)
-ping app.int.wilkesliberty.com
+ping api.int.wilkesliberty.com
 # Expected: resolves to {{ onprem_int_ip }}
 
 # These should NOT resolve (no public DNS for int.wilkesliberty.com)
@@ -513,7 +513,7 @@ From a Tailscale-connected device:
 
 | URL | Expected |
 |-----|----------|
-| `https://app.int.wilkesliberty.com` | Drupal admin |
+| `https://api.int.wilkesliberty.com` | Drupal admin |
 | `https://sso.int.wilkesliberty.com` | Keycloak admin |
 | `https://monitor.int.wilkesliberty.com` | Grafana dashboards |
 | `https://metrics.int.wilkesliberty.com` | Prometheus UI |
@@ -649,7 +649,7 @@ tailscale status
 
 # Check Split DNS is configured (Tailscale admin → DNS tab)
 # Verify CoreDNS is running on on-prem
-docker exec wl_coredns sh -c "dig @localhost app.int.wilkesliberty.com"
+docker exec wl_coredns sh -c "dig @localhost api.int.wilkesliberty.com"
 ```
 
 ### Redis Connection Refused / Auth Failure

@@ -158,7 +158,7 @@ nslookup monitor.int.wilkesliberty.com
 curl -I https://monitor.int.wilkesliberty.com
 
 # Drupal internal
-curl -I https://app.int.wilkesliberty.com
+curl -I https://api.int.wilkesliberty.com
 ```
 
 ### VPS → On-prem Proxy (verifies Tailscale routing)
@@ -242,10 +242,10 @@ tailscale status
 
 # Check Split DNS is configured (Tailscale admin → DNS)
 # Query CoreDNS directly by IP
-dig @<on-prem-tailscale-ip> app.int.wilkesliberty.com
+dig @<on-prem-tailscale-ip> api.int.wilkesliberty.com
 
 # Check CoreDNS is running
-docker exec wl_coredns dig @127.0.0.1 app.int.wilkesliberty.com
+docker exec wl_coredns dig @127.0.0.1 api.int.wilkesliberty.com
 ```
 
 ### VPS Can't Reach On-prem Services

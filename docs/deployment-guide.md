@@ -29,7 +29,7 @@ All `*.int.wilkesliberty.com` services are accessible only over Tailscale. Three
 
 | Internal URL | Service | Port |
 | --- | --- | --- |
-| https://app.int.wilkesliberty.com | Drupal admin | 8080 |
+| https://api.int.wilkesliberty.com | Drupal admin | 8080 |
 | https://sso.int.wilkesliberty.com | Keycloak admin | 8081 |
 | https://monitor.int.wilkesliberty.com | Grafana dashboards | 3001 |
 | https://metrics.int.wilkesliberty.com | Prometheus | 9090 |
@@ -484,7 +484,7 @@ curl -I https://auth.wilkesliberty.com   # Expect: 200 OK (Keycloak login)
 
 | URL | Expected |
 | --- | --- |
-| https://app.int.wilkesliberty.com | Drupal admin (200 OK) |
+| https://api.int.wilkesliberty.com | Drupal admin (200 OK) |
 | https://sso.int.wilkesliberty.com | Keycloak admin (200 OK) |
 | https://monitor.int.wilkesliberty.com | Grafana login (200 OK) |
 | https://metrics.int.wilkesliberty.com | Prometheus UI (200 OK) |
@@ -617,7 +617,7 @@ The zone file at `coredns/zones/int.wilkesliberty.com.zone` must have its serial
 Test CoreDNS from any Tailscale-connected device:
 
 ```bash
-dig @<ON_PREM_TAILSCALE_IP> app.int.wilkesliberty.com    # Expect: Tailscale IP (100.x.x.x)
+dig @<ON_PREM_TAILSCALE_IP> api.int.wilkesliberty.com    # Expect: Tailscale IP (100.x.x.x)
 dig @<ON_PREM_TAILSCALE_IP> network.int.wilkesliberty.com  # Expect: CNAME login.tailscale.com.
 ```
 
@@ -629,7 +629,7 @@ Drupal uses an explicit allowlist of trusted hostnames (no wildcards). The follo
 
 - `localhost`, `drupal` (Docker internal)
 - `api.wilkesliberty.com` (public)
-- `app.int.wilkesliberty.com` (internal Caddy)
+- `api.int.wilkesliberty.com` (internal Caddy)
 - `auth.wilkesliberty.com`, `sso.int.wilkesliberty.com` (Keycloak SSO)
 
 To add a new hostname, edit `docker/drupal/settings.docker.php`.
