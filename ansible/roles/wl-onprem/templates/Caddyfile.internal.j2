@@ -34,14 +34,6 @@
 
 # ── Shared snippets ───────────────────────────────────────────────────────────
 
-# TLS: uses the Let's Encrypt wildcard cert managed by certbot
-(internal_tls) {
-    tls /etc/letsencrypt/live/int.wilkesliberty.com/fullchain.pem \
-        /etc/letsencrypt/live/int.wilkesliberty.com/privkey.pem {
-        protocols tls1.2 tls1.3
-    }
-}
-
 # Security headers applied to every internal vhost
 # Internal services are Tailscale-only so some external-facing headers are less critical,
 # but defence-in-depth means we apply them anyway.
@@ -59,7 +51,8 @@
 
 # ── HTTP → HTTPS redirect (Tailscale interface only) ─────────────────────────
 # Binds only on the Tailscale IP so plain-HTTP redirect is also gated.
-{{ onprem_tailscale_ip }}:80 {
+http://*.int.wilkesliberty.com {
+    bind {{ onprem_tailscale_ip }}
     redir https://{host}{uri} permanent
 }
 
@@ -68,12 +61,23 @@
 # ==============================================================================
 
 # Drupal CMS (headless backend)
-{{ onprem_tailscale_ip }}:443 {
+*.int.wilkesliberty.com {
     bind {{ onprem_tailscale_ip }}
+
+    # TLS: wildcard cert managed by certbot — declared once for the whole site block
+    tls /etc/letsencrypt/live/int.wilkesliberty.com/fullchain.pem \
+        /etc/letsencrypt/live/int.wilkesliberty.com/privkey.pem {
+        protocols tls1.2 tls1.3
+    }
+
+    # Access log — all internal requests in one file
+    log {
+        output file /var/log/caddy/internal.log
+        format json
+    }
 
     @app host app.int.wilkesliberty.com
     handle @app {
-        import internal_tls
         import internal_headers
 
         reverse_proxy localhost:8080 {
@@ -86,17 +90,11 @@
             health_interval 30s
             health_timeout 10s
         }
-
-        log {
-            output file /var/log/caddy/internal-app.log
-            format json
-        }
     }
 
     # Keycloak SSO
     @sso host sso.int.wilkesliberty.com
     handle @sso {
-        import internal_tls
         import internal_headers
 
         reverse_proxy localhost:8081 {
@@ -111,11 +109,6 @@
             health_interval 30s
             health_timeout 10s
         }
-
-        log {
-            output file /var/log/caddy/internal-sso.log
-            format json
-        }
     }
 
     # ==============================================================================
@@ -125,7 +118,6 @@
     # Grafana dashboards
     @monitor host monitor.int.wilkesliberty.com
     handle @monitor {
-        import internal_tls
         import internal_headers
 
         reverse_proxy localhost:3001 {
@@ -134,34 +126,22 @@
             header_up X-Forwarded-For {remote_host}
             header_up X-Forwarded-Proto https
         }
-
-        log {
-            output file /var/log/caddy/internal-monitor.log
-            format json
-        }
     }
 
     # Uptime Kuma
     @uptime host uptime.int.wilkesliberty.com
     handle @uptime {
-        import internal_tls
         import internal_headers
 
         reverse_proxy localhost:{{ uptime_admin_port | default('3002') }} {
             header_up Host {host}
             header_up X-Forwarded-Proto https
         }
-
-        log {
-            output file /var/log/caddy/internal-uptime.log
-            format json
-        }
     }
 
     # Prometheus — restricted to admin CIDRs even within Tailscale
     @metrics host metrics.int.wilkesliberty.com
     handle @metrics {
-        import internal_tls
         import internal_headers
 
         @allowed remote_ip {{ admin_allow_cidrs | join(' ') }}
@@ -174,17 +154,11 @@
         handle {
             respond "Access denied" 403
         }
-
-        log {
-            output file /var/log/caddy/internal-metrics.log
-            format json
-        }
     }
 
     # Alertmanager — restricted to admin CIDRs even within Tailscale
     @alerts host alerts.int.wilkesliberty.com
     handle @alerts {
-        import internal_tls
         import internal_headers
 
         @allowed remote_ip {{ admin_allow_cidrs | join(' ') }}
@@ -197,17 +171,11 @@
         handle {
             respond "Access denied" 403
         }
-
-        log {
-            output file /var/log/caddy/internal-alerts.log
-            format json
-        }
     }
 
     # Solr — restricted to admin CIDRs; never expose publicly
     @search host search.int.wilkesliberty.com
     handle @search {
-        import internal_tls
         import internal_headers
 
         @allowed remote_ip {{ admin_allow_cidrs | join(' ') }}
@@ -220,11 +188,6 @@
         handle {
             respond "Access denied" 403
         }
-
-        log {
-            output file /var/log/caddy/internal-search.log
-            format json
-        }
     }
 
     # ==============================================================================
@@ -236,83 +199,50 @@
 
     @nas host nas.int.wilkesliberty.com
     handle @nas {
-        import internal_tls
         import internal_headers
 
-        reverse_proxy {{ nas_int_ip }}:{{ nas_admin_port | default('5000') }} {
+        reverse_proxy {{ nas_int_ip }}:{{ nas_admin_port | default('5001') }} {
             header_up Host {host}
             header_up X-Forwarded-Proto https
             transport http {
                 tls_insecure_skip_verify
+                versions 1.1
             }
-        }
-
-        log {
-            output file /var/log/caddy/internal-nas.log
-            format json
         }
     }
 
     @router host router.int.wilkesliberty.com
     handle @router {
-        import internal_tls
         import internal_headers
 
         reverse_proxy {{ router_int_ip }}:{{ router_admin_port | default('80') }} {
             header_up Host {host}
             header_up X-Forwarded-Proto https
-            transport http {
-                tls_insecure_skip_verify
-            }
-        }
-
-        log {
-            output file /var/log/caddy/internal-router.log
-            format json
         }
     }
 
     @switch host switch.int.wilkesliberty.com
     handle @switch {
-        import internal_tls
         import internal_headers
 
         reverse_proxy {{ switch_int_ip }}:{{ switch_admin_port | default('80') }} {
             header_up Host {host}
             header_up X-Forwarded-Proto https
-            transport http {
-                tls_insecure_skip_verify
-            }
-        }
-
-        log {
-            output file /var/log/caddy/internal-switch.log
-            format json
         }
     }
 
     @printer host printer.int.wilkesliberty.com print.int.wilkesliberty.com
     handle @printer {
-        import internal_tls
         import internal_headers
 
         reverse_proxy {{ printer_int_ip }}:{{ printer_admin_port | default('80') }} {
             header_up Host {host}
             header_up X-Forwarded-Proto https
-            transport http {
-                tls_insecure_skip_verify
-            }
-        }
-
-        log {
-            output file /var/log/caddy/internal-printer.log
-            format json
         }
     }
 
     # Catch-all for this IP — reject anything not matched above
     handle {
-        import internal_tls
         respond "Not Found" 404
     }
 }

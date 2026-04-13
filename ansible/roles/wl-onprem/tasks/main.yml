@@ -315,6 +315,92 @@
       - "      Find 'wilkesliberty-onprem' → Edit → Subnets → Approve: {{ tailscale_advertise_routes | join(', ') }}"
   when: tailscale_cli_check.rc == 0
 
+# ── Internal Caddy ────────────────────────────────────────────────────────────
+
+- name: Install Caddy
+  community.general.homebrew:
+    name: caddy
+    state: present
+
+- name: Create Caddy config and log directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /opt/homebrew/etc/caddy
+    - /var/log/caddy
+  become: true
+
+- name: Create /etc/letsencrypt/live/int.wilkesliberty.com directory (populated by make vps sync)
+  file:
+    path: /etc/letsencrypt/live/int.wilkesliberty.com
+    state: directory
+    mode: '0755'
+    owner: "{{ ansible_env.USER }}"
+    group: staff
+  become: true
+
+- name: Allow jmcerda to reload Caddy without password (used by cert sync hook)
+  copy:
+    content: |
+      {{ ansible_env.USER }} ALL=(ALL) NOPASSWD: /usr/bin/pkill -HUP caddy
+    dest: /etc/sudoers.d/wilkesliberty-certsync
+    mode: '0440'
+    validate: visudo -cf %s
+  become: true
+
+- name: Check if *.int.wilkesliberty.com cert exists
+  stat:
+    path: /etc/letsencrypt/live/int.wilkesliberty.com/fullchain.pem
+  register: int_cert
+
+- name: Warn if cert is missing (run make vps first to obtain and sync it)
+  debug:
+    msg:
+      - "⚠️  WARNING — /etc/letsencrypt/live/int.wilkesliberty.com/fullchain.pem not found."
+      - "   Internal Caddy will not start until the cert is synced from the VPS."
+      - "   Run 'make vps' to obtain the *.int.wilkesliberty.com cert and sync it here."
+  when: not int_cert.stat.exists
+
+- name: Deploy internal Caddyfile
+  template:
+    src: Caddyfile.internal.j2
+    dest: /opt/homebrew/etc/caddy/Caddyfile.internal
+    mode: '0644'
+  become: true
+  register: caddy_internal_config
+
+- name: Deploy internal Caddy LaunchDaemon plist
+  template:
+    src: com.wilkesliberty.caddy-internal.plist.j2
+    dest: /Library/LaunchDaemons/com.wilkesliberty.caddy-internal.plist
+    mode: '0644'
+  become: true
+  register: caddy_internal_plist
+
+- name: Check if internal Caddy LaunchDaemon is already loaded
+  command: launchctl list com.wilkesliberty.caddy-internal
+  register: caddy_internal_loaded
+  changed_when: false
+  failed_when: false
+  become: true
+
+- name: Load internal Caddy LaunchDaemon (first run, cert present)
+  command: launchctl bootstrap system /Library/LaunchDaemons/com.wilkesliberty.caddy-internal.plist
+  become: true
+  when:
+    - caddy_internal_loaded.rc != 0
+    - int_cert.stat.exists
+
+- name: Restart internal Caddy if config changed
+  command: launchctl kickstart -k system/com.wilkesliberty.caddy-internal
+  become: true
+  when:
+    - caddy_internal_loaded.rc == 0
+    - int_cert.stat.exists
+    - caddy_internal_config.changed or caddy_internal_plist.changed
+
 # ── Proton VPN ────────────────────────────────────────────────────────────────
 
 - name: Check if Proton VPN is already installed
