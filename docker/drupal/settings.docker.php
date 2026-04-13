@@ -73,7 +73,8 @@ $settings['trusted_host_patterns'] = [
   '^api\.wilkesliberty\.com$',
 
   // Internal Tailscale domain (proxied via on-prem internal Caddy)
-  '^app\.int\.wilkesliberty\.com$',
+  '^api\.int\.wilkesliberty\.com$',
+  '^api-stg\.int\.wilkesliberty\.com$',
 
   // Auth / SSO domain
   '^auth\.wilkesliberty\.com$',

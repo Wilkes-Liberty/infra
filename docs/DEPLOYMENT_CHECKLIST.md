@@ -669,7 +669,7 @@ docker exec wl_drupal drush eval "var_dump(\Drupal::cache()->get('test'));"
 
 If Drupal returns "The provided host name is not valid":
 - Check `docker/drupal/settings.docker.php` — only explicitly listed hosts are allowed
-- Allowed: `localhost`, `drupal`, `api.wilkesliberty.com`, `app.int.wilkesliberty.com`, `auth.wilkesliberty.com`, `sso.int.wilkesliberty.com`
+- Allowed: `localhost`, `drupal`, `api.wilkesliberty.com`, `api.int.wilkesliberty.com`, `auth.wilkesliberty.com`, `sso.int.wilkesliberty.com`
 
 ### Caddy Can't Connect to On-prem Services
 
