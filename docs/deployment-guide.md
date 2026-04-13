@@ -34,7 +34,18 @@ All `*.int.wilkesliberty.com` services are accessible only over Tailscale. Three
 | https://monitor.int.wilkesliberty.com | Grafana dashboards | 3001 |
 | https://metrics.int.wilkesliberty.com | Prometheus | 9090 |
 | https://alerts.int.wilkesliberty.com | Alertmanager | 9093 |
-| https://uptime.int.wilkesliberty.com | Uptime Kuma | — |
+| https://uptime.int.wilkesliberty.com | Uptime Kuma | 3002 |
+
+## Admin Device Proxies (Tailscale-only)
+
+Internal Caddy reverse-proxies to LAN devices, re-wrapping their self-signed or HTTP admin UIs in the trusted wildcard cert. Device IPs are configured in `ansible/group_vars/all/coredns.yml` and `network_secrets.yml`.
+
+| Internal URL | Device | Backend |
+| --- | --- | --- |
+| https://nas.int.wilkesliberty.com | Synology NAS (DSM) | 192.168.4.60:5001 (HTTPS) |
+| https://router.int.wilkesliberty.com | Router | 192.168.1.254:80 |
+| https://switch.int.wilkesliberty.com | Switch | 192.168.4.20:80 |
+| https://printer.int.wilkesliberty.com | Printer | 192.168.4.250:80 |
 
 ## Docker Compose Services (On-prem)
 
@@ -228,9 +239,12 @@ make vps
 1. Installs Tailscale on the VPS and connects it to the tailnet as `wl-vps`
 2. Installs certbot with the custom Njalla DNS plugin
 3. Obtains a wildcard Let's Encrypt certificate for `*.wilkesliberty.com` via DNS-01 (fully automated — no TXT record pasting required)
-4. Sets up a daily auto-renewal cron job with a Caddy reload hook
-5. Installs Caddy from the apt repository
-6. Deploys the production Caddyfile with TLS, security headers, and reverse proxy rules
+4. Obtains a second wildcard certificate for `*.int.wilkesliberty.com` (internal services) and deploys a sync script that copies it to on-prem over Tailscale SSH after each renewal
+5. Sets up a daily auto-renewal cron job with a Caddy reload hook
+6. Installs Caddy from the apt repository
+7. Deploys the production Caddyfile with TLS, security headers, and reverse proxy rules
+
+> **Internal wildcard cert:** The `*.int.wilkesliberty.com` cert is obtained on the VPS (which has the Njalla DNS plugin) and synced to on-prem at `/etc/letsencrypt/live/int.wilkesliberty.com/` via the deploy hook at `/etc/letsencrypt/renewal-hooks/deploy/sync-int-cert-to-onprem.sh`. The on-prem internal Caddy uses this cert. Run `make vps` before `make onprem` on a fresh deploy to ensure the cert is present.
 
 **Verify the certificate was issued:**
 
@@ -254,8 +268,10 @@ curl -I https://www.wilkesliberty.com   # Expect: HTTP/2 200
 # Phase 4 — Deploy the On-Prem Server (`make onprem`)
 
 > ⚠ **Prerequisites before running this command:**
+> - `SOPS_AGE_KEY_FILE` must be exported in your shell (Phase 1.2) — `make onprem` uses it to decrypt both secrets and the become password (`become.sops.yml`)
 > - All required SOPS secrets must be populated (Phase 1.4)
 > - Tailscale must already be connected on the VPS (Phase 3)
+> - The internal wildcard cert must be synced to on-prem (run `make vps` first)
 > - The on-prem Tailscale IP must be recorded in `ansible/inventory/group_vars/network_secrets.yml` as `coredns_ts_ip`
 
 ```bash
