@@ -100,10 +100,14 @@ if ($environment === 'development') {
   // Verbose Drupal logging
   $config['system.logging']['error_level'] = 'verbose';
 
-  // Disable render/page caches so Twig templates and theme changes show immediately
-  $settings['cache']['bins']['render']       = 'cache.backend.null';
-  $settings['cache']['bins']['dynamic_page_cache'] = 'cache.backend.null';
-  $settings['cache']['bins']['page']         = 'cache.backend.null';
+  // Disable render/page caches so Twig templates and theme changes show immediately.
+  // Using cache.backend.memory instead of cache.backend.null — the 'null' backend
+  // is only registered when development.services.yml is loaded, which causes fatal
+  // errors in environments where that file doesn't exist. memory cache is always
+  // available and effectively disables persistent caching for the current request.
+  $settings['cache']['bins']['render']       = 'cache.backend.memory';
+  $settings['cache']['bins']['dynamic_page_cache'] = 'cache.backend.memory';
+  $settings['cache']['bins']['page']         = 'cache.backend.memory';
 
   // Use development.services.yml for debugging helpers if present
   if (file_exists(DRUPAL_ROOT . '/sites/development.services.yml')) {
