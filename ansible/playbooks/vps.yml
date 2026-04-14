@@ -48,8 +48,11 @@
 
     - role: wl-vps-ui
       vars:
-        ui_repo_url: "{{ ui_repo_url_override | default('https://github.com/wilkesliberty/ui.git') }}"
+        # Built locally on the Ansible controller, then synced to the VPS.
+        # No git credentials are needed on the VPS because we never clone there.
+        ui_local_path: "{{ lookup('env', 'HOME') }}/Repositories/ui"
         ui_repo_branch: "main"
+        ui_auto_pull: false   # set to true to `git pull` before each build
         ui_site_url: "https://wilkesliberty.com"
         ui_drupal_base_url: "https://api.wilkesliberty.com"
         ui_image_domain: "api.wilkesliberty.com"
