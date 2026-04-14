@@ -123,8 +123,6 @@
     dest: /opt/wl-ui/
     delete: yes
     recursive: yes
-    rsync_opts:
-      - "--chown=wlnext:wlnext"
   become: yes
   notify: Restart wl-ui
 
@@ -134,8 +132,6 @@
     dest: /opt/wl-ui/.next/static/
     delete: yes
     recursive: yes
-    rsync_opts:
-      - "--chown=wlnext:wlnext"
   become: yes
   notify: Restart wl-ui
 
@@ -144,8 +140,6 @@
     src: "{{ ui_local_path }}/public/"
     dest: /opt/wl-ui/public/
     recursive: yes
-    rsync_opts:
-      - "--chown=wlnext:wlnext"
   become: yes
   notify: Restart wl-ui
 
