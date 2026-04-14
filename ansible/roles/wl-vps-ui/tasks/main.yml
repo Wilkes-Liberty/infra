@@ -11,6 +11,17 @@
 #   - Node 20+ installed (handled in this role)
 #   - The `ui` repo accessible (cloned locally or via SSH deploy key)
 
+- name: Install build prerequisites (git, curl, rsync, ca-certificates)
+  apt:
+    name:
+      - git
+      - curl
+      - rsync
+      - ca-certificates
+    state: present
+    update_cache: yes
+  become: yes
+
 - name: Install Node 20 from NodeSource
   shell: |
     set -e
@@ -32,7 +43,7 @@
     shell: /usr/sbin/nologin
   become: yes
 
-- name: Create /opt/wl-ui and /opt/wl-ui-src directories
+- name: Create /opt/wl-ui, /opt/wl-ui-src, and ansible tmp directories
   file:
     path: "{{ item }}"
     state: directory
@@ -42,6 +53,8 @@
   loop:
     - /opt/wl-ui
     - /opt/wl-ui-src
+    - /opt/wl-ui/.ansible
+    - /opt/wl-ui/.ansible/tmp
   become: yes
 
 - name: Clone or update ui repo (main branch) on VPS
