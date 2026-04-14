@@ -60,6 +60,17 @@ FROM drupal:11-apache AS runtime
 # Set docroot to webcms/web/
 ENV APACHE_DOCUMENT_ROOT=/opt/drupal/web
 
+# PHP runtime tuning — Drupal config import, drush cr, and large queries
+# need significantly more than the upstream 128M default.
+RUN { \
+    echo 'memory_limit = 512M'; \
+    echo 'max_execution_time = 120'; \
+    echo 'upload_max_filesize = 64M'; \
+    echo 'post_max_size = 64M'; \
+    echo 'realpath_cache_size = 4096K'; \
+    echo 'realpath_cache_ttl = 600'; \
+  } > /usr/local/etc/php/conf.d/zz-drupal.ini
+
 # Install PHP Redis extension for cache.backend.redis support.
 # The drupal:11-apache base image does not include php-redis; install via PECL.
 # Build deps are installed temporarily and cleaned up to keep the image lean.

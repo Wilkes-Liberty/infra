@@ -69,3 +69,15 @@ alert_email_to: "3@wilkesliberty.com"
 #   alert_smtp_user: "your-smtp-user"
 #   alert_smtp_password: "your-smtp-password"
 # alert_slack_webhook_url: ""  # Optional — uncomment in sso_secrets.yml to enable Slack
+
+# ── Drupal SMTP (Postmark) ───────────────────────────────────────────
+# Token + DKIM live in app_secrets.yml (SOPS-encrypted) as
+# postmark_server_token. The wl-onprem role applies these to Drupal's
+# smtp.settings on every deploy, so SMTP survives container recreation
+# and config drift.
+drupal_smtp_host: "smtp.postmarkapp.com"
+drupal_smtp_port: 587
+drupal_smtp_protocol: "tls"  # 'tls' = STARTTLS on 587
+drupal_smtp_timeout: 10
+drupal_smtp_from: "inquiry@wilkesliberty.com"
+drupal_smtp_fromname: "Wilkes & Liberty"
