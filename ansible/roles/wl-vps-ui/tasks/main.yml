@@ -1,0 +1,124 @@
+---
+# Deploy the Next.js UI to the VPS as a systemd service.
+#
+# Strategy:
+#   - Clone the ui repo to /opt/wl-ui-src at the main branch
+#   - Build the Next.js app with `npm ci && npm run build`
+#   - Copy the standalone output to /opt/wl-ui (the app's runtime location)
+#   - Run as the `wlnext` system user via systemd (wl-ui.service)
+#
+# Prereqs:
+#   - Node 20+ installed (handled in this role)
+#   - The `ui` repo accessible (cloned locally or via SSH deploy key)
+
+- name: Install Node 20 from NodeSource
+  shell: |
+    set -e
+    if ! command -v node >/dev/null 2>&1 || [ "$(node -v | cut -d. -f1 | tr -d v)" -lt 20 ]; then
+      curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+      apt-get install -y nodejs
+    fi
+  args:
+    executable: /bin/bash
+    creates: /usr/bin/node
+  become: yes
+
+- name: Create wlnext system user
+  user:
+    name: wlnext
+    system: yes
+    home: /opt/wl-ui
+    create_home: no
+    shell: /usr/sbin/nologin
+  become: yes
+
+- name: Create /opt/wl-ui and /opt/wl-ui-src directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: wlnext
+    group: wlnext
+    mode: "0755"
+  loop:
+    - /opt/wl-ui
+    - /opt/wl-ui-src
+  become: yes
+
+- name: Clone or update ui repo (main branch) on VPS
+  git:
+    repo: "{{ ui_repo_url | default('https://github.com/wilkesliberty/ui.git') }}"
+    dest: /opt/wl-ui-src
+    version: "{{ ui_repo_branch | default('main') }}"
+    force: yes
+  become: yes
+  become_user: wlnext
+
+- name: Install Next.js dependencies
+  shell: |
+    cd /opt/wl-ui-src && npm ci --no-audit --no-fund
+  args:
+    executable: /bin/bash
+  become: yes
+  become_user: wlnext
+  environment:
+    HOME: /opt/wl-ui
+    NEXT_IMAGE_DOMAIN: "{{ ui_image_domain | default('api.wilkesliberty.com') }}"
+    NEXT_PUBLIC_DRUPAL_BASE_URL: "{{ ui_drupal_base_url | default('https://api.wilkesliberty.com') }}"
+    DRUPAL_BASE_URL: "{{ ui_drupal_base_url | default('https://api.wilkesliberty.com') }}"
+    NEXT_PUBLIC_SITE_URL: "{{ ui_site_url | default('https://wilkesliberty.com') }}"
+
+- name: Build Next.js app
+  shell: |
+    cd /opt/wl-ui-src && npm run build
+  args:
+    executable: /bin/bash
+  become: yes
+  become_user: wlnext
+  environment:
+    HOME: /opt/wl-ui
+    NEXT_IMAGE_DOMAIN: "{{ ui_image_domain | default('api.wilkesliberty.com') }}"
+    NEXT_PUBLIC_DRUPAL_BASE_URL: "{{ ui_drupal_base_url | default('https://api.wilkesliberty.com') }}"
+    DRUPAL_BASE_URL: "{{ ui_drupal_base_url | default('https://api.wilkesliberty.com') }}"
+    NEXT_PUBLIC_SITE_URL: "{{ ui_site_url | default('https://wilkesliberty.com') }}"
+  notify: Restart wl-ui
+
+- name: Sync standalone output to /opt/wl-ui
+  shell: |
+    set -e
+    rsync -a --delete /opt/wl-ui-src/.next/standalone/ /opt/wl-ui/
+    mkdir -p /opt/wl-ui/.next
+    rsync -a --delete /opt/wl-ui-src/.next/static/ /opt/wl-ui/.next/static/
+    rsync -a /opt/wl-ui-src/public/ /opt/wl-ui/public/
+    chown -R wlnext:wlnext /opt/wl-ui
+  args:
+    executable: /bin/bash
+  become: yes
+  notify: Restart wl-ui
+
+- name: Render Next.js environment file
+  template:
+    src: wl-ui.env.j2
+    dest: /opt/wl-ui/.env.production
+    owner: wlnext
+    group: wlnext
+    mode: "0640"
+  become: yes
+  notify: Restart wl-ui
+
+- name: Install wl-ui systemd unit
+  template:
+    src: wl-ui.service.j2
+    dest: /etc/systemd/system/wl-ui.service
+    mode: "0644"
+  become: yes
+  notify:
+    - Reload systemd
+    - Restart wl-ui
+
+- name: Enable and start wl-ui service
+  systemd:
+    name: wl-ui
+    enabled: yes
+    state: started
+    daemon_reload: yes
+  become: yes

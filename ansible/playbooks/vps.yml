@@ -46,6 +46,15 @@
         tailscale_split_dns_enabled: false   # VPS does not run CoreDNS
         tailscale_up_args: "--accept-routes --accept-dns=false"
 
+    - role: wl-vps-ui
+      vars:
+        ui_repo_url: "{{ ui_repo_url_override | default('https://github.com/wilkesliberty/ui.git') }}"
+        ui_repo_branch: "main"
+        ui_site_url: "https://wilkesliberty.com"
+        ui_drupal_base_url: "https://api.wilkesliberty.com"
+        ui_image_domain: "api.wilkesliberty.com"
+        ui_identity_url: "https://auth.wilkesliberty.com"
+
     - role: letsencrypt
       vars:
         letsencrypt_certificates:

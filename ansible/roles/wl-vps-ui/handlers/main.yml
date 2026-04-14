@@ -1,0 +1,11 @@
+---
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes
+  become: yes
+
+- name: Restart wl-ui
+  systemd:
+    name: wl-ui
+    state: restarted
+  become: yes
