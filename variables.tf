@@ -97,3 +97,18 @@ variable "proton_verification_token" {
   type        = string
   sensitive   = true
 }
+
+# Postmark DKIM — fill in after adding the wilkesliberty.com domain in Postmark.
+# Get values from Postmark > Sender Signatures > Domains > wilkesliberty.com > DNS.
+variable "postmark_dkim_selector" {
+  type        = string
+  description = "DKIM selector hostname (e.g., '20240414._domainkey')"
+  default     = ""
+}
+
+variable "postmark_dkim_value" {
+  type        = string
+  description = "DKIM TXT record value (k=rsa; p=...)"
+  default     = ""
+  sensitive   = true
+}
