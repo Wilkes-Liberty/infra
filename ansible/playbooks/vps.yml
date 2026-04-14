@@ -31,6 +31,7 @@
       loop:
         - network_secrets.yml
         - tailscale_secrets.yml
+        - app_secrets.yml
       no_log: true
 
     - name: Load Terraform secrets (provides njalla_api_token for DNS-01 challenge)
