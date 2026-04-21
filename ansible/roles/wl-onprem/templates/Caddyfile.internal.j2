@@ -134,8 +134,7 @@ http://*.int.wilkesliberty.com {
     }
 
     # Prometheus — restricted to admin CIDRs even within Tailscale
-    # prometheus.int is an alias for metrics.int (same service, port 9090)
-    @metrics host metrics.int.wilkesliberty.com prometheus.int.wilkesliberty.com
+    @metrics host metrics.int.wilkesliberty.com
     handle @metrics {
         import internal_headers
 

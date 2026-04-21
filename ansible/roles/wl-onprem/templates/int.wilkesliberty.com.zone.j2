@@ -34,7 +34,6 @@ cache        IN A    {{ coredns_listen_ip }}
 
 ; ── Monitoring ────────────────────────────────────────────────────────────────
 monitor      IN A    {{ coredns_listen_ip }}
-prometheus   IN A    {{ coredns_listen_ip }}
 metrics      IN A    {{ coredns_listen_ip }}
 alerts       IN A    {{ coredns_listen_ip }}
 uptime       IN A    {{ coredns_listen_ip }}
@@ -73,7 +72,6 @@ db           IN AAAA {{ coredns_listen_ipv6 }}
 search       IN AAAA {{ coredns_listen_ipv6 }}
 cache        IN AAAA {{ coredns_listen_ipv6 }}
 monitor      IN AAAA {{ coredns_listen_ipv6 }}
-prometheus   IN AAAA {{ coredns_listen_ipv6 }}
 metrics      IN AAAA {{ coredns_listen_ipv6 }}
 alerts       IN AAAA {{ coredns_listen_ipv6 }}
 uptime       IN AAAA {{ coredns_listen_ipv6 }}

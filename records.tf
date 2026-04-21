@@ -242,5 +242,5 @@ resource "njalla_record_cname" "network" {
 # Private services (no public DNS, Tailscale-only):
 # - PostgreSQL (on-prem:5432)
 # - Redis (on-prem:6379)
-# - Prometheus (on-prem:9090, internal DNS only)
+# - metrics.int (Prometheus UI, on-prem:9090, admin-CIDR restricted)
 # =============================================
