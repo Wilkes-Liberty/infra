@@ -31,6 +31,7 @@
       loop:
         - network_secrets.yml
         - tailscale_secrets.yml
+        - app_secrets.yml
       no_log: true
 
     - name: Load Terraform secrets (provides njalla_api_token for DNS-01 challenge)
@@ -45,6 +46,18 @@
         tailscale_advertise_routes: []       # VPS does not advertise subnets
         tailscale_split_dns_enabled: false   # VPS does not run CoreDNS
         tailscale_up_args: "--accept-routes --accept-dns=false"
+
+    - role: wl-vps-ui
+      vars:
+        # Built locally on the Ansible controller, then synced to the VPS.
+        # No git credentials are needed on the VPS because we never clone there.
+        ui_local_path: "{{ lookup('env', 'HOME') }}/Repositories/ui"
+        ui_repo_branch: "main"
+        ui_auto_pull: false   # set to true to `git pull` before each build
+        ui_site_url: "https://wilkesliberty.com"
+        ui_drupal_base_url: "https://api.wilkesliberty.com"
+        ui_image_domain: "api.wilkesliberty.com"
+        ui_identity_url: "https://auth.wilkesliberty.com"
 
     - role: letsencrypt
       vars:

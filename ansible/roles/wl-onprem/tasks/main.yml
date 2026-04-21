@@ -458,6 +458,116 @@
     var: docker_status.stdout_lines
 
 # ============================================================================
+# POST-DEPLOY: RESET DB PASSWORDS + DRUPAL SMTP CONFIG
+# ============================================================================
+# When the Drupal container is recreated, .env may contain a fresh password
+# but Postgres' data directory persists with the OLD password. Reset both
+# drupal and keycloak roles to match the env values. Idempotent.
+
+- name: Wait for Postgres to be healthy
+  command: docker exec wl_postgres pg_isready -U drupal -d drupal
+  register: pg_ready
+  retries: 12
+  delay: 5
+  until: pg_ready.rc == 0
+  changed_when: false
+  failed_when: false
+
+- name: Reset Postgres role passwords to match container env (drupal, keycloak)
+  shell: |
+    set -e
+    DRUPAL_PW=$(docker exec wl_drupal env | sed -n 's/^DRUPAL_DB_PASSWORD=//p')
+    KC_PW=$(docker exec wl_postgres env | sed -n 's/^KEYCLOAK_DB_PASSWORD=//p')
+    if [ -n "$DRUPAL_PW" ]; then
+      docker exec wl_postgres psql -U drupal -d drupal -c "ALTER USER drupal WITH PASSWORD '$DRUPAL_PW';" >/dev/null
+    fi
+    if [ -n "$KC_PW" ]; then
+      docker exec wl_postgres psql -U drupal -d drupal -c "ALTER USER keycloak WITH PASSWORD '$KC_PW';" >/dev/null
+    fi
+    echo "passwords synced"
+  args:
+    executable: /bin/bash
+  changed_when: false
+  no_log: true
+  when: pg_ready.rc == 0
+
+# ============================================================================
+# DRUPAL SMTP CONFIGURATION (Postmark)
+# ============================================================================
+# Apply SMTP settings to Drupal's smtp.settings config so transactional email
+# (contact form notifications, password resets, etc.) is delivered via Postmark.
+# Idempotent: re-runs do nothing if the settings already match.
+
+- name: Ensure PHP memory_limit is high enough in Drupal container
+  # Older images shipped with 128M default which OOMs on drush cr / cim.
+  # Newer Dockerfile.prod sets this in /usr/local/etc/php/conf.d/zz-drupal.ini
+  # at build time — this task is a safety net for older images.
+  shell: |
+    docker exec wl_drupal bash -c '
+      F=/usr/local/etc/php/conf.d/zz-drupal.ini
+      if ! grep -q "memory_limit = 512M" $F 2>/dev/null; then
+        echo "memory_limit = 512M" >> $F
+      fi
+    '
+  args:
+    executable: /bin/bash
+  changed_when: false
+
+- name: Wait for Drupal container to be reachable via drush
+  command: docker exec wl_drupal drush status --fields=db-status --format=string
+  register: drupal_status
+  retries: 12
+  delay: 5
+  until: drupal_status.rc == 0 and 'Connected' in drupal_status.stdout
+  changed_when: false
+  failed_when: false
+
+- name: Configure Drupal SMTP for Postmark (host/port/protocol/from)
+  command: >-
+    docker exec wl_drupal drush config:set -y smtp.settings {{ item.key }} {{ item.value | quote }}
+  loop:
+    - { key: smtp_on, value: "true" }
+    - { key: smtp_host, value: "{{ drupal_smtp_host }}" }
+    - { key: smtp_hostbackup, value: "" }
+    - { key: smtp_port, value: "{{ drupal_smtp_port }}" }
+    - { key: smtp_protocol, value: "{{ drupal_smtp_protocol }}" }
+    - { key: smtp_autotls, value: "true" }
+    - { key: smtp_timeout, value: "{{ drupal_smtp_timeout }}" }
+    - { key: smtp_from, value: "{{ drupal_smtp_from }}" }
+    - { key: smtp_fromname, value: "{{ drupal_smtp_fromname }}" }
+  changed_when: false  # drush config:set always reports change; treat as idempotent
+  when: drupal_status.rc == 0
+
+- name: Configure Drupal SMTP credentials (Postmark token)
+  # Pass token via docker env so it doesn't appear in `ps` or Ansible logs.
+  # drush php:eval reads $PM_TOKEN from the container environment and writes
+  # it to smtp.settings. Token never appears in the command line or output.
+  command:
+    argv:
+      - docker
+      - exec
+      - -e
+      - "PM_TOKEN={{ postmark_server_token }}"
+      - wl_drupal
+      - drush
+      - php:eval
+      - |
+        $t = getenv('PM_TOKEN');
+        $c = \Drupal::configFactory()->getEditable('smtp.settings');
+        $c->set('smtp_username', $t)->set('smtp_password', $t)->save();
+  no_log: true
+  changed_when: false
+  when:
+    - drupal_status.rc == 0
+    - postmark_server_token is defined
+    - postmark_server_token | length > 0
+
+- name: Rebuild Drupal cache after SMTP config change
+  command: docker exec wl_drupal drush cr
+  changed_when: false
+  when: drupal_status.rc == 0
+
+# ============================================================================
 # PHASE 7: STAGING ENVIRONMENT
 # ============================================================================
 # Staging runs on the same on-prem server alongside production.

@@ -1,0 +1,181 @@
+---
+# Deploy the Next.js UI to the VPS as a systemd service.
+#
+# Strategy:
+#   1. Build the Next.js app LOCALLY (on the Ansible controller) using the
+#      ui repo checkout at {{ ui_local_path }}. This avoids needing git
+#      credentials, Node tooling, or build RAM on the VPS.
+#   2. Synchronize the .next/standalone output + static/ + public/ to the VPS.
+#   3. Run as the `wlnext` system user via systemd (wl-ui.service).
+#
+# Build output layout (Next.js standalone mode):
+#   .next/standalone/  — self-contained server.js + minimal node_modules
+#   .next/static/      — hashed JS/CSS bundles (copied into standalone/.next/static)
+#   public/            — static assets (copied into standalone/public)
+
+# ============================================================
+# LOCAL: build Next.js on the Ansible controller
+# ============================================================
+
+- name: "LOCAL — ensure ui repo exists at {{ ui_local_path }}"
+  stat:
+    path: "{{ ui_local_path }}/package.json"
+  register: ui_local_stat
+  delegate_to: localhost
+  become: no
+
+- name: "LOCAL — fail if ui repo missing"
+  fail:
+    msg: >-
+      ui repo not found at {{ ui_local_path }}.
+      Clone it first: git clone git@github.com:wilkesliberty/ui.git {{ ui_local_path }}
+  when: not ui_local_stat.stat.exists
+  delegate_to: localhost
+  become: no
+
+- name: "LOCAL — pull latest on ui repo ({{ ui_repo_branch }})"
+  shell: |
+    cd {{ ui_local_path }}
+    git fetch --quiet origin
+    git checkout --quiet {{ ui_repo_branch }}
+    git pull --quiet --ff-only origin {{ ui_repo_branch }} || true
+  delegate_to: localhost
+  become: no
+  when: ui_auto_pull | default(false) | bool
+
+- name: "LOCAL — install npm dependencies"
+  shell: |
+    cd {{ ui_local_path }}
+    npm ci --no-audit --no-fund
+  delegate_to: localhost
+  become: no
+  environment:
+    NEXT_IMAGE_DOMAIN: "{{ ui_image_domain }}"
+    NEXT_PUBLIC_DRUPAL_BASE_URL: "{{ ui_drupal_base_url }}"
+    DRUPAL_BASE_URL: "{{ ui_drupal_base_url }}"
+    NEXT_PUBLIC_SITE_URL: "{{ ui_site_url }}"
+
+- name: "LOCAL — build Next.js (npm run build)"
+  shell: |
+    cd {{ ui_local_path }}
+    npm run build
+  delegate_to: localhost
+  become: no
+  environment:
+    NEXT_IMAGE_DOMAIN: "{{ ui_image_domain }}"
+    NEXT_PUBLIC_DRUPAL_BASE_URL: "{{ ui_drupal_base_url }}"
+    DRUPAL_BASE_URL: "{{ ui_drupal_base_url }}"
+    NEXT_PUBLIC_SITE_URL: "{{ ui_site_url }}"
+  notify: Restart wl-ui
+
+# ============================================================
+# REMOTE: prepare VPS, sync build output, run as systemd service
+# ============================================================
+
+- name: Install runtime prerequisites (rsync, ca-certificates)
+  apt:
+    name:
+      - rsync
+      - ca-certificates
+    state: present
+    update_cache: yes
+  become: yes
+
+- name: Install Node 20 from NodeSource
+  shell: |
+    set -e
+    if ! command -v node >/dev/null 2>&1 || [ "$(node -v | cut -d. -f1 | tr -d v)" -lt 20 ]; then
+      apt-get install -y curl
+      curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+      apt-get install -y nodejs
+    fi
+  args:
+    executable: /bin/bash
+    creates: /usr/bin/node
+  become: yes
+
+- name: Create wlnext system user
+  user:
+    name: wlnext
+    system: yes
+    home: /opt/wl-ui
+    create_home: no
+    shell: /usr/sbin/nologin
+  become: yes
+
+- name: Create /opt/wl-ui directory tree
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: wlnext
+    group: wlnext
+    mode: "0755"
+  loop:
+    - /opt/wl-ui
+    - /opt/wl-ui/.next
+    - /opt/wl-ui/.next/static
+    - /opt/wl-ui/public
+  become: yes
+
+- name: Sync Next.js standalone server to /opt/wl-ui
+  synchronize:
+    src: "{{ ui_local_path }}/.next/standalone/"
+    dest: /opt/wl-ui/
+    delete: yes
+    recursive: yes
+  become: yes
+  notify: Restart wl-ui
+
+- name: Sync Next.js static assets to /opt/wl-ui/.next/static
+  synchronize:
+    src: "{{ ui_local_path }}/.next/static/"
+    dest: /opt/wl-ui/.next/static/
+    delete: yes
+    recursive: yes
+  become: yes
+  notify: Restart wl-ui
+
+- name: Sync Next.js public/ directory to /opt/wl-ui/public
+  synchronize:
+    src: "{{ ui_local_path }}/public/"
+    dest: /opt/wl-ui/public/
+    recursive: yes
+  become: yes
+  notify: Restart wl-ui
+
+- name: Ensure wlnext owns /opt/wl-ui (post-sync)
+  file:
+    path: /opt/wl-ui
+    state: directory
+    owner: wlnext
+    group: wlnext
+    recurse: yes
+  become: yes
+
+- name: Render Next.js environment file
+  template:
+    src: wl-ui.env.j2
+    dest: /opt/wl-ui/.env.production
+    owner: wlnext
+    group: wlnext
+    mode: "0640"
+  become: yes
+  notify: Restart wl-ui
+
+- name: Install wl-ui systemd unit
+  template:
+    src: wl-ui.service.j2
+    dest: /etc/systemd/system/wl-ui.service
+    mode: "0644"
+  become: yes
+  notify:
+    - Reload systemd
+    - Restart wl-ui
+
+- name: Enable and start wl-ui service
+  systemd:
+    name: wl-ui
+    enabled: yes
+    state: started
+    daemon_reload: yes
+  become: yes

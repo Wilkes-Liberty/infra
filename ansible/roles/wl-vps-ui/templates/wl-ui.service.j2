@@ -1,0 +1,30 @@
+[Unit]
+Description=Wilkes Liberty Next.js UI
+After=network.target
+Documentation=https://github.com/wilkesliberty/ui
+
+[Service]
+Type=simple
+User=wlnext
+Group=wlnext
+WorkingDirectory=/opt/wl-ui
+EnvironmentFile=/opt/wl-ui/.env.production
+ExecStart=/usr/bin/node /opt/wl-ui/server.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=wl-ui
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/wl-ui
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target

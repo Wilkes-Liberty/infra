@@ -56,12 +56,22 @@ wilkesliberty.com {
 
 # Main website (Next.js frontend)
 www.wilkesliberty.com {
-    # Next.js runs locally on VPS
-    reverse_proxy localhost:3000 {
+    # Next.js — systemd service wl-ui listening on 127.0.0.1:3000
+    # Managed by the wl-vps-ui Ansible role
+    reverse_proxy 127.0.0.1:3000 {
         header_up Host {host}
         header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
         header_up X-Forwarded-Proto {scheme}
+        fail_duration 10s
+    }
+
+    # Fall back to the static holding page if Next.js is down
+    handle_errors {
+        @down expression {http.error.status_code} in [502, 503, 504]
+        handle @down {
+            root * /var/www/holding
+            file_server
+        }
     }
 
     import public_headers_html
