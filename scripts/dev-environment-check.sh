@@ -51,7 +51,7 @@ echo ""
 # ── Ansible Galaxy collections ───────────────────────────────────────────────
 echo "--- Ansible collections ---"
 for col in community.sops community.general; do
-    if ansible-galaxy collection list 2>/dev/null | grep -q "${col/\./\/}"; then
+    if ansible-galaxy collection list 2>/dev/null | grep -q "^${col}[[:space:]]"; then
         log "Collection installed: $col"
     else
         error "Missing collection: $col — run: ansible-galaxy collection install $col"
