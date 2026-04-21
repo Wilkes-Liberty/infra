@@ -27,24 +27,25 @@ echo ""
 
 # ── Required CLI tools ───────────────────────────────────────────────────────
 echo "--- Required tools ---"
-declare -A TOOLS=(
-    [ansible]="ansible --version"
-    [terraform]="terraform version"
-    [sops]="sops --version"
-    [age]="age --version"
-    [python3]="python3 --version"
-    [git]="git --version"
-    [docker]="docker --version"
-)
-
-for tool in "${!TOOLS[@]}"; do
-    if command -v "$tool" &>/dev/null; then
-        version=$(${TOOLS[$tool]} 2>/dev/null | head -1)
-        log "$tool: $version"
+# declare -A requires bash 4+; /bin/bash on macOS is 3.2 — use a function instead
+check_tool() {
+    local name="$1"; shift
+    if command -v "$name" &>/dev/null; then
+        local version
+        version=$("$@" 2>/dev/null | head -1)
+        log "$name: $version"
     else
-        error "$tool is not installed — run: ./scripts/bootstrap.sh"
+        error "$name is not installed — run: ./scripts/bootstrap.sh"
     fi
-done
+}
+
+check_tool ansible   ansible --version
+check_tool terraform terraform version
+check_tool sops      sops --version
+check_tool age       age --version
+check_tool python3   python3 --version
+check_tool git       git --version
+check_tool docker    docker --version
 echo ""
 
 # ── Ansible Galaxy collections ───────────────────────────────────────────────
