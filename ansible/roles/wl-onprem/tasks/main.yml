@@ -684,7 +684,7 @@
       - "   - Drupal API:   https://api.wilkesliberty.com        (Drupal CMS — webcms repo, on-prem:8080)"
       - "   - SSO:          https://auth.wilkesliberty.com       (Keycloak, on-prem:8081)"
       - "   - Search:       https://search.wilkesliberty.com     (Solr, on-prem:8983 — admin CIDRs only)"
-      - "   - Network:      https://login.tailscale.com          (Tailscale admin console — open directly)"
+      - "   - Network:      https://network.wilkesliberty.com    (redirects → login.tailscale.com)"
       - ""
       - "🔒 Internal URLs (Tailscale-only via *.int.wilkesliberty.com):"
       - "   - Drupal:       https://api.int.wilkesliberty.com        (webcms repo)"
