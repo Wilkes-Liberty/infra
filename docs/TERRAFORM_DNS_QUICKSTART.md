@@ -129,7 +129,7 @@ terraform apply
 | `api` | A + AAAA | VPS IP | Drupal CMS / GraphQL (webcms repo) |
 | `auth` | A + AAAA | VPS IP | Keycloak SSO |
 | `search` | A + AAAA | VPS IP | Solr search (admin-CIDR restricted) |
-| `network` | CNAME | `login.tailscale.com.` | VPN/network admin console |
+| `network` | A / AAAA | VPS IP | VPN admin — Caddy redirects to `login.tailscale.com` |
 
 > **Note**: AAAA records are conditional — only created when `vps_ipv6` is non-empty.
 > **CAA records** are NOT managed by Terraform (provider limitation). Add them manually in Njalla web UI. See `DNS_RECORDS.md`.

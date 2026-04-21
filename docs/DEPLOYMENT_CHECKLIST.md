@@ -473,7 +473,7 @@ dig @<on-prem-tailscale-ip> monitor.int.wilkesliberty.com
 # Expected: {{ onprem_int_ip }}
 
 dig @<on-prem-tailscale-ip> network.int.wilkesliberty.com
-# Expected: CNAME login.tailscale.com.
+# Expected: A record (Tailscale IP); Caddy redirects to login.tailscale.com
 ```
 
 ### Step 8.2: Verify Split DNS is Working
