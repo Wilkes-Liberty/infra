@@ -68,7 +68,7 @@
   # Test against the first domain in the first cert (e.g. wilkesliberty.com).
   # ansible_fqdn is the machine hostname, not necessarily a served domain — don't use it.
   uri:
-    url: "https://{{ (letsencrypt_certificates[0].domains | reject('match', '^\*') | list | first) }}"
+    url: "https://{{ letsencrypt_certificates[0].domains | select('match', '^[^*]') | list | first }}"
     method: GET
     validate_certs: yes
     timeout: 10
