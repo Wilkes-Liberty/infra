@@ -176,6 +176,13 @@ search.wilkesliberty.com {
     }
 }
 
+# Tailscale admin console bookmark
+# A/AAAA point here (not a CNAME) so Caddy holds the TLS cert before redirecting.
+# A direct CNAME to login.tailscale.com causes ERR_SSL_PROTOCOL_ERROR (SNI mismatch).
+network.wilkesliberty.com {
+    redir https://login.tailscale.com{uri} permanent
+}
+
 # ================== OPTIONAL: MONITORING ==================
 # Uncomment to expose Grafana analytics dashboard (recommended: keep private via Tailscale)
 
