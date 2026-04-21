@@ -225,8 +225,8 @@ http://*.int.wilkesliberty.com {
         }
     }
 
-    @printer host printer.int.wilkesliberty.com print.int.wilkesliberty.com
-    handle @printer {
+    @print host print.int.wilkesliberty.com
+    handle @print {
         import internal_headers
 
         reverse_proxy {{ printer_int_ip }}:{{ printer_admin_port | default('80') }} {

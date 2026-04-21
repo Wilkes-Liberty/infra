@@ -700,7 +700,7 @@
       - "   - NAS:          https://nas.int.wilkesliberty.com"
       - "   - Router:       https://router.int.wilkesliberty.com"
       - "   - Switch:       https://switch.int.wilkesliberty.com"
-      - "   - Printer:      https://printer.int.wilkesliberty.com  (also print.int.wilkesliberty.com)"
+      - "   - Printer:      https://print.int.wilkesliberty.com"
       - "   ⚠️  Update device IPs in group_vars/all.yml and coredns zone before use"
       - ""
       - "🧪 Staging URLs (staging branch — Tailscale-only):"
