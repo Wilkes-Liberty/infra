@@ -1,5 +1,0 @@
----
-- name: Deploy Monitoring Stack
-  hosts: wl-onprem
-  roles:
-    - monitoring

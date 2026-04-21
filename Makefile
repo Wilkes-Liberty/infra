@@ -2,16 +2,15 @@
 # Wilkes-Liberty Infrastructure Makefile
 # =============================================
 
-.PHONY: help bootstrap check onprem monitoring vps deploy clean docker-clean status
+.PHONY: help bootstrap check onprem vps deploy clean docker-clean status
 
 help:
 	@echo "Available targets:"
 	@echo "  bootstrap     - Install required local tools (sops, age, terraform, ansible)"
 	@echo "  check         - Validate local environment before deploying"
 	@echo "  onprem        - Deploy wl-onprem role (on-prem server + Docker stack)"
-	@echo "  monitoring    - Deploy Prometheus + Grafana"
 	@echo "  vps           - Deploy Njalla VPS (Let's Encrypt + Caddy)"
-	@echo "  deploy        - Full deployment (onprem + monitoring + vps)"
+	@echo "  deploy        - Full deployment (onprem + vps)"
 	@echo "  status        - Show Docker container health"
 	@echo "  clean         - Stop Docker services"
 	@echo "  docker-clean  - Prune Docker images/cache"
@@ -33,20 +32,16 @@ onprem:
 	  ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/onprem.yml --limit wl-onprem --become-password-file "$$tmpfile"; \
 	  rc=$$?; rm -f "$$tmpfile"; exit $$rc
 
-# Deploy monitoring stack
-monitoring:
-	ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/monitoring.yml
-
 # Deploy Njalla VPS reverse proxy
 vps:
 	ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/vps.yml
 
 # Full deployment (recommended)
+# Monitoring stack (Prometheus/Grafana/Alertmanager) is part of wl-onprem's docker-compose.
 deploy:
 	@tmpfile=$$(mktemp) && \
 	  sops -d --extract '["ansible_become_pass"]' ansible/inventory/group_vars/become.sops.yml > "$$tmpfile" && \
 	  ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/onprem.yml --limit wl-onprem --become-password-file "$$tmpfile" && \
-	  ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/monitoring.yml && \
 	  ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/vps.yml; \
 	  rc=$$?; rm -f "$$tmpfile"; exit $$rc
 
