@@ -11,7 +11,7 @@ help:
 	@echo "  onprem        - Deploy wl-onprem role (on-prem server + Docker stack)"
 	@echo "  monitoring    - Deploy Prometheus + Grafana"
 	@echo "  vps           - Deploy Njalla VPS (Let's Encrypt + Caddy)"
-	@echo "  deploy        - Full deployment (onprem + monitoring + vps)"
+	@echo "  deploy        - Full deployment (onprem + vps)"
 	@echo "  status        - Show Docker container health"
 	@echo "  clean         - Stop Docker services"
 	@echo "  docker-clean  - Prune Docker images/cache"
@@ -42,11 +42,13 @@ vps:
 	ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/vps.yml
 
 # Full deployment (recommended)
+# Note: monitoring stack (Prometheus/Grafana/Alertmanager) is part of wl-onprem's
+# docker-compose — the separate 'monitoring' role/playbook was a dead stub and has
+# been removed from this target.
 deploy:
 	@tmpfile=$$(mktemp) && \
 	  sops -d --extract '["ansible_become_pass"]' ansible/inventory/group_vars/become.sops.yml > "$$tmpfile" && \
 	  ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/onprem.yml --limit wl-onprem --become-password-file "$$tmpfile" && \
-	  ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/monitoring.yml && \
 	  ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/vps.yml; \
 	  rc=$$?; rm -f "$$tmpfile"; exit $$rc
 
