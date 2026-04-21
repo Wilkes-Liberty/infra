@@ -7,7 +7,8 @@
 # Internal zone: *.int.wilkesliberty.com
 int.wilkesliberty.com {
     file /opt/homebrew/etc/coredns/int.wilkesliberty.com.zone
-    bind {{ coredns_listen_ip }}
+    bind {{ coredns_listen_ip }}{% if coredns_listen_ipv6 | default('') %} {{ coredns_listen_ipv6 }}{% endif %}
+
     log
     errors
     reload 30s
@@ -16,7 +17,8 @@ int.wilkesliberty.com {
 # Upstream forwarding for all other queries
 . {
     forward . {{ upstream_dns | join(' ') }}
-    bind {{ coredns_listen_ip }}
+    bind {{ coredns_listen_ip }}{% if coredns_listen_ipv6 | default('') %} {{ coredns_listen_ipv6 }}{% endif %}
+
     cache 60
     log
     errors

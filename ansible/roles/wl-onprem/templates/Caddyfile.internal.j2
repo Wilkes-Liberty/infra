@@ -52,7 +52,8 @@
 # ── HTTP → HTTPS redirect (Tailscale interface only) ─────────────────────────
 # Binds only on the Tailscale IP so plain-HTTP redirect is also gated.
 http://*.int.wilkesliberty.com {
-    bind {{ onprem_tailscale_ip }}
+    bind {{ onprem_tailscale_ip }}{% if onprem_tailscale_ipv6 | default('') %} {{ onprem_tailscale_ipv6 }}{% endif %}
+
     redir https://{host}{uri} permanent
 }
 
@@ -62,7 +63,7 @@ http://*.int.wilkesliberty.com {
 
 # Drupal CMS (headless backend)
 *.int.wilkesliberty.com {
-    bind {{ onprem_tailscale_ip }}
+    bind {{ onprem_tailscale_ip }}{% if onprem_tailscale_ipv6 | default('') %} {{ onprem_tailscale_ipv6 }}{% endif %}
 
     # TLS: wildcard cert managed by certbot — declared once for the whole site block
     tls /etc/letsencrypt/live/int.wilkesliberty.com/fullchain.pem \
@@ -133,7 +134,8 @@ http://*.int.wilkesliberty.com {
     }
 
     # Prometheus — restricted to admin CIDRs even within Tailscale
-    @metrics host metrics.int.wilkesliberty.com
+    # prometheus.int is an alias for metrics.int (same service, port 9090)
+    @metrics host metrics.int.wilkesliberty.com prometheus.int.wilkesliberty.com
     handle @metrics {
         import internal_headers
 
@@ -286,6 +288,18 @@ http://*.int.wilkesliberty.com {
             header_up Host {host}
             header_up X-Forwarded-Proto https
         }
+    }
+
+    # ==============================================================================
+    # BOOKMARK REDIRECTS
+    # These hostnames exist in the zone as A records (not CNAMEs) so Caddy can
+    # terminate TLS with the wildcard cert, then redirect to the real external URL.
+    # ==============================================================================
+
+    # Tailscale admin console — was a broken CNAME; now a proper redirect
+    @network host network.int.wilkesliberty.com
+    handle @network {
+        redir https://login.tailscale.com permanent
     }
 
     # Catch-all — reject anything not matched above
