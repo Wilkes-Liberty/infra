@@ -21,7 +21,7 @@ WilkesLiberty uses a two-host architecture:
 | Drupal CMS / API | https://api.wilkesliberty.com | VPS Caddy → Tailscale | on-prem, port 8080 |
 | Keycloak SSO | https://auth.wilkesliberty.com | VPS Caddy → Tailscale | on-prem, port 8081 |
 | Solr search | https://search.wilkesliberty.com | VPS Caddy → Tailscale | on-prem, port 8983 |
-| VPN admin | https://network.wilkesliberty.com | CNAME → Tailscale | login.tailscale.com |
+| VPN admin | https://network.wilkesliberty.com | A → VPS; Caddy redirect | login.tailscale.com |
 
 ## Internal Services (Tailscale-only)
 
@@ -45,7 +45,7 @@ Internal Caddy reverse-proxies to LAN devices, re-wrapping their self-signed or 
 | https://nas.int.wilkesliberty.com | Synology NAS (DSM) | 192.168.4.60:5001 (HTTPS) |
 | https://router.int.wilkesliberty.com | Router | 192.168.1.254:80 |
 | https://switch.int.wilkesliberty.com | Switch | 192.168.4.20:80 |
-| https://printer.int.wilkesliberty.com | Printer | 192.168.4.250:80 |
+| https://print.int.wilkesliberty.com | Printer | 192.168.4.250:80 |
 
 ## Docker Compose Services (On-prem)
 
@@ -220,7 +220,7 @@ Monitor for unauthorized certificate issuance: https://crt.sh/?q=wilkesliberty.c
 | api | A / AAAA | VPS IP | Drupal CMS |
 | auth | A / AAAA | VPS IP | Keycloak SSO |
 | search | A / AAAA | VPS IP | Solr (CIDR-restricted) |
-| network | CNAME | login.tailscale.com. | VPN admin console |
+| network | A | VPS IP (Caddy redirects → login.tailscale.com) | VPN admin console |
 
 > **Wait ~15 minutes after applying** for DNS propagation before proceeding to Phase 3. The Let's Encrypt challenge will fail if records haven't propagated.
 
@@ -492,7 +492,7 @@ curl -I https://auth.wilkesliberty.com   # Expect: 200 OK (Keycloak login)
 | https://nas.int.wilkesliberty.com | Synology DSM login (200 OK) |
 | https://router.int.wilkesliberty.com | Router admin (200/302) |
 | https://switch.int.wilkesliberty.com | Switch admin (200 OK) |
-| https://printer.int.wilkesliberty.com | Printer admin (200 OK) |
+| https://print.int.wilkesliberty.com | Printer admin (200 OK) |
 
 ## 7.3 Security Checks
 
@@ -618,7 +618,7 @@ Test CoreDNS from any Tailscale-connected device:
 
 ```bash
 dig @<ON_PREM_TAILSCALE_IP> api.int.wilkesliberty.com    # Expect: Tailscale IP (100.x.x.x)
-dig @<ON_PREM_TAILSCALE_IP> network.int.wilkesliberty.com  # Expect: CNAME login.tailscale.com.
+dig @<ON_PREM_TAILSCALE_IP> network.int.wilkesliberty.com  # Expect: A record (Tailscale IP); Caddy redirects to login.tailscale.com
 ```
 
 > **Note:** CoreDNS runs as a Homebrew LaunchDaemon on macOS (not in Docker). Test it directly with `dig` against the Tailscale IP.

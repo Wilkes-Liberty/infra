@@ -141,7 +141,7 @@ Staging containers join the shared `wl_monitoring` network — Prometheus auto-d
 - `https://api.wilkesliberty.com` — Drupal CMS / JSON:API (proxied to on-prem via Tailscale)
 - `https://auth.wilkesliberty.com` — Keycloak SSO (proxied to on-prem via Tailscale)
 - `https://search.wilkesliberty.com` — Solr (proxied, admin-CIDR restricted)
-- `https://network.wilkesliberty.com` — CNAME to `login.tailscale.com` (VPN admin)
+- `https://network.wilkesliberty.com` — A record → VPS; Caddy redirects to `login.tailscale.com` (VPN admin)
 
 ### Internal URLs (Tailscale required — *.int.wilkesliberty.com)
 - `https://api.int.wilkesliberty.com` — Drupal admin (via internal Caddy)

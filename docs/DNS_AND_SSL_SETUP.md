@@ -112,7 +112,7 @@ terraform apply
 | ✅ | A / AAAA | `api` | VPS IP | Drupal CMS / GraphQL (webcms repo) |
 | ✅ | A / AAAA | `auth` | VPS IP | Keycloak SSO |
 | ✅ | A / AAAA | `search` | VPS IP | Solr search (admin-CIDR restricted) |
-| ✅ | CNAME | `network` | `login.tailscale.com.` | VPN/network admin console |
+| ✅ | A / AAAA | `network` | VPS IP | VPN admin — Caddy redirects to `login.tailscale.com` |
 | 📝 | A / AAAA | `analytics` | VPS IP | Grafana (commented out — use internal URL instead) |
 
 **AAAA records** are conditional: only created when `vps_ipv6` variable is non-empty.
