@@ -494,9 +494,10 @@
 # ============================================================================
 # DRUPAL SMTP CONFIGURATION (Postmark)
 # ============================================================================
-# Apply SMTP settings to Drupal's smtp.settings config so transactional email
-# (contact form notifications, password resets, etc.) is delivered via Postmark.
-# Idempotent: re-runs do nothing if the settings already match.
+# smtp.settings is excluded from config:export/import via config_ignore
+# (web/config/sync/config_ignore.settings.yml). Ansible is the sole source
+# of truth for all SMTP settings — both non-secrets (host/port/from) and the
+# Postmark token (smtp_username/smtp_password). Do not trim this task list.
 
 - name: Ensure PHP memory_limit is high enough in Drupal container
   # Older images shipped with 128M default which OOMs on drush cr / cim.
