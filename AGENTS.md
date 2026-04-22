@@ -269,3 +269,4 @@ Deploys and configures everything on the on-prem server in a single playbook run
 - **docs/TERRAFORM_DNS_QUICKSTART.md** — Quick reference for Terraform DNS ops
 - **docs/TERRAFORM_SOPS_WORKFLOW.md** — Terraform + SOPS secrets workflow
 - **docs/deployment-guide.md** — Detailed deployment guide
+- **docs/ADMIN_SETUP.md** — First-run manual setup for all admin UIs (Drupal OAuth consumer, Keycloak, Grafana, Solr, Uptime Kuma)
