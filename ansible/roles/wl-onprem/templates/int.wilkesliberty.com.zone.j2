@@ -28,7 +28,7 @@ ns1          IN A    {{ coredns_listen_ip }}
 ; Caddy (on Tailscale IP) reverse proxies these to localhost Docker ports
 api          IN A    {{ coredns_listen_ip }}
 auth         IN A    {{ coredns_listen_ip }}
-; sso is kept for the legacy 301 redirect (sso.int → auth.int); remove after 2025-10-22
+; sso is kept for the legacy 301 redirect (sso.int → auth.int); remove after 2026-10-22
 sso          IN A    {{ coredns_listen_ip }}
 db           IN A    {{ coredns_listen_ip }}
 search       IN A    {{ coredns_listen_ip }}
@@ -69,7 +69,7 @@ network      IN A    {{ coredns_listen_ip }}
 ns1          IN AAAA {{ coredns_listen_ipv6 }}
 api          IN AAAA {{ coredns_listen_ipv6 }}
 auth         IN AAAA {{ coredns_listen_ipv6 }}
-; sso is kept for the legacy 301 redirect (sso.int → auth.int); remove after 2025-10-22
+; sso is kept for the legacy 301 redirect (sso.int → auth.int); remove after 2026-10-22
 sso          IN AAAA {{ coredns_listen_ipv6 }}
 db           IN AAAA {{ coredns_listen_ipv6 }}
 search       IN AAAA {{ coredns_listen_ipv6 }}

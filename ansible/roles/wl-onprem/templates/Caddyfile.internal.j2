@@ -105,7 +105,7 @@ http://*.int.wilkesliberty.com {
         }
     }
 
-    # Legacy redirect: sso.int → auth.int (renamed 2025-04-22; remove after 2025-10-22)
+    # Legacy redirect: sso.int → auth.int (renamed 2026-04-22; remove after 2026-10-22)
     @sso_legacy host sso.int.wilkesliberty.com
     handle @sso_legacy {
         redir https://auth.int.wilkesliberty.com{uri} 301
