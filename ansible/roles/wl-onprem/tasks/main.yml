@@ -562,6 +562,22 @@
     - postmark_server_token is defined
     - postmark_server_token | length > 0
 
+- name: Enable wl_postmark_webhook module
+  command: docker exec wl_drupal drush pm:enable -y wl_postmark_webhook
+  register: postmark_module_enable
+  changed_when: "'already enabled' not in postmark_module_enable.stdout"
+  when: drupal_status.rc == 0
+
+- name: Configure Postmark webhook secret
+  command: >-
+    docker exec wl_drupal drush config:set -y wl_postmark_webhook.settings webhook_secret {{ postmark_webhook_secret | quote }}
+  no_log: true
+  changed_when: false
+  when:
+    - drupal_status.rc == 0
+    - postmark_webhook_secret is defined
+    - postmark_webhook_secret | length > 0
+
 - name: Rebuild Drupal cache after SMTP config change
   command: docker exec wl_drupal drush cr
   changed_when: false
