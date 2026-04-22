@@ -95,7 +95,7 @@ app_int_ip:       {{ onprem_int_ip }}    # Drupal (webcms repo) — api.int.wilk
 db_int_ip:        {{ onprem_int_ip }}    # PostgreSQL
 search_int_ip:    {{ onprem_int_ip }}    # Solr
 analytics_int_ip: {{ onprem_int_ip }}   # Grafana/Prometheus/Alertmanager/Uptime Kuma
-sso_int_ip:       {{ onprem_int_ip }}    # Keycloak SSO — sso.int.wilkesliberty.com
+auth_int_ip:      {{ onprem_int_ip }}    # Keycloak auth — auth.int.wilkesliberty.com
 cache_int_ip:     {{ onprem_int_ip }}    # Redis
 ```
 

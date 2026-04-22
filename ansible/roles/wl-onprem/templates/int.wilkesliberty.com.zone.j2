@@ -27,6 +27,8 @@ ns1          IN A    {{ coredns_listen_ip }}
 ; ── Application services ──────────────────────────────────────────────────────
 ; Caddy (on Tailscale IP) reverse proxies these to localhost Docker ports
 api          IN A    {{ coredns_listen_ip }}
+auth         IN A    {{ coredns_listen_ip }}
+; sso is kept for the legacy 301 redirect (sso.int → auth.int); remove after 2026-10-22
 sso          IN A    {{ coredns_listen_ip }}
 db           IN A    {{ coredns_listen_ip }}
 search       IN A    {{ coredns_listen_ip }}
@@ -34,7 +36,6 @@ cache        IN A    {{ coredns_listen_ip }}
 
 ; ── Monitoring ────────────────────────────────────────────────────────────────
 monitor      IN A    {{ coredns_listen_ip }}
-prometheus   IN A    {{ coredns_listen_ip }}
 metrics      IN A    {{ coredns_listen_ip }}
 alerts       IN A    {{ coredns_listen_ip }}
 uptime       IN A    {{ coredns_listen_ip }}
@@ -45,7 +46,7 @@ uptime       IN A    {{ coredns_listen_ip }}
 nas          IN A    {{ coredns_listen_ip }}
 router       IN A    {{ coredns_listen_ip }}
 switch       IN A    {{ coredns_listen_ip }}
-printer      IN A    {{ coredns_listen_ip }}
+print        IN A    {{ coredns_listen_ip }}
 
 ; ── Staging ───────────────────────────────────────────────────────────────
 ; Caddy proxies these to staging Docker ports (8090, 8091, 8993, 3010)
@@ -55,6 +56,35 @@ api-stg      IN A    {{ coredns_listen_ip }}
 sso-stg      IN A    {{ coredns_listen_ip }}
 search-stg   IN A    {{ coredns_listen_ip }}
 
-; ── Special ───────────────────────────────────────────────────────────────────
-; Note: SSL will not work for this CNAME — use login.tailscale.com directly.
-network      IN CNAME login.tailscale.com.
+; ── Bookmarks / external redirects ───────────────────────────────────────────
+; These resolve to Caddy (Tailscale IP) which performs an HTTPS redirect to the
+; real external URL. SNI is correct because Caddy holds the wildcard cert.
+network      IN A    {{ coredns_listen_ip }}
+{% if coredns_listen_ipv6 | default('') %}
+
+; ── IPv6 AAAA records — mirrors every A record above ─────────────────────────
+; Enable by setting onprem_tailscale_ipv6 in network_secrets.yml:
+;   sops ansible/inventory/group_vars/network_secrets.yml
+;   onprem_tailscale_ipv6: "$(tailscale ip -6)"
+ns1          IN AAAA {{ coredns_listen_ipv6 }}
+api          IN AAAA {{ coredns_listen_ipv6 }}
+auth         IN AAAA {{ coredns_listen_ipv6 }}
+; sso is kept for the legacy 301 redirect (sso.int → auth.int); remove after 2026-10-22
+sso          IN AAAA {{ coredns_listen_ipv6 }}
+db           IN AAAA {{ coredns_listen_ipv6 }}
+search       IN AAAA {{ coredns_listen_ipv6 }}
+cache        IN AAAA {{ coredns_listen_ipv6 }}
+monitor      IN AAAA {{ coredns_listen_ipv6 }}
+metrics      IN AAAA {{ coredns_listen_ipv6 }}
+alerts       IN AAAA {{ coredns_listen_ipv6 }}
+uptime       IN AAAA {{ coredns_listen_ipv6 }}
+nas          IN AAAA {{ coredns_listen_ipv6 }}
+router       IN AAAA {{ coredns_listen_ipv6 }}
+switch       IN AAAA {{ coredns_listen_ipv6 }}
+print        IN AAAA {{ coredns_listen_ipv6 }}
+stg          IN AAAA {{ coredns_listen_ipv6 }}
+api-stg      IN AAAA {{ coredns_listen_ipv6 }}
+sso-stg      IN AAAA {{ coredns_listen_ipv6 }}
+search-stg   IN AAAA {{ coredns_listen_ipv6 }}
+network      IN AAAA {{ coredns_listen_ipv6 }}
+{% endif %}

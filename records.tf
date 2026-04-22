@@ -118,37 +118,23 @@ resource "njalla_record_aaaa" "auth" {
   }
 }
 
-# search - Solr search (proxied to on-prem server via Tailscale; admin-CIDR restricted on Caddy)
-resource "njalla_record_a" "search" {
+# network - Tailscale admin console shortcut
+# Points to VPS (same as all other public subdomains); Caddy holds a valid TLS cert
+# and issues a 301 to login.tailscale.com. A CNAME direct to login.tailscale.com
+# would cause an SNI mismatch/ERR_SSL_PROTOCOL_ERROR at Tailscale's edge.
+resource "njalla_record_a" "network" {
   domain  = var.domain_name
-  name    = "search"
+  name    = "network"
   content = var.vps_ipv4
   ttl     = 3600
-
-  lifecycle {
-    prevent_destroy = true
-  }
 }
 
 # WARNING: count + prevent_destroy interaction — see note above on njalla_record_aaaa.apex
-resource "njalla_record_aaaa" "search" {
+resource "njalla_record_aaaa" "network" {
   count   = var.vps_ipv6 != "" ? 1 : 0
   domain  = var.domain_name
-  name    = "search"
-  content = var.vps_ipv6
-  ttl     = 3600
-
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
-# network - Tailscale admin console shortcut (CNAME to login.tailscale.com)
-# network.wilkesliberty.com is a clean, generic alias for the VPN/network admin UI.
-resource "njalla_record_cname" "network" {
-  domain  = var.domain_name
   name    = "network"
-  content = "login.tailscale.com."
+  content = var.vps_ipv6
   ttl     = 3600
 }
 
@@ -231,10 +217,10 @@ resource "njalla_record_cname" "network" {
 # - www        → Next.js frontend (runs on VPS)
 # - api        → Drupal CMS / GraphQL API (webcms repo, on-prem:8080)
 # - auth       → Keycloak SSO (on-prem:8081)
-# - search     → Solr (on-prem:8983, admin-CIDR restricted)
+# NOTE: search.wilkesliberty.com removed — Solr is admin-only, use search.int.wilkesliberty.com over Tailscale
 #
 # Special subdomains:
-# - network    → CNAME to login.tailscale.com (VPN/network admin console shortcut)
+# - network    → A/AAAA to VPS (Caddy 301s to login.tailscale.com — proper TLS, no SNI mismatch)
 #
 # Internal-only subdomains (CoreDNS / Tailscale Split DNS — not in public DNS):
 # - *.int.wilkesliberty.com → Tailscale-only, served by on-prem CoreDNS
@@ -242,5 +228,5 @@ resource "njalla_record_cname" "network" {
 # Private services (no public DNS, Tailscale-only):
 # - PostgreSQL (on-prem:5432)
 # - Redis (on-prem:6379)
-# - Prometheus (on-prem:9090, internal DNS only)
+# - metrics.int (Prometheus UI, on-prem:9090, admin-CIDR restricted)
 # =============================================

@@ -14,7 +14,6 @@ Infrastructure automation and configuration for the Wilkes Liberty web platform 
               │  www.wilkesliberty.com       │  ← Next.js (prod)
               │  api.wilkesliberty.com       │  ← Drupal (proxied via Tailscale)
               │  auth.wilkesliberty.com      │  ← Keycloak (proxied via Tailscale)
-              │  search.wilkesliberty.com    │  ← Solr (proxied, CIDR-restricted)
               │  Caddy (TLS 1.2+, sec hdrs) │
               └────────────┬────────────────┘
                            │ Tailscale mesh (100.64.0.0/10)
@@ -40,7 +39,7 @@ Infrastructure automation and configuration for the Wilkes Liberty web platform 
 
 **DNS overview**:
 - `www`, `api`, `auth`, `search` — all A/AAAA records → VPS IP (Terraform-managed, Njalla)
-- `network.wilkesliberty.com` — CNAME to `login.tailscale.com` (VPN admin console)
+- `network.wilkesliberty.com` — A record → VPS; Caddy redirects to `login.tailscale.com` (VPN admin console)
 - `*.int.wilkesliberty.com` — CoreDNS on on-prem, accessible only over Tailscale (Split DNS)
 
 **Local development**: Developers use DDEV for Drupal and `npm run dev` for Next.js — neither environment is in this repo.

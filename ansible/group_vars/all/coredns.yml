@@ -6,6 +6,9 @@ int_domain: "int.wilkesliberty.com."
 # Edit with: sops ansible/inventory/group_vars/network_secrets.yml
 # Find the value by running: tailscale ip -4
 coredns_listen_ip: "{{ onprem_tailscale_ip }}"
+# IPv6: set onprem_tailscale_ipv6 in network_secrets.yml (run: tailscale ip -6)
+# to enable dual-stack AAAA records and CoreDNS/Caddy v6 binding.
+coredns_listen_ipv6: "{{ onprem_tailscale_ipv6 | default('') }}"
 tailscale_cidr: "100.64.0.0/10"                   # Tailscale address space (do not change)
 
 upstream_dns: ["1.1.1.1","9.9.9.9"]

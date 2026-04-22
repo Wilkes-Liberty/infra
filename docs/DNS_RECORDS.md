@@ -40,7 +40,7 @@ Source of truth: `records.tf`
 | `api` | A / AAAA | VPS IP | Drupal CMS / GraphQL API (webcms repo, on-prem via Tailscale) |
 | `auth` | A / AAAA | VPS IP | Keycloak SSO (on-prem via Tailscale) |
 | `search` | A / AAAA | VPS IP | Solr search (on-prem via Tailscale; admin-CIDR restricted) |
-| `network` | CNAME | `login.tailscale.com.` | Tailscale/VPN admin console |
+| `network` | A / AAAA | VPS IP | VPN admin — Caddy on VPS redirects to `login.tailscale.com` |
 
 > **Note**: `api`, `auth`, and `search` all resolve to the VPS IP. Caddy on the VPS proxies those requests over Tailscale to the on-prem server. The VPS is the single public ingress point.
 
@@ -86,7 +86,7 @@ These names resolve to the on-prem server's LAN IP. Internal Caddy (`Caddyfile.i
 | Name | Type | Value | Public equivalent |
 |------|------|-------|-------------------|
 | `api.int.wilkesliberty.com` | A | `{{ onprem_int_ip }}` | `api.wilkesliberty.com` (Drupal/webcms) |
-| `sso.int.wilkesliberty.com` | A | `{{ onprem_int_ip }}` | `auth.wilkesliberty.com` (Keycloak) |
+| `auth.int.wilkesliberty.com` | A | `{{ onprem_int_ip }}` | `auth.wilkesliberty.com` (Keycloak) |
 
 ### Data & Search Services (direct access, no Caddy)
 
@@ -109,7 +109,7 @@ These names resolve to the on-prem server's LAN IP. Internal Caddy (`Caddyfile.i
 
 | Name | Type | Value | Purpose |
 |------|------|-------|---------|
-| `network.int.wilkesliberty.com` | CNAME | `login.tailscale.com.` | Tailscale/VPN admin console |
+| `network.int.wilkesliberty.com` | A | Tailscale IP | VPN admin — Caddy on on-prem redirects to `login.tailscale.com` |
 
 ### Admin Devices (LAN)
 
@@ -120,8 +120,7 @@ These names resolve to the on-prem server's LAN IP. Internal Caddy (`Caddyfile.i
 | `nas.int.wilkesliberty.com` | A | `{{ onprem_int_ip }}` | Synology NAS |
 | `router.int.wilkesliberty.com` | A | `{{ router_int_ip }}` | Router/gateway |
 | `switch.int.wilkesliberty.com` | A | `{{ switch_int_ip }}` | TP-Link managed switch |
-| `printer.int.wilkesliberty.com` | A | `{{ printer_int_ip }}` | Network printer |
-| `print.int.wilkesliberty.com` | CNAME | → `printer.int.wilkesliberty.com` | Alias for printer |
+| `print.int.wilkesliberty.com` | A | Tailscale IP | Network printer (proxied by Caddy → `{{ printer_int_ip }}`) |
 
 ---
 

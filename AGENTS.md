@@ -140,12 +140,11 @@ Staging containers join the shared `wl_monitoring` network — Prometheus auto-d
 - `https://www.wilkesliberty.com` — Next.js frontend (served directly on VPS)
 - `https://api.wilkesliberty.com` — Drupal CMS / JSON:API (proxied to on-prem via Tailscale)
 - `https://auth.wilkesliberty.com` — Keycloak SSO (proxied to on-prem via Tailscale)
-- `https://search.wilkesliberty.com` — Solr (proxied, admin-CIDR restricted)
-- `https://network.wilkesliberty.com` — CNAME to `login.tailscale.com` (VPN admin)
+- `https://network.wilkesliberty.com` — A record → VPS; Caddy redirects to `login.tailscale.com` (VPN admin)
 
 ### Internal URLs (Tailscale required — *.int.wilkesliberty.com)
 - `https://api.int.wilkesliberty.com` — Drupal admin (via internal Caddy)
-- `https://sso.int.wilkesliberty.com` — Keycloak admin (via internal Caddy)
+- `https://auth.int.wilkesliberty.com` — Keycloak admin (via internal Caddy)
 - `https://monitor.int.wilkesliberty.com` — Grafana dashboards
 - `https://metrics.int.wilkesliberty.com` — Prometheus metrics
 - `https://alerts.int.wilkesliberty.com` — Alertmanager
@@ -224,7 +223,7 @@ infra/
 
 - **Redis** requires authentication (`REDIS_PASSWORD`) — unauthenticated connections are rejected
 - **Prometheus** does NOT have `--web.enable-lifecycle` enabled (unauthenticated reload removed); use `docker compose restart prometheus` to reload config
-- **Drupal trusted_host_patterns** uses an explicit allowlist (not a wildcard) — only `localhost`, `drupal`, `api.wilkesliberty.com`, `api.int.wilkesliberty.com`, `auth.wilkesliberty.com`, `sso.int.wilkesliberty.com` are accepted
+- **Drupal trusted_host_patterns** uses an explicit allowlist (not a wildcard) — only `localhost`, `drupal`, `api.wilkesliberty.com`, `api.int.wilkesliberty.com`, `auth.wilkesliberty.com` are accepted
 - **Internal services** (`*.int.wilkesliberty.com`) are triple-protected: CoreDNS binds on Tailscale IP only → Tailscale Split DNS → Caddy internal binds on Tailscale IP only
 - **TLS**: Caddy (VPS) enforces TLS 1.2+ minimum via global block; security headers (HSTS, CSP, Referrer-Policy, Permissions-Policy) on all public vhosts
 - **CAA records**: manually added in Njalla web UI (provider doesn't support CAA via Terraform)
@@ -270,3 +269,4 @@ Deploys and configures everything on the on-prem server in a single playbook run
 - **docs/TERRAFORM_DNS_QUICKSTART.md** — Quick reference for Terraform DNS ops
 - **docs/TERRAFORM_SOPS_WORKFLOW.md** — Terraform + SOPS secrets workflow
 - **docs/deployment-guide.md** — Detailed deployment guide
+- **docs/ADMIN_SETUP.md** — First-run manual setup for all admin UIs (Drupal OAuth consumer, Keycloak, Grafana, Solr, Uptime Kuma)

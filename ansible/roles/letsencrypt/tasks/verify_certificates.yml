@@ -64,15 +64,16 @@
   vars:
     cert_config: "{{ letsencrypt_certificates[0] }}"  # Test with first certificate
 
-- name: Verify SSL/TLS configuration for internal domain
+- name: Verify SSL/TLS configuration — smoke test first served domain
+  # Test against the first domain in the first cert (e.g. wilkesliberty.com).
+  # ansible_fqdn is the machine hostname, not necessarily a served domain — don't use it.
   uri:
-    url: "https://{{ ansible_fqdn | default('localhost') }}"
+    url: "https://{{ letsencrypt_certificates[0].domains | select('match', '^[^*]') | list | first }}"
     method: GET
-    validate_certs: no  # Internal certs might not be in CA store
+    validate_certs: yes
     timeout: 10
   register: ssl_test
   ignore_errors: yes
-  when: "'*.int.wilkesliberty.com' in (letsencrypt_certificates | map(attribute='domains') | flatten)"
 
 - name: Create certificate status summary
   copy:

@@ -49,7 +49,7 @@
   - `onprem.yml` - on-prem server deployment
   - `vps.yml` - Cloud VPS deployment
   - `letsencrypt.yml` - SSL certificate automation
-  - `monitoring.yml` - Monitoring stack setup
+  - ~~`monitoring.yml`~~ - removed; monitoring is part of `onprem.yml` (docker-compose stack)
 
 ---
 

@@ -36,7 +36,7 @@
     }
 }
 
-# Applied to API vhosts (api, auth, search) — no HTML frame/CSP restrictions
+# Applied to API vhosts (api, auth) — no HTML frame/CSP restrictions
 (public_headers_api) {
     header {
         Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
@@ -147,33 +147,11 @@ auth.wilkesliberty.com {
     }
 }
 
-# Solr search (proxied to on-prem server via Tailscale — admin-CIDR restricted)
-# Solr has no built-in authentication, so access is gated here at Caddy.
-search.wilkesliberty.com {
-    # Only allow requests from admin CIDRs; block everything else
-    @admin_allowed {
-        remote_ip {% for cidr in admin_allow_cidrs %}{{ cidr }}{% if not loop.last %} {% endif %}{% endfor %}
-
-    }
-    handle @admin_allowed {
-        reverse_proxy {{ onprem_tailscale_ip }}:8983 {
-            header_up Host {host}
-            header_up X-Real-IP {remote_host}
-            header_up X-Forwarded-For {remote_host}
-            header_up X-Forwarded-Proto {scheme}
-
-        }
-    }
-    handle {
-        respond "Access denied" 403
-    }
-
-    import public_headers_api
-
-    log {
-        output file /var/log/caddy/search.log
-        format json
-    }
+# Tailscale admin console bookmark
+# A/AAAA point here (not a CNAME) so Caddy holds the TLS cert before redirecting.
+# A direct CNAME to login.tailscale.com causes ERR_SSL_PROTOCOL_ERROR (SNI mismatch).
+network.wilkesliberty.com {
+    redir https://login.tailscale.com{uri} permanent
 }
 
 # ================== OPTIONAL: MONITORING ==================
