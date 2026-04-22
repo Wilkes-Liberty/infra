@@ -40,7 +40,7 @@ admin_allow_cidrs:
 #
 # Variables defined in network_secrets.yml:
 #   nas_int_ip / nas_admin_port         — Synology NAS (nas.int.wilkesliberty.com)
-#   router_int_ip / router_admin_port   — AT&T router (router.int.wilkesliberty.com)
+#   modem_int_ip / modem_admin_port     — AT&T ISP modem (modem.int.wilkesliberty.com; LAN gateway is Eero, cloud-managed)
 #   switch_int_ip / switch_admin_port   — TP-Link switch (switch.int.wilkesliberty.com)
 #   printer_int_ip / printer_admin_port — Network printer (print.int.wilkesliberty.com)
 #   uptime_int_ip / uptime_admin_port   — Uptime Kuma (uptime.int.wilkesliberty.com)

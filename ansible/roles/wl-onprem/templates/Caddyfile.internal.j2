@@ -211,14 +211,22 @@ http://*.int.wilkesliberty.com {
         }
     }
 
-    @router host router.int.wilkesliberty.com
-    handle @router {
+    # AT&T ISP modem admin UI (canonical: modem.int.wilkesliberty.com)
+    # LAN gateway is Eero — cloud-managed, no browser UI.
+    @modem host modem.int.wilkesliberty.com
+    handle @modem {
         import internal_headers
 
-        reverse_proxy {{ router_int_ip }}:{{ router_admin_port | default('80') }} {
+        reverse_proxy {{ modem_int_ip }}:{{ modem_admin_port | default('80') }} {
             header_up Host {host}
             header_up X-Forwarded-Proto https
         }
+    }
+
+    # Legacy redirect: router.int → modem.int (renamed 2026-04-22; remove after 2026-10-22)
+    @router_legacy host router.int.wilkesliberty.com
+    handle @router_legacy {
+        redir https://modem.int.wilkesliberty.com{uri} 301
     }
 
     @switch host switch.int.wilkesliberty.com

@@ -118,7 +118,7 @@ These names resolve to the on-prem server's LAN IP. Internal Caddy (`Caddyfile.i
 | Name | Type | Placeholder IP | Device |
 |------|------|---------------|--------|
 | `nas.int.wilkesliberty.com` | A | `{{ onprem_int_ip }}` | Synology NAS |
-| `router.int.wilkesliberty.com` | A | `{{ router_int_ip }}` | Router/gateway |
+| `modem.int.wilkesliberty.com` | A | `{{ modem_int_ip }}` | AT&T ISP modem admin UI (LAN gateway is Eero — cloud-managed, no web UI) |
 | `switch.int.wilkesliberty.com` | A | `{{ switch_int_ip }}` | TP-Link managed switch |
 | `print.int.wilkesliberty.com` | A | Tailscale IP | Network printer (proxied by Caddy → `{{ printer_int_ip }}`) |
 

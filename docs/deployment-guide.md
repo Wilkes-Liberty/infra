@@ -42,7 +42,7 @@ Internal Caddy reverse-proxies to LAN devices, re-wrapping their self-signed or 
 | Internal URL | Device | Backend |
 | --- | --- | --- |
 | https://nas.int.wilkesliberty.com | Synology NAS (DSM) | 192.168.4.60:5001 (HTTPS) |
-| https://router.int.wilkesliberty.com | Router | 192.168.1.254:80 |
+| https://modem.int.wilkesliberty.com | AT&T ISP modem | 192.168.1.254:80 |
 | https://switch.int.wilkesliberty.com | Switch | 192.168.4.20:80 |
 | https://print.int.wilkesliberty.com | Printer | 192.168.4.250:80 |
 
@@ -489,7 +489,7 @@ curl -I https://auth.wilkesliberty.com   # Expect: 200 OK (Keycloak login)
 | https://metrics.int.wilkesliberty.com | Prometheus UI (200 OK) |
 | https://alerts.int.wilkesliberty.com | Alertmanager (200 OK) |
 | https://nas.int.wilkesliberty.com | Synology DSM login (200 OK) |
-| https://router.int.wilkesliberty.com | Router admin (200/302) |
+| https://modem.int.wilkesliberty.com | AT&T modem admin (200/302) |
 | https://switch.int.wilkesliberty.com | Switch admin (200 OK) |
 | https://print.int.wilkesliberty.com | Printer admin (200 OK) |
 

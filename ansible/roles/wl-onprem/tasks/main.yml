@@ -698,7 +698,7 @@
       - ""
       - "🖥️  Admin Device URLs (Tailscale-only):"
       - "   - NAS:          https://nas.int.wilkesliberty.com"
-      - "   - Router:       https://router.int.wilkesliberty.com"
+      - "   - Modem:        https://modem.int.wilkesliberty.com   (AT&T ISP modem)"
       - "   - Switch:       https://switch.int.wilkesliberty.com"
       - "   - Printer:      https://print.int.wilkesliberty.com"
       - "   ⚠️  Update device IPs in group_vars/all.yml and coredns zone before use"
