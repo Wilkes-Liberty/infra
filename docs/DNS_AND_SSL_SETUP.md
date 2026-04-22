@@ -127,7 +127,7 @@ These services use `*.int.wilkesliberty.com` (CoreDNS, Tailscale Split DNS):
 - **Prometheus** — `https://metrics.int.wilkesliberty.com`
 - **Alertmanager** — `https://alerts.int.wilkesliberty.com`
 - **PostgreSQL, Redis** — never externally accessible
-- **Internal Drupal / Keycloak admin** — `https://api.int.wilkesliberty.com`, `https://sso.int.wilkesliberty.com`
+- **Internal Drupal / Keycloak admin** — `https://api.int.wilkesliberty.com`, `https://auth.int.wilkesliberty.com`
 
 ---
 

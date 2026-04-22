@@ -162,7 +162,7 @@ Developers working only on `webcms` or `ui` do not need SOPS access. Only those 
 | URL | Service |
 |-----|---------|
 | `https://api.int.wilkesliberty.com` | Drupal admin |
-| `https://sso.int.wilkesliberty.com` | Keycloak admin |
+| `https://auth.int.wilkesliberty.com` | Keycloak admin |
 | `https://monitor.int.wilkesliberty.com` | Grafana dashboards |
 | `https://metrics.int.wilkesliberty.com` | Prometheus |
 | `https://alerts.int.wilkesliberty.com` | Alertmanager |

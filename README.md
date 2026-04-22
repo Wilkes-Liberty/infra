@@ -14,7 +14,6 @@ Infrastructure automation and configuration for the Wilkes Liberty web platform 
               │  www.wilkesliberty.com       │  ← Next.js (prod)
               │  api.wilkesliberty.com       │  ← Drupal (proxied via Tailscale)
               │  auth.wilkesliberty.com      │  ← Keycloak (proxied via Tailscale)
-              │  search.wilkesliberty.com    │  ← Solr (proxied, CIDR-restricted)
               │  Caddy (TLS 1.2+, sec hdrs) │
               └────────────┬────────────────┘
                            │ Tailscale mesh (100.64.0.0/10)

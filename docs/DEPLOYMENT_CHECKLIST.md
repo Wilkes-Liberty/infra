@@ -426,7 +426,7 @@ curl http://localhost:8983/solr/admin/cores?action=STATUS
 From a Tailscale-connected device:
 
 ```
-https://sso.int.wilkesliberty.com
+https://auth.int.wilkesliberty.com
 ```
 
 Or via public DNS (proxied through VPS):
@@ -514,7 +514,7 @@ From a Tailscale-connected device:
 | URL | Expected |
 |-----|----------|
 | `https://api.int.wilkesliberty.com` | Drupal admin |
-| `https://sso.int.wilkesliberty.com` | Keycloak admin |
+| `https://auth.int.wilkesliberty.com` | Keycloak admin |
 | `https://monitor.int.wilkesliberty.com` | Grafana dashboards |
 | `https://metrics.int.wilkesliberty.com` | Prometheus UI |
 | `https://alerts.int.wilkesliberty.com` | Alertmanager |
@@ -669,7 +669,7 @@ docker exec wl_drupal drush eval "var_dump(\Drupal::cache()->get('test'));"
 
 If Drupal returns "The provided host name is not valid":
 - Check `docker/drupal/settings.docker.php` — only explicitly listed hosts are allowed
-- Allowed: `localhost`, `drupal`, `api.wilkesliberty.com`, `api.int.wilkesliberty.com`, `auth.wilkesliberty.com`, `sso.int.wilkesliberty.com`
+- Allowed: `localhost`, `drupal`, `api.wilkesliberty.com`, `api.int.wilkesliberty.com`, `auth.wilkesliberty.com`, `auth.int.wilkesliberty.com`
 
 ### Caddy Can't Connect to On-prem Services
 

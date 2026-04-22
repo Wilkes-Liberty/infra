@@ -86,7 +86,7 @@ These names resolve to the on-prem server's LAN IP. Internal Caddy (`Caddyfile.i
 | Name | Type | Value | Public equivalent |
 |------|------|-------|-------------------|
 | `api.int.wilkesliberty.com` | A | `{{ onprem_int_ip }}` | `api.wilkesliberty.com` (Drupal/webcms) |
-| `sso.int.wilkesliberty.com` | A | `{{ onprem_int_ip }}` | `auth.wilkesliberty.com` (Keycloak) |
+| `auth.int.wilkesliberty.com` | A | `{{ onprem_int_ip }}` | `auth.wilkesliberty.com` (Keycloak) |
 
 ### Data & Search Services (direct access, no Caddy)
 

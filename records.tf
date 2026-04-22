@@ -118,31 +118,6 @@ resource "njalla_record_aaaa" "auth" {
   }
 }
 
-# search - Solr search (proxied to on-prem server via Tailscale; admin-CIDR restricted on Caddy)
-resource "njalla_record_a" "search" {
-  domain  = var.domain_name
-  name    = "search"
-  content = var.vps_ipv4
-  ttl     = 3600
-
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
-# WARNING: count + prevent_destroy interaction — see note above on njalla_record_aaaa.apex
-resource "njalla_record_aaaa" "search" {
-  count   = var.vps_ipv6 != "" ? 1 : 0
-  domain  = var.domain_name
-  name    = "search"
-  content = var.vps_ipv6
-  ttl     = 3600
-
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
 # network - Tailscale admin console shortcut
 # Points to VPS (same as all other public subdomains); Caddy holds a valid TLS cert
 # and issues a 301 to login.tailscale.com. A CNAME direct to login.tailscale.com
@@ -242,7 +217,7 @@ resource "njalla_record_aaaa" "network" {
 # - www        → Next.js frontend (runs on VPS)
 # - api        → Drupal CMS / GraphQL API (webcms repo, on-prem:8080)
 # - auth       → Keycloak SSO (on-prem:8081)
-# - search     → Solr (on-prem:8983, admin-CIDR restricted)
+# NOTE: search.wilkesliberty.com removed — Solr is admin-only, use search.int.wilkesliberty.com over Tailscale
 #
 # Special subdomains:
 # - network    → A/AAAA to VPS (Caddy 301s to login.tailscale.com — proper TLS, no SNI mismatch)

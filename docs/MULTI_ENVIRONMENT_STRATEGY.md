@@ -122,7 +122,7 @@ ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/vps.yml
 ```
 Production:  wilkesliberty.com, www.wilkesliberty.com
 Staging:     staging.wilkesliberty.com (when external access is needed)
-API (int):   drupal.int.wilkesliberty.com (Tailscale-routed)
+API (int):   api.int.wilkesliberty.com (Tailscale-routed)
 ```
 
 DNS is managed via Terraform + Njalla API. See `DNS_RECORDS.md` and `docs/TERRAFORM_DNS_QUICKSTART.md`.

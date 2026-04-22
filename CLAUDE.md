@@ -56,7 +56,7 @@ All A records point to `onprem_tailscale_ip` (Caddy terminates TLS, proxies to D
 | Hostname | Backend |
 |---|---|
 | `api.int.…` | Drupal `:8080` |
-| `sso.int.…` | Keycloak `:8081` |
+| `auth.int.…` | Keycloak `:8081` |
 | `search.int.…` | Solr `:8983` (admin-CIDR only) |
 | `monitor.int.…` | Grafana `:3001` |
 | `metrics.int.…` | Prometheus `:9090` (admin-CIDR only) |
@@ -75,7 +75,6 @@ Managed by `records.tf` (Njalla). VPS Caddy template: `ansible/roles/vps-proxy/t
 | `www.wilkesliberty.com` | Next.js UI on VPS `:3000` |
 | `api.wilkesliberty.com` | Drupal on-prem via Tailscale `:8080` |
 | `auth.wilkesliberty.com` | Keycloak on-prem via Tailscale `:8081` |
-| `search.wilkesliberty.com` | Solr on-prem (admin-CIDR only) |
 | `network.wilkesliberty.com` | Redirect → `login.tailscale.com` |
 
 ## Sibling repos

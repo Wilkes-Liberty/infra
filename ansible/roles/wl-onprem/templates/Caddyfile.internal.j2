@@ -90,9 +90,9 @@ http://*.int.wilkesliberty.com {
         }
     }
 
-    # Keycloak SSO
-    @sso host sso.int.wilkesliberty.com
-    handle @sso {
+    # Keycloak auth (canonical hostname: auth.int.wilkesliberty.com)
+    @auth host auth.int.wilkesliberty.com
+    handle @auth {
         import internal_headers
 
         reverse_proxy localhost:8081 {
@@ -103,6 +103,12 @@ http://*.int.wilkesliberty.com {
             header_up X-Forwarded-Host {host}
             header_up X-Forwarded-Port 443
         }
+    }
+
+    # Legacy redirect: sso.int → auth.int (renamed 2025-04-22; remove after 2025-10-22)
+    @sso_legacy host sso.int.wilkesliberty.com
+    handle @sso_legacy {
+        redir https://auth.int.wilkesliberty.com{uri} 301
     }
 
     # ==============================================================================

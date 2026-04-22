@@ -20,7 +20,6 @@ WilkesLiberty uses a two-host architecture:
 | Next.js frontend | https://www.wilkesliberty.com | VPS (directly) | ui repo |
 | Drupal CMS / API | https://api.wilkesliberty.com | VPS Caddy → Tailscale | on-prem, port 8080 |
 | Keycloak SSO | https://auth.wilkesliberty.com | VPS Caddy → Tailscale | on-prem, port 8081 |
-| Solr search | https://search.wilkesliberty.com | VPS Caddy → Tailscale | on-prem, port 8983 |
 | VPN admin | https://network.wilkesliberty.com | A → VPS; Caddy redirect | login.tailscale.com |
 
 ## Internal Services (Tailscale-only)
@@ -30,7 +29,7 @@ All `*.int.wilkesliberty.com` services are accessible only over Tailscale. Three
 | Internal URL | Service | Port |
 | --- | --- | --- |
 | https://api.int.wilkesliberty.com | Drupal admin | 8080 |
-| https://sso.int.wilkesliberty.com | Keycloak admin | 8081 |
+| https://auth.int.wilkesliberty.com | Keycloak admin | 8081 |
 | https://monitor.int.wilkesliberty.com | Grafana dashboards | 3001 |
 | https://metrics.int.wilkesliberty.com | Prometheus | 9090 |
 | https://alerts.int.wilkesliberty.com | Alertmanager | 9093 |
@@ -427,7 +426,7 @@ docker exec wl_redis redis-cli -a "$REDIS_PASSWORD" ping
 Access the Keycloak admin console (Tailscale required):
 
 ```
-https://sso.int.wilkesliberty.com
+https://auth.int.wilkesliberty.com
 ```
 
 Or via public DNS: https://auth.wilkesliberty.com
@@ -485,7 +484,7 @@ curl -I https://auth.wilkesliberty.com   # Expect: 200 OK (Keycloak login)
 | URL | Expected |
 | --- | --- |
 | https://api.int.wilkesliberty.com | Drupal admin (200 OK) |
-| https://sso.int.wilkesliberty.com | Keycloak admin (200 OK) |
+| https://auth.int.wilkesliberty.com | Keycloak admin (200 OK) |
 | https://monitor.int.wilkesliberty.com | Grafana login (200 OK) |
 | https://metrics.int.wilkesliberty.com | Prometheus UI (200 OK) |
 | https://alerts.int.wilkesliberty.com | Alertmanager (200 OK) |
@@ -630,7 +629,7 @@ Drupal uses an explicit allowlist of trusted hostnames (no wildcards). The follo
 - `localhost`, `drupal` (Docker internal)
 - `api.wilkesliberty.com` (public)
 - `api.int.wilkesliberty.com` (internal Caddy)
-- `auth.wilkesliberty.com`, `sso.int.wilkesliberty.com` (Keycloak SSO)
+- `auth.wilkesliberty.com`, `auth.int.wilkesliberty.com` (Keycloak)
 
 To add a new hostname, edit `docker/drupal/settings.docker.php`.
 
