@@ -270,9 +270,9 @@ http://*.int.wilkesliberty.com {
         }
     }
 
-    # Keycloak staging SSO
-    @sso-stg host sso-stg.int.wilkesliberty.com
-    handle @sso-stg {
+    # Keycloak staging auth (canonical hostname: auth-stg.int.wilkesliberty.com)
+    @auth-stg host auth-stg.int.wilkesliberty.com
+    handle @auth-stg {
         import internal_headers
 
         reverse_proxy localhost:8091 {
@@ -282,6 +282,12 @@ http://*.int.wilkesliberty.com {
             header_up X-Forwarded-Host {host}
             header_up X-Forwarded-Port 443
         }
+    }
+
+    # Legacy redirect: sso-stg.int → auth-stg.int (renamed 2026-04-22; remove after 2026-10-22)
+    @sso_stg_legacy host sso-stg.int.wilkesliberty.com
+    handle @sso_stg_legacy {
+        redir https://auth-stg.int.wilkesliberty.com{uri} 301
     }
 
     # Solr staging search

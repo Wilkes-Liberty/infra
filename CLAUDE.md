@@ -64,7 +64,7 @@ All A records point to `onprem_tailscale_ip` (Caddy terminates TLS, proxies to D
 | `uptime.int.…` | Uptime Kuma `:3002` |
 | `nas/router/switch/print.int.…` | LAN device admin UIs (TLS skip-verify) |
 | `network.int.…` | Redirect → `login.tailscale.com` |
-| `stg/api-stg/sso-stg/search-stg.int.…` | Staging stack (offset ports) |
+| `stg/api-stg/auth-stg/search-stg.int.…` | Staging stack (offset ports) |
 
 ## Public domains (`*.wilkesliberty.com`)
 

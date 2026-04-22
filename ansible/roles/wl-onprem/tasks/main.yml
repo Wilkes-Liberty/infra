@@ -705,7 +705,7 @@
       - ""
       - "🧪 Staging URLs (staging branch — Tailscale-only):"
       - "   - Drupal:       https://api-stg.int.wilkesliberty.com  (on-prem:8090)"
-      - "   - Keycloak:     https://sso-stg.int.wilkesliberty.com  (on-prem:8091)"
+      - "   - Keycloak:     https://auth-stg.int.wilkesliberty.com (on-prem:8091)"
       - "   - Next.js:      https://stg.int.wilkesliberty.com      (on-prem:3010)"
       - "   - Solr:         https://search-stg.int.wilkesliberty.com (on-prem:8993)"
       - ""

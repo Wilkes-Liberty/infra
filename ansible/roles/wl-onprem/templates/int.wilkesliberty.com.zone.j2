@@ -53,6 +53,8 @@ print        IN A    {{ coredns_listen_ip }}
 ; Hyphenated names keep us within the *.int.wilkesliberty.com wildcard cert
 stg          IN A    {{ coredns_listen_ip }}
 api-stg      IN A    {{ coredns_listen_ip }}
+auth-stg     IN A    {{ coredns_listen_ip }}
+; sso-stg is kept for the legacy 301 redirect (sso-stg.int → auth-stg.int); remove after 2026-10-22
 sso-stg      IN A    {{ coredns_listen_ip }}
 search-stg   IN A    {{ coredns_listen_ip }}
 
@@ -84,6 +86,8 @@ switch       IN AAAA {{ coredns_listen_ipv6 }}
 print        IN AAAA {{ coredns_listen_ipv6 }}
 stg          IN AAAA {{ coredns_listen_ipv6 }}
 api-stg      IN AAAA {{ coredns_listen_ipv6 }}
+auth-stg     IN AAAA {{ coredns_listen_ipv6 }}
+; sso-stg is kept for the legacy 301 redirect (sso-stg.int → auth-stg.int); remove after 2026-10-22
 sso-stg      IN AAAA {{ coredns_listen_ipv6 }}
 search-stg   IN AAAA {{ coredns_listen_ipv6 }}
 network      IN AAAA {{ coredns_listen_ipv6 }}
