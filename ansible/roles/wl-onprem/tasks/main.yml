@@ -417,6 +417,17 @@
 # ============================================================================
 # PHASE 6: DOCKER DEPLOYMENT
 # ============================================================================
+# The Drupal image is built locally from ~/Repositories/webcms (Dockerfile.prod).
+# Pull the latest webcms code before building so new modules/config are baked in.
+
+- name: Update webcms repo to latest master
+  git:
+    repo: "{{ webcms_repo_url }}"
+    dest: "{{ ansible_env.HOME }}/Repositories/webcms"
+    version: master
+    update: true
+    accept_hostkey: true
+  when: webcms_repo_url is defined
 
 - name: Pull Docker images
   command: docker compose --env-file {{ ansible_env.HOME }}/nas_docker/.env pull
@@ -437,8 +448,8 @@
     chdir: "{{ ansible_env.HOME }}/Repositories/infra/docker"
   when: compose_ps.stdout | length > 0
 
-- name: Start Docker Compose stack
-  command: docker compose --env-file {{ ansible_env.HOME }}/nas_docker/.env up -d
+- name: Build and start Docker Compose stack
+  command: docker compose --env-file {{ ansible_env.HOME }}/nas_docker/.env up -d --build
   args:
     chdir: "{{ ansible_env.HOME }}/Repositories/infra/docker"
 
