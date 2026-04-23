@@ -270,6 +270,9 @@ Deploys and configures everything on the on-prem server in a single playbook run
 - **docs/TERRAFORM_SOPS_WORKFLOW.md** — Terraform + SOPS secrets workflow
 - **docs/deployment-guide.md** — Detailed deployment guide
 - **docs/ADMIN_SETUP.md** — First-run manual setup for all admin UIs (Drupal OAuth consumer, Keycloak SSO, Grafana, Solr, Uptime Kuma)
+- **docs/OPEN_ISSUES.md** — Central punch list of every known gap, upstream block, and deferred enhancement; items are removed or moved to Changelog when resolved
 - **docs/SECURITY_CHECKLIST.md** — Pre-deployment security checklist + ongoing audit with done/partial/not-done status for every item
+- **docs/UPDATE_CADENCE.md** — Dependency and platform update cadence matrix (check/apply windows for all layers) + emergency CVE response procedure
 - **docs/CONFIG_EXPORT.md** — Drupal config export workflow: nightly auto-snapshot, manual export, config_ignore, where files land
 - **docs/STAGING_REFRESH.md** — `make refresh-staging`: clone prod DB + files to staging with full sanitization
+- **docs/BACKUP_RESTORE.md** — Backup structure, restore test procedure, and quarterly drill steps
