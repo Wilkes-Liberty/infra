@@ -596,7 +596,7 @@
         -c "ALTER ROLE wl_app WITH PASSWORD '$DRUPAL_PW';" >/dev/null
     fi
     # Step 4: grant wl_app all necessary privileges on drupal DB only
-    docker exec -i wl_postgres psql -U postgres -d drupal << 'SQL'
+    docker exec -i wl_postgres psql -U postgres -d drupal -v ON_ERROR_STOP=1 << 'SQL'
     GRANT CONNECT ON DATABASE drupal TO wl_app;
     GRANT USAGE, CREATE ON SCHEMA public TO wl_app;
     GRANT ALL ON ALL TABLES IN SCHEMA public TO wl_app;
@@ -920,7 +920,7 @@
       docker exec wl_stg_postgres psql -U postgres -d postgres \
         -c "ALTER ROLE wl_app WITH PASSWORD '$STG_DRUPAL_PW';" >/dev/null
     fi
-    docker exec -i wl_stg_postgres psql -U postgres -d drupal << 'SQL'
+    docker exec -i wl_stg_postgres psql -U postgres -d drupal -v ON_ERROR_STOP=1 << 'SQL'
     GRANT CONNECT ON DATABASE drupal TO wl_app;
     GRANT USAGE, CREATE ON SCHEMA public TO wl_app;
     GRANT ALL ON ALL TABLES IN SCHEMA public TO wl_app;
