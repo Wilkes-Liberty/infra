@@ -322,25 +322,52 @@
     name: caddy
     state: present
 
-- name: Install xcaddy (needed to build custom Caddy with rate_limit plugin)
-  community.general.homebrew:
-    name: xcaddy
-    state: present
-
 - name: Check if on-prem Caddy has rate_limit module
   command: /opt/homebrew/bin/caddy list-modules
   register: caddy_onprem_modules
   failed_when: false
   changed_when: false
 
-- name: Build custom Caddy with rate_limit plugin for macOS (~2-3 min, runs once)
-  # xcaddy compiles a fresh Caddy binary with the given module baked in.
-  # Output path replaces the Homebrew binary so launchd picks it up automatically.
-  command: >
-    xcaddy build {{ caddy_custom_version }}
-    --with github.com/mholt/caddy-ratelimit
-    --output /opt/homebrew/bin/caddy
+# Download a pre-built custom Caddy binary from the official Caddy build server.
+# xcaddy (the source-build tool) is not in Homebrew core; the download API is
+# simpler and produces an identical result.
+- name: Map Ansible architecture to Caddy API arch name
+  set_fact:
+    caddy_darwin_arch: "{{ 'arm64' if ansible_architecture == 'arm64' else 'amd64' }}"
+
+- name: Download custom Caddy binary with rate_limit plugin for macOS
+  get_url:
+    url: "https://caddyserver.com/api/download?os=darwin&arch={{ caddy_darwin_arch }}&p=github.com%2Fmholt%2Fcaddy-ratelimit&v={{ caddy_custom_version }}"
+    dest: /tmp/caddy_custom_darwin
+    mode: '0755'
+    force: true
   when: "'http.handlers.rate_limit' not in (caddy_onprem_modules.stdout | default(''))"
+  register: caddy_darwin_download
+
+# The running Caddy binary cannot be overwritten in-place ("text file busy").
+# Stop the service, swap the binary, then restart it.
+- name: Stop internal Caddy before binary replacement
+  command: launchctl stop com.wilkesliberty.caddy-internal
+  failed_when: false
+  changed_when: false
+  become: true
+  when: caddy_darwin_download is changed
+
+- name: Install custom Caddy binary for macOS (overlays Homebrew binary)
+  copy:
+    src: /tmp/caddy_custom_darwin
+    dest: /opt/homebrew/bin/caddy
+    mode: '0755'
+    remote_src: true
+  when: caddy_darwin_download is changed
+  register: caddy_darwin_installed
+
+- name: Restart internal Caddy after binary update
+  command: launchctl start com.wilkesliberty.caddy-internal
+  failed_when: false
+  changed_when: false
+  become: true
+  when: caddy_darwin_installed is changed
 
 - name: Create Caddy config and log directories
   file:
