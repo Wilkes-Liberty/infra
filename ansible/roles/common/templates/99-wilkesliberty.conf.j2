@@ -1,0 +1,8 @@
+# WilkesLiberty SSH hardening — managed by Ansible (common role)
+# Drop-in: /etc/ssh/sshd_config.d/99-wilkesliberty.conf
+# Takes highest precedence over /etc/ssh/sshd_config.
+PermitRootLogin prohibit-password
+PasswordAuthentication no
+PubkeyAuthentication yes
+X11Forwarding no
+AllowUsers root

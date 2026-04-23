@@ -81,12 +81,21 @@ http://*.int.wilkesliberty.com {
     handle @api {
         import internal_headers
 
+        # Drupal login: 10 req/min per IP
+        @drupal_login_int path /user/login /user/login/*
+        rate_limit @drupal_login_int {
+            zone drupal_login_int {
+                key    {remote_host}
+                events 10
+                window 1m
+            }
+        }
+
         reverse_proxy localhost:8080 {
             header_up Host {host}
             header_up X-Real-IP {remote_host}
             header_up X-Forwarded-For {remote_host}
             header_up X-Forwarded-Proto https
-
         }
     }
 
@@ -94,6 +103,26 @@ http://*.int.wilkesliberty.com {
     @auth host auth.int.wilkesliberty.com
     handle @auth {
         import internal_headers
+
+        # Keycloak login (browser flow): 10 req/min per IP
+        @kc_login_int path /realms/*/protocol/openid-connect/auth
+        rate_limit @kc_login_int {
+            zone keycloak_login_int {
+                key    {remote_host}
+                events 10
+                window 1m
+            }
+        }
+
+        # Keycloak token endpoint: 60 req/min per IP
+        @kc_token_int path /realms/*/protocol/openid-connect/token
+        rate_limit @kc_token_int {
+            zone keycloak_token_int {
+                key    {remote_host}
+                events 60
+                window 1m
+            }
+        }
 
         reverse_proxy localhost:8081 {
             header_up Host {host}

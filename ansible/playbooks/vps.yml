@@ -40,6 +40,8 @@
       no_log: true
 
   roles:
+    - role: common
+
     - role: tailscale
       vars:
         tailscale_hostname: "wl-vps"
@@ -117,19 +119,51 @@
       ignore_errors: true
 
     # ── Caddy ─────────────────────────────────────────────────────────────────
-    - name: Install Caddy
+    # Step 1: install apt Caddy to register the systemd service/user/dirs
+    - name: Install Caddy (systemd service scaffolding)
       apt:
         name: caddy
         state: present
         update_cache: yes
 
+    # Step 2: replace the apt binary with a custom build that includes
+    # github.com/mholt/caddy-ratelimit (not in the standard Ubuntu package).
+    # The binary is downloaded from the official Caddy build server.
+    # Caddy version is pinned — update caddy_custom_version in all.yml to upgrade.
+    - name: Check if installed Caddy has the rate_limit module
+      command: /usr/bin/caddy list-modules
+      register: caddy_modules_installed
+      failed_when: false
+      changed_when: false
+
+    - name: Download custom Caddy binary with rate_limit plugin
+      get_url:
+        url: "https://caddyserver.com/api/download?os=linux&arch=amd64&p=github.com%2Fmholt%2Fcaddy-ratelimit&v={{ caddy_custom_version }}"
+        dest: /tmp/caddy_custom
+        mode: '0755'
+        force: true
+      when: "'http.handlers.rate_limit' not in (caddy_modules_installed.stdout | default(''))"
+      register: caddy_binary_download
+
+    - name: Install custom Caddy binary (overlays apt binary)
+      copy:
+        src: /tmp/caddy_custom
+        dest: /usr/bin/caddy
+        mode: '0755'
+        owner: root
+        group: root
+        remote_src: true
+      when: caddy_binary_download is changed
+      notify: Restart Caddy
+
+    # Step 3: deploy config — validate runs using the now-installed custom binary
     - name: Deploy production Caddyfile
       template:
         src: "{{ playbook_dir }}/../roles/vps-proxy/templates/Caddyfile.production.j2"
         dest: /etc/caddy/Caddyfile
         mode: '0644'
-        validate: caddy validate --config %s --adapter caddyfile
-      notify: Reload Caddy
+        validate: /usr/bin/caddy validate --config %s --adapter caddyfile
+      notify: Restart Caddy
 
     - name: Ensure Caddy is enabled and running
       systemd:
@@ -138,7 +172,7 @@
         state: started
 
   handlers:
-    - name: Reload Caddy
+    - name: Restart Caddy
       systemd:
         name: caddy
         state: restarted

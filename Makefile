@@ -2,19 +2,20 @@
 # Wilkes-Liberty Infrastructure Makefile
 # =============================================
 
-.PHONY: help bootstrap check onprem vps deploy refresh-staging clean docker-clean status
+.PHONY: help bootstrap check onprem vps deploy refresh-staging clean docker-clean status test-backup-restore
 
 help:
 	@echo "Available targets:"
-	@echo "  bootstrap        - Install required local tools (sops, age, terraform, ansible)"
-	@echo "  check            - Validate local environment before deploying"
-	@echo "  onprem           - Deploy wl-onprem role (on-prem server + Docker stack)"
-	@echo "  vps              - Deploy Njalla VPS (Let's Encrypt + Caddy)"
-	@echo "  deploy           - Full deployment (onprem + vps)"
-	@echo "  refresh-staging  - Clone prod DB → staging with sanitization (DESTRUCTIVE)"
-	@echo "  status           - Show Docker container health"
-	@echo "  clean            - Stop Docker services"
-	@echo "  docker-clean     - Prune Docker images/cache"
+	@echo "  bootstrap            - Install required local tools (sops, age, terraform, ansible)"
+	@echo "  check                - Validate local environment before deploying"
+	@echo "  onprem               - Deploy wl-onprem role (on-prem server + Docker stack)"
+	@echo "  vps                  - Deploy Njalla VPS (Let's Encrypt + Caddy)"
+	@echo "  deploy               - Full deployment (onprem + vps)"
+	@echo "  refresh-staging      - Clone prod DB → staging with sanitization (DESTRUCTIVE)"
+	@echo "  status               - Show Docker container health"
+	@echo "  clean                - Stop Docker services"
+	@echo "  docker-clean         - Prune Docker images/cache"
+	@echo "  test-backup-restore  - Restore latest backup into a temp container and verify"
 
 # Install required local operator tools (run once on a new machine)
 bootstrap:
@@ -66,3 +67,8 @@ docker-clean:
 # Quick status check
 status:
 	docker compose -f ~/nas_docker/docker-compose.yml ps
+
+# Restore the latest daily backup into a temporary Postgres container and verify.
+# Requires Docker to be running. Exits 0 on pass, 1 on fail.
+test-backup-restore:
+	./scripts/test-backup-restore.sh

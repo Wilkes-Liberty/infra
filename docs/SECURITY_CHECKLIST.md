@@ -133,25 +133,24 @@ UFW deployed via `ansible/roles/common/tasks/firewall.yml`: default deny incomin
 CoreDNS binds on Tailscale IP only. Caddy internal binds on Tailscale IP only. `search.int`, `metrics.int`, `alerts.int` additionally restricted to `admin_allow_cidrs` (Caddy `remote_ip` check). On-prem Docker services bind to `localhost:PORT` not `0.0.0.0:PORT`.
 
 ### 3.6 SSH hardening on VPS
-**Status: ❌ Not done in Ansible**
+**Status: ✅ Done (2026-04-23)**
 
-The `common` role is a stub (`# TODO: implement this role` in `ansible/roles/common/tasks/main.yml`). UFW restricts SSH to admin CIDRs, but no Ansible task hardens `sshd_config`: `PasswordAuthentication`, `PermitRootLogin`, or `PubkeyAuthentication` are not explicitly set. No fail2ban deployed.
+`common` role implemented and wired into `ansible/playbooks/vps.yml`. Deployed live.
 
-**Action (high priority):** Implement the `common` role with:
-```yaml
-- name: Harden sshd_config
-  lineinfile:
-    path: /etc/ssh/sshd_config
-    regexp: "{{ item.regexp }}"
-    line: "{{ item.line }}"
-  loop:
-    - { regexp: '^#?PasswordAuthentication', line: 'PasswordAuthentication no' }
-    - { regexp: '^#?PermitRootLogin', line: 'PermitRootLogin no' }
-    - { regexp: '^#?PubkeyAuthentication', line: 'PubkeyAuthentication yes' }
-  notify: restart sshd
-- name: Install fail2ban
-  apt: name=fail2ban state=present
-```
+**What was done:**
+- Drop-in `/etc/ssh/sshd_config.d/99-wilkesliberty.conf` deployed (survives OS updates):
+  ```
+  PermitRootLogin prohibit-password   ← key auth only; password login blocked
+  PasswordAuthentication no
+  PubkeyAuthentication yes
+  X11Forwarding no
+  AllowUsers root
+  ```
+- `fail2ban` installed with sshd jail: 5 failures in 600s → 1hr ban
+- `unattended-upgrades` enabled (security updates only, automatic)
+- UFW rules confirmed correct for VPS (`cloud-vps` group: allows 80/443 + SSH from admin CIDRs + Tailscale)
+
+Verified: `ssh -o PasswordAuthentication=yes root@<vps>` → `Permission denied (publickey)`. Key auth still works.
 
 ### 3.7 TLS minimum version enforced
 **Status: ✅ Done**
@@ -187,21 +186,24 @@ Individual Drupal file fields have type/size restrictions configured per-field (
 Drupal's Form API generates and validates CSRF tokens on all state-changing form submissions automatically. REST/JSON:API endpoints that use OAuth2 bearer tokens are CSRF-exempt by design (bearer token = no cookie session).
 
 ### 4.5 Rate limiting on sensitive endpoints
-**Status: ❌ Not done**
+**Status: ✅ Done (2026-04-23)**
 
-`Caddyfile.production.j2` lines 113–122: the `rate_limit {}` block is commented out entirely. No rate limiting on: `/user/login`, `/api/contact`, `/api/webhooks/postmark/*`, or JSON:API write endpoints.
+Custom Caddy binary (`v2.11.2` + `mholt/caddy-ratelimit`) deployed on the VPS. Rate limiting active on all public endpoints:
 
-**Action (high priority):** Uncomment and configure Caddy rate limiting. Minimum:
-```
-rate_limit {
-  zone auth {
-    key {remote_host}
-    events 10
-    window 1m
-  }
-}
-```
-Apply to login endpoints. Keycloak brute-force detection (§2.6) handles the SSO path separately.
+| Zone | Matcher | Limit |
+|---|---|---|
+| `api_dos` | all API requests | 300 req/min per IP |
+| `drupal_login` | `/user/login` | 10 req/min per IP |
+| `contact_form` | `/api/contact`, `/api/webform` | 10 req/hr per IP |
+| `auth_dos` | all auth requests | 300 req/min per IP |
+| `keycloak_login` | `/realms/*/protocol/openid-connect/auth` | 10 req/min per IP |
+| `keycloak_token` | `/realms/*/protocol/openid-connect/token` | 60 req/min per IP |
+
+Equivalent rate limits applied to internal `Caddyfile.internal.j2` (`drupal_login_int`, `keycloak_login_int`, `keycloak_token_int` zones).
+
+Verified live: `for i in $(seq 1 12); do curl -s -o /dev/null -w "%{http_code}\n" https://api.wilkesliberty.com/user/login; done` returned 429 on request 12.
+
+Caddy version pinned in `all.yml` as `caddy_custom_version: "v2.11.2"`. The binary is replaced on next `make vps` only when `http.handlers.rate_limit` is absent from `caddy list-modules` output.
 
 ### 4.6 Webhook signature verification
 **Status: ⚠️ Partial**
@@ -271,35 +273,48 @@ pip-audit
 ### 6.1 Backups configured and running
 **Status: ✅ Done**
 
-`backup-onprem.sh` deployed via Ansible to `~/Scripts/`. launchd agent `com.wilkesliberty.backup` runs daily at 4:00 AM. Backup encrypted with AES-256 via `BACKUP_ENCRYPTION_KEY`. Synced to Proton Drive via rsync.
+`backup-onprem.sh` deployed via Ansible to `~/Scripts/`. launchd agent `com.wilkesliberty.backup` runs daily at **2:00 AM**. Backup encrypted with AES-256 via `BACKUP_ENCRYPTION_KEY`. Synced to Proton Drive via rsync.
+
+See §6.8 for backup script robustness fixes (PATH, prereq checks, Postmark alerting, log rotation). See `docs/BACKUP_RESTORE.md` for the restore procedure and quarterly drill.
 
 ### 6.2 Backup restore tested
-**Status: ❌ Not done**
+**Status: ✅ Done (2026-04-23)**
 
-No restore test procedure exists or has been performed. Backups are untested.
+`scripts/test-backup-restore.sh` restores the latest daily dump into a temporary `postgres:16` Docker container, verifies ≥50 tables, all core Drupal tables, node count, and config count, then tears down cleanly.
 
-**Action (high priority):** Perform a restore test immediately. On a scratch volume or DDEV environment, restore the encrypted backup and verify Drupal bootstraps. Schedule quarterly.
+Run with:
+```bash
+make test-backup-restore
+# or against a specific backup:
+scripts/test-backup-restore.sh --backup-dir ~/Backups/wilkesliberty/daily/YYYY-MM-DD_HHMMSS
+```
+
+First live run (2026-04-23): 399 tables, 1 node, 2212 config entries — **PASS**.
+
+See `docs/BACKUP_RESTORE.md` for full procedure, quarterly drill steps, and known issue with 20-byte launchd dumps.
+
+**Schedule:** Run `make test-backup-restore` quarterly (or after any backup script change).
 
 ### 6.3 App DB user is not a superuser
-**Status: ❌ Not done — critical**
+**Status: ✅ Done (2026-04-23)**
+
+Drupal now connects as `wl_app` — a non-superuser role with no elevated privileges:
 
 ```
 Role name | Attributes
-drupal    | Superuser, Create role, Create DB, Replication, Bypass RLS
+wl_app    | (none)
+postgres  | Superuser   ← management-only, used by Ansible
+drupal    | Superuser   ← bootstrap user; cannot be stripped (PostgreSQL constraint)
 ```
 
-The `drupal` Postgres role has full superuser privileges. A SQL injection or Drupal RCE would have unrestricted database access.
+**What was done:**
+- Created `wl_app` (no SUPERUSER/CREATEDB/CREATEROLE/REPLICATION/BYPASSRLS) and granted it full DML+DDL on the `drupal` database only
+- Created `postgres` management superuser for Ansible operations (ALTER USER, etc.)
+- Revoked `CONNECT` on the `keycloak` database from `PUBLIC`; only the `keycloak` and `postgres` roles retain access — `wl_app` cannot reach keycloak's data
+- Changed `DRUPAL_DB_USER=wl_app` in `docker/docker-compose.yml` and `docker-compose.staging.yml.j2`; Ansible task ensures `wl_app` exists and has correct privileges on every deploy
+- Applied live to prod and staging; verified `drush status` shows `DB username: wl_app`
 
-**Action (high priority):** Create a least-privilege role:
-```sql
-CREATE ROLE drupal_app WITH LOGIN PASSWORD '...' NOSUPERUSER NOCREATEDB NOCREATEROLE;
-GRANT ALL PRIVILEGES ON DATABASE drupal TO drupal_app;
-\c drupal
-GRANT ALL ON ALL TABLES IN SCHEMA public TO drupal_app;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO drupal_app;
-GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO drupal_app;
-```
-Update `DRUPAL_DB_USER` in `.env.j2` and `drupal_db_user` in sops. Requires `make onprem` and a Drupal settings.php change.
+**Residual limitation:** The `drupal` role remains a PostgreSQL bootstrap superuser — PostgreSQL enforces that `initdb` users cannot be demoted. The bootstrap user's password is in the env but is not used by the application. Mitigation: `wl_app` application credentials cannot reach the keycloak database even if compromised.
 
 ### 6.4 Parameterized queries (no SQL injection)
 **Status: ✅ Done**
@@ -320,6 +335,30 @@ Drupal schema changes use `.install` files (hook_update_N) committed to the webc
 **Status: N/A for this scale**
 
 Drupal manages Postgres connections via its database layer. At current scale, no separate connection pooler (pgBouncer) is warranted. Revisit when concurrent connection count approaches Postgres `max_connections` (default 100).
+
+### 6.8 Backup script robustness
+**Status: ✅ Done (2026-04-23)**
+
+`scripts/backup-onprem.sh` was silently failing on every daily run since first deployment — all dumps were ~20 bytes. Root cause: launchd's minimal `PATH` (`/usr/bin:/bin:/usr/sbin:/sbin`) does not include the Docker CLI. All failure modes are now handled:
+
+| What was broken | Fix applied |
+|---|---|
+| `docker: command not found` in launchd context | `export PATH="/opt/homebrew/bin:/usr/local/bin:..."` at top of script; same PATH also set in `com.wilkesliberty.backup.plist` `EnvironmentVariables` block |
+| No prereq check — junk dump created before failure detected | `check_prerequisites()` runs before any I/O: verifies `docker` on PATH, `wl_postgres` running + healthy |
+| Failed dump left a valid-looking ~20-byte `.sql.gz` | Dump to `.tmp`, size-check (< 10 KB → fail + delete), only `mv` to final name on success |
+| Silent failures — no notification | `send_failure_alert()` calls Postmark API via `/usr/bin/curl` on any failure (docker missing, container down, dump too small, pg_dump error) |
+| Logs grew unbounded | `trap 'rotate_logs' EXIT` trims `backup.log` + `backup-error.log` to last 10,000 lines at script exit |
+
+`docker/.env.j2` now includes `POSTMARK_SERVER_TOKEN` so the script can send alerts from the launchd context.
+
+**Verified (2026-04-23):**
+- `grep 'export PATH="/opt/homebrew/bin"' ~/Scripts/backup-onprem.sh` returns the line ✅
+- `~/Library/LaunchAgents/com.wilkesliberty.backup.plist` has `EnvironmentVariables` block with PATH + HOME ✅
+- `~/nas_docker/.env` has non-empty `POSTMARK_SERVER_TOKEN` ✅
+
+**Staging note:** The backup script targets prod only (`wl_postgres`, `~/nas_docker/`). Staging is ephemeral and refreshed from prod via `make refresh-staging` — no separate staging backup is needed or scheduled.
+
+See `docs/BACKUP_RESTORE.md` for the restore procedure and quarterly drill.
 
 ---
 
@@ -356,11 +395,13 @@ Staging environment exists and `make refresh-staging` is documented. There is no
 **Action:** Add a checklist item to `DEPLOYMENT_CHECKLIST.md`: "Deploy to staging and smoke-test before deploying to production."
 
 ### 7.6 Auto-update policy for OS and packages
-**Status: ❌ Not done**
+**Status: ⚠️ Partial — VPS auto-updates done; on-prem and app cadence not documented**
 
-No `unattended-upgrades` or equivalent is configured on the VPS. No documented cadence for Drupal security releases, Keycloak updates, Docker image refreshes.
+VPS: `unattended-upgrades` deployed via the `common` Ansible role (security-only updates). Deployed live as part of SSH hardening (§3.6, 2026-04-23).
 
-**Action:** On VPS: `apt install unattended-upgrades` with security-only updates. Document monthly cadence for: `composer update drupal/core-*`, Docker image version bumps, Keycloak minor upgrades.
+On-prem macOS: no equivalent to `unattended-upgrades`; macOS system updates are manual. Docker Desktop auto-updates when configured in preferences.
+
+**Remaining action:** Document a monthly cadence for: `docker exec wl_drupal composer update drupal/core-*`, Docker image version bumps (update pinned tags in `docker-compose.yml`), Keycloak minor upgrades.
 
 ---
 
@@ -470,21 +511,23 @@ Run before every production deploy:
 - [ ] No `error` entries in watchdog (`docker exec wl_drupal drush watchdog:show --severity=error --count=20`)
 - [ ] Prometheus targets all UP (`https://metrics.int.wilkesliberty.com/targets`)
 
+**Quarterly (not every deploy)**
+- [ ] `make test-backup-restore` — restore latest dump into temp container, verify ≥50 tables, node count, config count (see `docs/BACKUP_RESTORE.md`)
+- [ ] `docker exec wl_drupal composer audit` — no critical Drupal security advisories
+- [ ] `npm audit` in `~/Repositories/ui` — no critical issues
+- [ ] Review `~/Backups/wilkesliberty/logs/backup.log` — confirm daily backups are succeeding (non-20-byte dumps)
+
 ---
 
 ## Open Issues Summary
 
 | Priority | Item | Section |
 |----------|------|---------|
-| 🔴 High | Drupal Postgres user has Superuser privileges | §6.3 |
-| 🔴 High | SSH hardening not in Ansible (`common` role is a stub) | §3.6 |
-| 🔴 High | Backup restore never tested | §6.2 |
-| 🔴 High | Rate limiting commented out in Caddyfile | §4.5 |
 | 🟡 Medium | Keycloak brute force / password policy / 2FA not configured | §2.6 |
 | 🟡 Medium | No credential rotation schedule | §1.4 |
 | 🟡 Medium | Rollback procedure not documented | §7.4 |
 | 🟡 Medium | No dependency scanning (composer/npm audit) | §5.4 |
-| 🟡 Medium | OS auto-updates not configured on VPS | §7.6 |
+| 🟡 Medium | App/Docker update cadence not documented (VPS OS updates ✅) | §7.6 |
 | 🟡 Medium | Dockerfile base images not fully pinned | §5.2 |
 | 🟡 Medium | No incident response runbook | §10.1 |
 | 🟡 Medium | PII retention policy not documented | §11.1 |
