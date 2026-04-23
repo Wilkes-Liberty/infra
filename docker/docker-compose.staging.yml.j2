@@ -34,6 +34,7 @@ services:
     volumes:
       - {{ ansible_env.HOME }}/nas_docker_staging/drupal/files:/opt/drupal/web/sites/default/files
       - {{ ansible_env.HOME }}/nas_docker_staging/drupal/private:/opt/drupal/private
+      - {{ ansible_env.HOME }}/Repositories/staging/webcms/config/sync:/opt/drupal/config/sync
     environment:
       - DRUPAL_DB_HOST=postgres
       - DRUPAL_DB_USER=drupal

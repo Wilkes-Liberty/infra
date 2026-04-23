@@ -170,6 +170,42 @@
     creates: "{{ ansible_env.HOME }}/Library/LaunchAgents/com.wilkesliberty.backup.plist"
   ignore_errors: true
 
+- name: Deploy prod config snapshot script
+  template:
+    src: config-snapshot-prod.sh.j2
+    dest: "{{ ansible_env.HOME }}/Scripts/config-snapshot-prod.sh"
+    mode: '0755'
+
+- name: Create launchd prod config snapshot plist
+  template:
+    src: com.wilkesliberty.config-snapshot.prod.plist.j2
+    dest: "{{ ansible_env.HOME }}/Library/LaunchAgents/com.wilkesliberty.config-snapshot.prod.plist"
+    mode: '0644'
+
+- name: Load launchd prod config snapshot agent
+  command: launchctl load "{{ ansible_env.HOME }}/Library/LaunchAgents/com.wilkesliberty.config-snapshot.prod.plist"
+  args:
+    creates: "{{ ansible_env.HOME }}/Library/LaunchAgents/com.wilkesliberty.config-snapshot.prod.plist"
+  ignore_errors: true
+
+- name: Deploy staging config snapshot script
+  template:
+    src: config-snapshot-staging.sh.j2
+    dest: "{{ ansible_env.HOME }}/Scripts/config-snapshot-staging.sh"
+    mode: '0755'
+
+- name: Create launchd staging config snapshot plist
+  template:
+    src: com.wilkesliberty.config-snapshot.staging.plist.j2
+    dest: "{{ ansible_env.HOME }}/Library/LaunchAgents/com.wilkesliberty.config-snapshot.staging.plist"
+    mode: '0644'
+
+- name: Load launchd staging config snapshot agent
+  command: launchctl load "{{ ansible_env.HOME }}/Library/LaunchAgents/com.wilkesliberty.config-snapshot.staging.plist"
+  args:
+    creates: "{{ ansible_env.HOME }}/Library/LaunchAgents/com.wilkesliberty.config-snapshot.staging.plist"
+  ignore_errors: true
+
 # ============================================================================
 # PHASE 5: VPN & NETWORKING
 # ============================================================================
@@ -730,6 +766,63 @@
   debug:
     var: staging_docker_status.stdout_lines
   when: webcms_repo_url is defined
+
+- name: Wait for staging Drupal to be ready
+  command: docker exec wl_stg_drupal drush status --fields=bootstrap
+  register: stg_drupal_status
+  retries: 10
+  delay: 10
+  until: stg_drupal_status.rc == 0
+  changed_when: false
+  failed_when: false
+  when: webcms_repo_url is defined
+
+- name: Create staging config/sync directory
+  file:
+    path: "{{ ansible_env.HOME }}/Repositories/staging/webcms/config/sync"
+    state: directory
+    mode: '0755'
+  when: webcms_repo_url is defined
+
+- name: Enable config_ignore module in staging
+  command: >-
+    docker exec wl_stg_drupal drush php:eval
+    "\Drupal::service('module_installer')->install(['config_ignore']);"
+  changed_when: false
+  when:
+    - webcms_repo_url is defined
+    - stg_drupal_status.rc == 0
+
+- name: Check wl_postmark_webhook schema integrity in staging
+  command: >-
+    docker exec wl_stg_drupal drush php:eval
+    "exit(\Drupal::database()->schema()->tableExists('postmark_events') ? 0 : 1);"
+  register: stg_postmark_schema_check
+  changed_when: false
+  failed_when: false
+  when:
+    - webcms_repo_url is defined
+    - stg_drupal_status.rc == 0
+
+- name: Reinstall wl_postmark_webhook in staging if schema is missing
+  command: |
+    docker exec wl_stg_drupal bash -c "
+      drush pm:uninstall -y wl_postmark_webhook &&
+      drush pm:enable -y wl_postmark_webhook
+    "
+  when:
+    - webcms_repo_url is defined
+    - stg_drupal_status.rc == 0
+    - stg_postmark_schema_check.rc is defined
+    - stg_postmark_schema_check.rc != 0
+
+- name: Enable wl_postmark_webhook module in staging
+  command: docker exec wl_stg_drupal drush pm:enable -y wl_postmark_webhook
+  register: stg_postmark_module_enable
+  changed_when: "'already enabled' not in stg_postmark_module_enable.stdout"
+  when:
+    - webcms_repo_url is defined
+    - stg_drupal_status.rc == 0
 
 # ============================================================================
 # PHASE 8: POST-DEPLOYMENT VALIDATION
