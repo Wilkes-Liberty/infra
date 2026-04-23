@@ -41,9 +41,11 @@ alerts       IN A    {{ coredns_listen_ip }}
 uptime       IN A    {{ coredns_listen_ip }}
 
 ; ── Admin devices ─────────────────────────────────────────────────────────────
-; Caddy proxies these to their LAN IPs (nas_int_ip, router_int_ip, etc.)
+; Caddy proxies these to their LAN IPs (nas_int_ip, modem_int_ip, etc.)
 ; with tls_insecure_skip_verify since devices use self-signed certs internally
 nas          IN A    {{ coredns_listen_ip }}
+modem        IN A    {{ coredns_listen_ip }}
+; router is kept for the legacy 301 redirect (router.int → modem.int); remove after 2026-10-22
 router       IN A    {{ coredns_listen_ip }}
 switch       IN A    {{ coredns_listen_ip }}
 print        IN A    {{ coredns_listen_ip }}
@@ -53,6 +55,8 @@ print        IN A    {{ coredns_listen_ip }}
 ; Hyphenated names keep us within the *.int.wilkesliberty.com wildcard cert
 stg          IN A    {{ coredns_listen_ip }}
 api-stg      IN A    {{ coredns_listen_ip }}
+auth-stg     IN A    {{ coredns_listen_ip }}
+; sso-stg is kept for the legacy 301 redirect (sso-stg.int → auth-stg.int); remove after 2026-10-22
 sso-stg      IN A    {{ coredns_listen_ip }}
 search-stg   IN A    {{ coredns_listen_ip }}
 
@@ -79,11 +83,15 @@ metrics      IN AAAA {{ coredns_listen_ipv6 }}
 alerts       IN AAAA {{ coredns_listen_ipv6 }}
 uptime       IN AAAA {{ coredns_listen_ipv6 }}
 nas          IN AAAA {{ coredns_listen_ipv6 }}
+modem        IN AAAA {{ coredns_listen_ipv6 }}
+; router is kept for the legacy 301 redirect (router.int → modem.int); remove after 2026-10-22
 router       IN AAAA {{ coredns_listen_ipv6 }}
 switch       IN AAAA {{ coredns_listen_ipv6 }}
 print        IN AAAA {{ coredns_listen_ipv6 }}
 stg          IN AAAA {{ coredns_listen_ipv6 }}
 api-stg      IN AAAA {{ coredns_listen_ipv6 }}
+auth-stg     IN AAAA {{ coredns_listen_ipv6 }}
+; sso-stg is kept for the legacy 301 redirect (sso-stg.int → auth-stg.int); remove after 2026-10-22
 sso-stg      IN AAAA {{ coredns_listen_ipv6 }}
 search-stg   IN AAAA {{ coredns_listen_ipv6 }}
 network      IN AAAA {{ coredns_listen_ipv6 }}

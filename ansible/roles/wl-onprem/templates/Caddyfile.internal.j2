@@ -211,14 +211,22 @@ http://*.int.wilkesliberty.com {
         }
     }
 
-    @router host router.int.wilkesliberty.com
-    handle @router {
+    # AT&T ISP modem admin UI (canonical: modem.int.wilkesliberty.com)
+    # LAN gateway is Eero — cloud-managed, no browser UI.
+    @modem host modem.int.wilkesliberty.com
+    handle @modem {
         import internal_headers
 
-        reverse_proxy {{ router_int_ip }}:{{ router_admin_port | default('80') }} {
+        reverse_proxy {{ modem_int_ip }}:{{ modem_admin_port | default('80') }} {
             header_up Host {host}
             header_up X-Forwarded-Proto https
         }
+    }
+
+    # Legacy redirect: router.int → modem.int (renamed 2026-04-22; remove after 2026-10-22)
+    @router_legacy host router.int.wilkesliberty.com
+    handle @router_legacy {
+        redir https://modem.int.wilkesliberty.com{uri} 301
     }
 
     @switch host switch.int.wilkesliberty.com
@@ -270,9 +278,9 @@ http://*.int.wilkesliberty.com {
         }
     }
 
-    # Keycloak staging SSO
-    @sso-stg host sso-stg.int.wilkesliberty.com
-    handle @sso-stg {
+    # Keycloak staging auth (canonical hostname: auth-stg.int.wilkesliberty.com)
+    @auth-stg host auth-stg.int.wilkesliberty.com
+    handle @auth-stg {
         import internal_headers
 
         reverse_proxy localhost:8091 {
@@ -282,6 +290,12 @@ http://*.int.wilkesliberty.com {
             header_up X-Forwarded-Host {host}
             header_up X-Forwarded-Port 443
         }
+    }
+
+    # Legacy redirect: sso-stg.int → auth-stg.int (renamed 2026-04-22; remove after 2026-10-22)
+    @sso_stg_legacy host sso-stg.int.wilkesliberty.com
+    handle @sso_stg_legacy {
+        redir https://auth-stg.int.wilkesliberty.com{uri} 301
     }
 
     # Solr staging search

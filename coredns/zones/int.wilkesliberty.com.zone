@@ -14,7 +14,7 @@ ns         IN A 10.10.0.10
 ; These resolve to the on-prem server's LAN IP so internal traffic stays on-net.
 ; Internal Caddy (Caddyfile.internal.j2) handles TLS and routing for these hosts.
 app        IN A 10.10.0.2   ; Drupal CMS (webcms repo) — also public: api.wilkesliberty.com
-sso        IN A 10.10.0.8   ; Keycloak SSO — also public: auth.wilkesliberty.com
+auth       IN A 10.10.0.8   ; Keycloak auth — also public: auth.wilkesliberty.com
 
 ; ── Data & search services (DNS only — accessed directly, no Caddy proxy) ─────
 db         IN A 10.10.0.3
@@ -37,7 +37,9 @@ network    IN CNAME login.tailscale.com.
 ; Run `arp -a` or check your router's DHCP table to find current IPs.
 ; Caddy proxies each of these at *.int.wilkesliberty.com with the wildcard TLS cert.
 nas        IN A 10.10.0.20   ; Synology NAS (nas.int.wilkesliberty.com) — TODO: set actual IP
-router     IN A 10.10.0.1    ; AT&T router admin UI (router.int.wilkesliberty.com)
+modem      IN A 10.10.0.1    ; AT&T ISP modem admin UI (modem.int.wilkesliberty.com; Eero handles LAN routing)
+; router kept for legacy 301 redirect (router.int → modem.int); remove after 2026-10-22
+router     IN A 10.10.0.1    ; legacy redirect target only
 switch     IN A 10.10.0.50   ; TP-Link managed switch (switch.int.wilkesliberty.com) — TODO: set actual IP
 printer    IN A 10.10.0.30   ; Network printer admin UI (printer.int.wilkesliberty.com) — TODO: set actual IP
 print      IN CNAME printer.int.wilkesliberty.com. ; Alias: print.int.wilkesliberty.com → printer

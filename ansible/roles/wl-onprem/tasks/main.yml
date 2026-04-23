@@ -170,6 +170,42 @@
     creates: "{{ ansible_env.HOME }}/Library/LaunchAgents/com.wilkesliberty.backup.plist"
   ignore_errors: true
 
+- name: Deploy prod config snapshot script
+  template:
+    src: config-snapshot-prod.sh.j2
+    dest: "{{ ansible_env.HOME }}/Scripts/config-snapshot-prod.sh"
+    mode: '0755'
+
+- name: Create launchd prod config snapshot plist
+  template:
+    src: com.wilkesliberty.config-snapshot.prod.plist.j2
+    dest: "{{ ansible_env.HOME }}/Library/LaunchAgents/com.wilkesliberty.config-snapshot.prod.plist"
+    mode: '0644'
+
+- name: Load launchd prod config snapshot agent
+  command: launchctl load "{{ ansible_env.HOME }}/Library/LaunchAgents/com.wilkesliberty.config-snapshot.prod.plist"
+  args:
+    creates: "{{ ansible_env.HOME }}/Library/LaunchAgents/com.wilkesliberty.config-snapshot.prod.plist"
+  ignore_errors: true
+
+- name: Deploy staging config snapshot script
+  template:
+    src: config-snapshot-staging.sh.j2
+    dest: "{{ ansible_env.HOME }}/Scripts/config-snapshot-staging.sh"
+    mode: '0755'
+
+- name: Create launchd staging config snapshot plist
+  template:
+    src: com.wilkesliberty.config-snapshot.staging.plist.j2
+    dest: "{{ ansible_env.HOME }}/Library/LaunchAgents/com.wilkesliberty.config-snapshot.staging.plist"
+    mode: '0644'
+
+- name: Load launchd staging config snapshot agent
+  command: launchctl load "{{ ansible_env.HOME }}/Library/LaunchAgents/com.wilkesliberty.config-snapshot.staging.plist"
+  args:
+    creates: "{{ ansible_env.HOME }}/Library/LaunchAgents/com.wilkesliberty.config-snapshot.staging.plist"
+  ignore_errors: true
+
 # ============================================================================
 # PHASE 5: VPN & NETWORKING
 # ============================================================================
@@ -417,6 +453,17 @@
 # ============================================================================
 # PHASE 6: DOCKER DEPLOYMENT
 # ============================================================================
+# The Drupal image is built locally from ~/Repositories/webcms (Dockerfile.prod).
+# Pull the latest webcms code before building so new modules/config are baked in.
+
+- name: Update webcms repo to latest master
+  git:
+    repo: "{{ webcms_repo_url }}"
+    dest: "{{ ansible_env.HOME }}/Repositories/webcms"
+    version: master
+    update: true
+    accept_hostkey: true
+  when: webcms_repo_url is defined
 
 - name: Pull Docker images
   command: docker compose --env-file {{ ansible_env.HOME }}/nas_docker/.env pull
@@ -437,8 +484,8 @@
     chdir: "{{ ansible_env.HOME }}/Repositories/infra/docker"
   when: compose_ps.stdout | length > 0
 
-- name: Start Docker Compose stack
-  command: docker compose --env-file {{ ansible_env.HOME }}/nas_docker/.env up -d
+- name: Build and start Docker Compose stack
+  command: docker compose --env-file {{ ansible_env.HOME }}/nas_docker/.env up -d --build
   args:
     chdir: "{{ ansible_env.HOME }}/Repositories/infra/docker"
 
@@ -494,9 +541,10 @@
 # ============================================================================
 # DRUPAL SMTP CONFIGURATION (Postmark)
 # ============================================================================
-# Apply SMTP settings to Drupal's smtp.settings config so transactional email
-# (contact form notifications, password resets, etc.) is delivered via Postmark.
-# Idempotent: re-runs do nothing if the settings already match.
+# smtp.settings is excluded from config:export/import via config_ignore
+# (web/config/sync/config_ignore.settings.yml). Ansible is the sole source
+# of truth for all SMTP settings — both non-secrets (host/port/from) and the
+# Postmark token (smtp_username/smtp_password). Do not trim this task list.
 
 - name: Ensure PHP memory_limit is high enough in Drupal container
   # Older images shipped with 128M default which OOMs on drush cr / cim.
@@ -561,6 +609,55 @@
     - drupal_status.rc == 0
     - postmark_server_token is defined
     - postmark_server_token | length > 0
+
+- name: Enable config_ignore module (required for smtp.settings export protection)
+  # Use php:eval to avoid drush's translation-download batch which can fail in
+  # production due to missing locale stream wrapper, returning non-zero even
+  # though the module installs successfully.
+  command: >-
+    docker exec wl_drupal drush php:eval
+    "\Drupal::service('module_installer')->install(['config_ignore']);"
+  changed_when: false
+  when: drupal_status.rc == 0
+
+- name: Check wl_postmark_webhook schema integrity (postmark_events table)
+  # If the module is in core.extension but the table is missing (happens when
+  # pm:enable ran against an older image and hook_schema never fired), we must
+  # reinstall so hook_schema creates the table. This check is idempotent.
+  command: >-
+    docker exec wl_drupal drush php:eval
+    "exit(\Drupal::database()->schema()->tableExists('postmark_events') ? 0 : 1);"
+  register: postmark_schema_check
+  changed_when: false
+  failed_when: false
+  when: drupal_status.rc == 0
+
+- name: Reinstall wl_postmark_webhook if schema is missing
+  command: |
+    docker exec wl_drupal bash -c "
+      drush pm:uninstall -y wl_postmark_webhook &&
+      drush pm:enable -y wl_postmark_webhook
+    "
+  when:
+    - drupal_status.rc == 0
+    - postmark_schema_check.rc is defined
+    - postmark_schema_check.rc != 0
+
+- name: Enable wl_postmark_webhook module
+  command: docker exec wl_drupal drush pm:enable -y wl_postmark_webhook
+  register: postmark_module_enable
+  changed_when: "'already enabled' not in postmark_module_enable.stdout"
+  when: drupal_status.rc == 0
+
+- name: Configure Postmark webhook secret
+  command: >-
+    docker exec wl_drupal drush config:set -y wl_postmark_webhook.settings webhook_secret {{ postmark_webhook_secret | quote }}
+  no_log: true
+  changed_when: false
+  when:
+    - drupal_status.rc == 0
+    - postmark_webhook_secret is defined
+    - postmark_webhook_secret | length > 0
 
 - name: Rebuild Drupal cache after SMTP config change
   command: docker exec wl_drupal drush cr
@@ -670,6 +767,63 @@
     var: staging_docker_status.stdout_lines
   when: webcms_repo_url is defined
 
+- name: Wait for staging Drupal to be ready
+  command: docker exec wl_stg_drupal drush status --fields=bootstrap
+  register: stg_drupal_status
+  retries: 10
+  delay: 10
+  until: stg_drupal_status.rc == 0
+  changed_when: false
+  failed_when: false
+  when: webcms_repo_url is defined
+
+- name: Create staging config/sync directory
+  file:
+    path: "{{ ansible_env.HOME }}/Repositories/staging/webcms/config/sync"
+    state: directory
+    mode: '0755'
+  when: webcms_repo_url is defined
+
+- name: Enable config_ignore module in staging
+  command: >-
+    docker exec wl_stg_drupal drush php:eval
+    "\Drupal::service('module_installer')->install(['config_ignore']);"
+  changed_when: false
+  when:
+    - webcms_repo_url is defined
+    - stg_drupal_status.rc == 0
+
+- name: Check wl_postmark_webhook schema integrity in staging
+  command: >-
+    docker exec wl_stg_drupal drush php:eval
+    "exit(\Drupal::database()->schema()->tableExists('postmark_events') ? 0 : 1);"
+  register: stg_postmark_schema_check
+  changed_when: false
+  failed_when: false
+  when:
+    - webcms_repo_url is defined
+    - stg_drupal_status.rc == 0
+
+- name: Reinstall wl_postmark_webhook in staging if schema is missing
+  command: |
+    docker exec wl_stg_drupal bash -c "
+      drush pm:uninstall -y wl_postmark_webhook &&
+      drush pm:enable -y wl_postmark_webhook
+    "
+  when:
+    - webcms_repo_url is defined
+    - stg_drupal_status.rc == 0
+    - stg_postmark_schema_check.rc is defined
+    - stg_postmark_schema_check.rc != 0
+
+- name: Enable wl_postmark_webhook module in staging
+  command: docker exec wl_stg_drupal drush pm:enable -y wl_postmark_webhook
+  register: stg_postmark_module_enable
+  changed_when: "'already enabled' not in stg_postmark_module_enable.stdout"
+  when:
+    - webcms_repo_url is defined
+    - stg_drupal_status.rc == 0
+
 # ============================================================================
 # PHASE 8: POST-DEPLOYMENT VALIDATION
 # ============================================================================
@@ -698,14 +852,14 @@
       - ""
       - "🖥️  Admin Device URLs (Tailscale-only):"
       - "   - NAS:          https://nas.int.wilkesliberty.com"
-      - "   - Router:       https://router.int.wilkesliberty.com"
+      - "   - Modem:        https://modem.int.wilkesliberty.com   (AT&T ISP modem)"
       - "   - Switch:       https://switch.int.wilkesliberty.com"
       - "   - Printer:      https://print.int.wilkesliberty.com"
       - "   ⚠️  Update device IPs in group_vars/all.yml and coredns zone before use"
       - ""
       - "🧪 Staging URLs (staging branch — Tailscale-only):"
       - "   - Drupal:       https://api-stg.int.wilkesliberty.com  (on-prem:8090)"
-      - "   - Keycloak:     https://sso-stg.int.wilkesliberty.com  (on-prem:8091)"
+      - "   - Keycloak:     https://auth-stg.int.wilkesliberty.com (on-prem:8091)"
       - "   - Next.js:      https://stg.int.wilkesliberty.com      (on-prem:3010)"
       - "   - Solr:         https://search-stg.int.wilkesliberty.com (on-prem:8993)"
       - ""

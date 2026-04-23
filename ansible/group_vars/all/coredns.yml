@@ -33,16 +33,16 @@ internal_hosts:
   # Edit with: sops ansible/inventory/group_vars/network_secrets.yml
   # Assign static/reserved DHCP leases on your router so these never change.
   nas: "{{ nas_int_ip }}"
-  router: "{{ router_int_ip }}"
+  modem: "{{ modem_int_ip }}"
   switch: "{{ coredns_switch_ip }}"
   printer: "{{ coredns_printer_ip }}"
 
 # Caddy admin port variables — used in Caddyfile.internal.j2
-# nas_int_ip and router_int_ip come directly from network_secrets.yml (SOPS-encrypted).
-# Redefining them here as {{ internal_hosts.nas/router }} creates a circular reference.
+# nas_int_ip and modem_int_ip come directly from network_secrets.yml (SOPS-encrypted).
+# Redefining them here as {{ internal_hosts.nas/modem }} creates a circular reference.
 nas_admin_port: "5001"       # Synology DSM HTTPS port (5000 is HTTP; Caddy needs TLS upstream)
 
-router_admin_port: "80"      # Most routers default to port 80 for admin
+modem_admin_port: "80"       # AT&T ISP modem admin port
 
 switch_int_ip: "{{ internal_hosts.switch }}"
 switch_admin_port: "80"      # TP-Link smart switch defaults to port 80

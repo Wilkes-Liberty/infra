@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.wilkesliberty.config-snapshot.prod</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>{{ ansible_env.HOME }}/Scripts/config-snapshot-prod.sh</string>
+    </array>
+
+    <!-- Run daily at 03:00 (backup runs at 02:00 — no overlap) -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>3</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>{{ ansible_env.HOME }}/Backups/wilkesliberty/logs/config-snapshot.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>{{ ansible_env.HOME }}/Backups/wilkesliberty/logs/config-snapshot-error.log</string>
+
+    <!-- Do not run immediately on load, only at scheduled time -->
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>

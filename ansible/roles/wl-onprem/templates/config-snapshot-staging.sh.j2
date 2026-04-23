@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+# Nightly Drupal config snapshot — staging
+# Exports config via drush, commits to a dated branch off origin/staging, pushes for review.
+# Scheduled by launchd as com.wilkesliberty.config-snapshot.staging (03:05 daily)
+set -euo pipefail
+
+WEBCMS_DIR="{{ ansible_env.HOME }}/Repositories/staging/webcms"
+DRUPAL_CONTAINER="wl_stg_drupal"
+POSTMARK_TOKEN="{{ postmark_server_token }}"
+DEVOPS_EMAIL="devops@wilkesliberty.com"
+FROM_EMAIL="alerts@wilkesliberty.com"
+LOG_FILE="{{ ansible_env.HOME }}/Backups/wilkesliberty/logs/config-snapshot-staging.log"
+RECENT_ACTIVITY_WINDOW=1800  # 30 minutes
+ENV_LABEL="staging"
+BASE_BRANCH="staging"
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+log()   { printf '[%s] [%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$ENV_LABEL" "$*" | tee -a "$LOG_FILE"; }
+error() { printf '[%s] [%s] ERROR: %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$ENV_LABEL" "$*" | tee -a "$LOG_FILE" >&2; }
+
+rotate_log() {
+  [[ -f "$LOG_FILE" ]] || return 0
+  if find "$LOG_FILE" -mtime +30 -print -quit 2>/dev/null | grep -q .; then
+    mv "$LOG_FILE" "${LOG_FILE%.log}-$(date +%Y%m%d).log"
+    log "Log rotated."
+  fi
+}
+
+send_email() {
+  local subject="$1" body="$2"
+  curl -s -X POST "https://api.postmarkapp.com/email" \
+    -H "Accept: application/json" \
+    -H "Content-Type: application/json" \
+    -H "X-Postmark-Server-Token: ${POSTMARK_TOKEN}" \
+    -d "{\"From\":\"${FROM_EMAIL}\",\"To\":\"${DEVOPS_EMAIL}\",\"Subject\":\"${subject}\",\"TextBody\":\"${body}\"}" \
+    >/dev/null 2>&1 || true
+}
+
+fail() {
+  error "$1"
+  send_email "[WilkesLiberty] Config snapshot FAILED (${ENV_LABEL})" \
+    "Config snapshot failed on $(hostname) at $(date).\n\nError: $1\n\nLog: ${LOG_FILE}"
+  exit 1
+}
+
+dcmd() {
+  docker exec "$DRUPAL_CONTAINER" "$@"
+}
+
+check_recent_activity() {
+  local cutoff count
+  cutoff=$(( $(date +%s) - RECENT_ACTIVITY_WINDOW ))
+  count=$(dcmd drush php:eval "
+    \$c = \Drupal::database()->select('watchdog', 'w')
+      ->condition('w.timestamp', ${cutoff}, '>=')
+      ->condition('w.type', 'config')
+      ->countQuery()->execute()->fetchField();
+    echo \$c;
+  " 2>/dev/null || echo "0")
+  count=$(echo "${count:-0}" | tr -d '[:space:]')
+  [[ "$count" =~ ^[0-9]+$ ]] || count=0
+  [[ "$count" -eq 0 ]]
+}
+
+watchdog_notice() {
+  dcmd drush php:eval \
+    "\Drupal::logger('config_snapshot')->notice('@m', ['@m' => '$1']);" \
+    2>/dev/null || true
+}
+
+has_config_changes() {
+  ! git -C "$WEBCMS_DIR" diff --quiet -- config/sync/ \
+    || [[ -n "$(git -C "$WEBCMS_DIR" ls-files --others --exclude-standard -- config/sync/)" ]]
+}
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+
+main() {
+  mkdir -p "$(dirname "$LOG_FILE")"
+  rotate_log
+  log "=== Config snapshot starting ==="
+
+  # Ensure we are on the base branch with latest commits
+  git -C "$WEBCMS_DIR" checkout "$BASE_BRANCH" \
+    || fail "Could not checkout ${BASE_BRANCH}"
+  git -C "$WEBCMS_DIR" fetch origin "$BASE_BRANCH" \
+    || fail "git fetch origin ${BASE_BRANCH} failed"
+  git -C "$WEBCMS_DIR" pull origin "$BASE_BRANCH" \
+    || fail "git pull origin ${BASE_BRANCH} failed"
+
+  # Skip if config was recently changed (in-progress work)
+  log "Checking for recent config activity..."
+  if ! check_recent_activity; then
+    log "Recent config changes detected — skipping to avoid capturing in-progress work."
+    watchdog_notice "Config snapshot skipped: recent config activity detected."
+    exit 0
+  fi
+
+  # Export config
+  log "Running drush config:export..."
+  dcmd drush config:export -y \
+    || fail "drush config:export failed"
+
+  # Nothing to commit?
+  if ! has_config_changes; then
+    log "No config changes — nothing to snapshot."
+    watchdog_notice "Config snapshot: no changes detected."
+    exit 0
+  fi
+
+  # Create dated branch off origin/staging
+  BRANCH_NAME="auto/config-stg-$(date +%Y-%m-%d-%H%M%S)"
+  log "Creating branch ${BRANCH_NAME}..."
+  git -C "$WEBCMS_DIR" checkout -b "$BRANCH_NAME" "origin/${BASE_BRANCH}" \
+    || fail "git checkout -b ${BRANCH_NAME} failed"
+
+  git -C "$WEBCMS_DIR" add -- config/sync/ \
+    || fail "git add config/sync failed"
+  git -C "$WEBCMS_DIR" commit -m "auto: config snapshot $(date '+%Y-%m-%d %H:%M:%S') [${ENV_LABEL}]" \
+    || fail "git commit failed"
+
+  log "Pushing ${BRANCH_NAME}..."
+  git -C "$WEBCMS_DIR" push origin "$BRANCH_NAME" \
+    || fail "git push failed"
+
+  # Return to base branch
+  git -C "$WEBCMS_DIR" checkout "$BASE_BRANCH" 2>/dev/null || true
+
+  watchdog_notice "Config snapshot created: ${BRANCH_NAME}"
+  log "Branch ${BRANCH_NAME} pushed."
+
+  send_email "[WilkesLiberty] Config snapshot ready for review (${ENV_LABEL})" \
+    "Config snapshot created at $(date).\n\nBranch: ${BRANCH_NAME}\nEnvironment: ${ENV_LABEL}\n\nReview: https://github.com/Wilkes-Liberty/webcms/compare/${BRANCH_NAME}\n\nMerge into staging if the changes look correct."
+
+  log "=== Config snapshot complete: ${BRANCH_NAME} ==="
+}
+
+main "$@"
