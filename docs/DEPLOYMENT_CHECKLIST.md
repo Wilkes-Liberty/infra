@@ -273,7 +273,7 @@ This playbook:
 4. Renders Alertmanager config from Jinja2 template
 5. Deploys Caddy (internal — binds on Tailscale IP only)
 6. Deploys CoreDNS with zone file for `int.wilkesliberty.com`
-7. Deploys launchd plist for daily backups (04:00 AM)
+7. Deploys launchd plist for daily backups (02:00 AM)
 8. Starts the production Docker stack (builds Drupal from `webcms`, Next.js from `ui`)
 
 ### Step 4.3: Configure SSH Access to the Cloud VPS
@@ -573,7 +573,12 @@ ls -lh ~/Backups/wilkesliberty/daily/
 
 # Check automated backup is scheduled
 launchctl list | grep wilkesliberty
+
+# Test the backup is actually restorable (run quarterly)
+make test-backup-restore
 ```
+
+See `docs/BACKUP_RESTORE.md` for the full restore procedure. If `~/Backups/wilkesliberty/daily/` contains ~20-byte files, see `docs/SECURITY_CHECKLIST.md §6.8`.
 
 ---
 
@@ -725,7 +730,7 @@ Deployment is complete when:
 - [ ] Security headers present on all public vhosts
 - [ ] CAA records added in DNS provider web UI; `dig CAA wilkesliberty.com` returns 3 records
 - [ ] `*.int.wilkesliberty.com` NOT resolvable from non-Tailscale devices
-- [ ] Automated backups running daily at 4:00 AM (encrypted)
+- [ ] Automated backups running daily at 2:00 AM (encrypted)
 - [ ] No critical alerts firing in Alertmanager
 
 ---

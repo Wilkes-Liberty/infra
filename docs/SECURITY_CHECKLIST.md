@@ -273,7 +273,9 @@ pip-audit
 ### 6.1 Backups configured and running
 **Status: ✅ Done**
 
-`backup-onprem.sh` deployed via Ansible to `~/Scripts/`. launchd agent `com.wilkesliberty.backup` runs daily at 4:00 AM. Backup encrypted with AES-256 via `BACKUP_ENCRYPTION_KEY`. Synced to Proton Drive via rsync.
+`backup-onprem.sh` deployed via Ansible to `~/Scripts/`. launchd agent `com.wilkesliberty.backup` runs daily at **2:00 AM**. Backup encrypted with AES-256 via `BACKUP_ENCRYPTION_KEY`. Synced to Proton Drive via rsync.
+
+See §6.8 for backup script robustness fixes (PATH, prereq checks, Postmark alerting, log rotation). See `docs/BACKUP_RESTORE.md` for the restore procedure and quarterly drill.
 
 ### 6.2 Backup restore tested
 **Status: ✅ Done (2026-04-23)**
@@ -334,6 +336,30 @@ Drupal schema changes use `.install` files (hook_update_N) committed to the webc
 
 Drupal manages Postgres connections via its database layer. At current scale, no separate connection pooler (pgBouncer) is warranted. Revisit when concurrent connection count approaches Postgres `max_connections` (default 100).
 
+### 6.8 Backup script robustness
+**Status: ✅ Done (2026-04-23)**
+
+`scripts/backup-onprem.sh` was silently failing on every daily run since first deployment — all dumps were ~20 bytes. Root cause: launchd's minimal `PATH` (`/usr/bin:/bin:/usr/sbin:/sbin`) does not include the Docker CLI. All failure modes are now handled:
+
+| What was broken | Fix applied |
+|---|---|
+| `docker: command not found` in launchd context | `export PATH="/opt/homebrew/bin:/usr/local/bin:..."` at top of script; same PATH also set in `com.wilkesliberty.backup.plist` `EnvironmentVariables` block |
+| No prereq check — junk dump created before failure detected | `check_prerequisites()` runs before any I/O: verifies `docker` on PATH, `wl_postgres` running + healthy |
+| Failed dump left a valid-looking ~20-byte `.sql.gz` | Dump to `.tmp`, size-check (< 10 KB → fail + delete), only `mv` to final name on success |
+| Silent failures — no notification | `send_failure_alert()` calls Postmark API via `/usr/bin/curl` on any failure (docker missing, container down, dump too small, pg_dump error) |
+| Logs grew unbounded | `trap 'rotate_logs' EXIT` trims `backup.log` + `backup-error.log` to last 10,000 lines at script exit |
+
+`docker/.env.j2` now includes `POSTMARK_SERVER_TOKEN` so the script can send alerts from the launchd context.
+
+**Verified (2026-04-23):**
+- `grep 'export PATH="/opt/homebrew/bin"' ~/Scripts/backup-onprem.sh` returns the line ✅
+- `~/Library/LaunchAgents/com.wilkesliberty.backup.plist` has `EnvironmentVariables` block with PATH + HOME ✅
+- `~/nas_docker/.env` has non-empty `POSTMARK_SERVER_TOKEN` ✅
+
+**Staging note:** The backup script targets prod only (`wl_postgres`, `~/nas_docker/`). Staging is ephemeral and refreshed from prod via `make refresh-staging` — no separate staging backup is needed or scheduled.
+
+See `docs/BACKUP_RESTORE.md` for the restore procedure and quarterly drill.
+
 ---
 
 ## 7. Deployment & Operations
@@ -369,11 +395,13 @@ Staging environment exists and `make refresh-staging` is documented. There is no
 **Action:** Add a checklist item to `DEPLOYMENT_CHECKLIST.md`: "Deploy to staging and smoke-test before deploying to production."
 
 ### 7.6 Auto-update policy for OS and packages
-**Status: ❌ Not done**
+**Status: ⚠️ Partial — VPS auto-updates done; on-prem and app cadence not documented**
 
-No `unattended-upgrades` or equivalent is configured on the VPS. No documented cadence for Drupal security releases, Keycloak updates, Docker image refreshes.
+VPS: `unattended-upgrades` deployed via the `common` Ansible role (security-only updates). Deployed live as part of SSH hardening (§3.6, 2026-04-23).
 
-**Action:** On VPS: `apt install unattended-upgrades` with security-only updates. Document monthly cadence for: `composer update drupal/core-*`, Docker image version bumps, Keycloak minor upgrades.
+On-prem macOS: no equivalent to `unattended-upgrades`; macOS system updates are manual. Docker Desktop auto-updates when configured in preferences.
+
+**Remaining action:** Document a monthly cadence for: `docker exec wl_drupal composer update drupal/core-*`, Docker image version bumps (update pinned tags in `docker-compose.yml`), Keycloak minor upgrades.
 
 ---
 
@@ -483,6 +511,12 @@ Run before every production deploy:
 - [ ] No `error` entries in watchdog (`docker exec wl_drupal drush watchdog:show --severity=error --count=20`)
 - [ ] Prometheus targets all UP (`https://metrics.int.wilkesliberty.com/targets`)
 
+**Quarterly (not every deploy)**
+- [ ] `make test-backup-restore` — restore latest dump into temp container, verify ≥50 tables, node count, config count (see `docs/BACKUP_RESTORE.md`)
+- [ ] `docker exec wl_drupal composer audit` — no critical Drupal security advisories
+- [ ] `npm audit` in `~/Repositories/ui` — no critical issues
+- [ ] Review `~/Backups/wilkesliberty/logs/backup.log` — confirm daily backups are succeeding (non-20-byte dumps)
+
 ---
 
 ## Open Issues Summary
@@ -493,7 +527,7 @@ Run before every production deploy:
 | 🟡 Medium | No credential rotation schedule | §1.4 |
 | 🟡 Medium | Rollback procedure not documented | §7.4 |
 | 🟡 Medium | No dependency scanning (composer/npm audit) | §5.4 |
-| 🟡 Medium | OS auto-updates not configured on VPS | §7.6 |
+| 🟡 Medium | App/Docker update cadence not documented (VPS OS updates ✅) | §7.6 |
 | 🟡 Medium | Dockerfile base images not fully pinned | §5.2 |
 | 🟡 Medium | No incident response runbook | §10.1 |
 | 🟡 Medium | PII retention policy not documented | §11.1 |

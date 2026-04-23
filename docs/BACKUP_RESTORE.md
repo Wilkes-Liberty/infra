@@ -68,22 +68,18 @@ The script:
 
 ---
 
-## Known issue: 20-byte dumps from launchd
+## Previously known issue: 20-byte dumps from launchd (FIXED 2026-04-23)
 
-The 2:00 AM launchd agent may produce empty (≈20 byte) `.sql.gz` files if Docker containers are not accessible in the launchd execution context. The restore script catches this:
+The daily launchd job was producing empty (≈20 byte) `.sql.gz` files on every run since initial deployment. Root cause: launchd's minimal PATH (`/usr/bin:/bin:/usr/sbin:/sbin`) does not include the Docker CLI at `/opt/homebrew/bin/docker` or `/usr/local/bin/docker`.
 
-```
-[FAIL]  Dump file is suspiciously small (20 bytes) — backup may have failed silently.
-[FAIL]  Re-run the backup script manually: ~/Scripts/backup-onprem.sh
-```
+**This is fixed.** The following were applied on 2026-04-23:
+- `backup-onprem.sh` now exports `PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"` at the top
+- `com.wilkesliberty.backup.plist` has an `EnvironmentVariables` block with the same PATH
+- `check_prerequisites()` runs before any I/O — aborts with a Postmark alert if docker or wl_postgres is unavailable
+- Dumps go to `.tmp` first; size-check (< 10 KB → failure + Postmark alert); only `mv` to final name on success
+- Any failure sends a Postmark email alert to `3@wilkesliberty.com` with the reason and recent error log tail
 
-**Workaround:** Run the backup manually to produce a valid dump:
-```bash
-~/Scripts/backup-onprem.sh
-make test-backup-restore
-```
-
-The root cause is that launchd agents launched at login (`KeepAlive: false`) may not inherit the user's Docker socket environment. Fix: ensure `backup-onprem.sh` uses the absolute path to `docker` and that `DOCKER_HOST` is set in the launchd plist if needed.
+If you see 20-byte dumps after this fix, check `~/Backups/wilkesliberty/logs/backup-error.log` — a Postmark alert should also have been sent. See `docs/SECURITY_CHECKLIST.md §6.8` for the full evidence.
 
 ---
 
