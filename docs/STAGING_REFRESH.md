@@ -17,13 +17,33 @@ Do **not** run it mid-sprint if someone is actively testing on staging — it wi
 
 ---
 
+## One-time setup: fill in `stg_postmark_server_token`
+
+Before the first run, create a **sandbox** server called `wilkesliberty-staging` in
+[Postmark](https://account.postmarkapp.com) and copy its server token.  Then write
+it to sops:
+
+```bash
+cd ~/Repositories/infra
+sops --set '["stg_postmark_server_token"] "YOUR_TOKEN_HERE"' \
+  ansible/inventory/group_vars/staging_secrets.yml
+```
+
+The playbook will refuse to proceed if this token is empty.
+
+To test mail delivery on staging, add your personal address as a **sandbox
+recipient** in Postmark → wilkesliberty-staging → Sandbox → Recipients.
+Only those addresses will receive the email; all other `To:` addresses are silently
+swallowed by Postmark's sandbox.
+
+---
+
 ## How to run it
 
 ```bash
 make refresh-staging
+# Prompts: "Type 'yes' to continue:"
 ```
-
-You will be prompted to type `yes` to confirm before anything destructive happens.
 
 The playbook runs locally (no SSH — on-prem server is localhost) and takes
 roughly 2–5 minutes depending on database size and file volume.
@@ -34,106 +54,137 @@ roughly 2–5 minutes depending on database size and file volume.
 
 | Step | Action |
 |------|--------|
-| 1 | Verify both `wl_postgres`/`wl_drupal` and `wl_stg_postgres`/`wl_stg_drupal` are running |
-| 2 | `pg_dump` prod DB (`wl_postgres`) → `/tmp/wl-prod-refresh.dump` on host |
-| 3 | `dropdb` + `createdb` on staging, then `pg_restore --no-owner --no-acl` |
-| 4 | `rsync` prod public files (`~/nas_docker/drupal/files/`) → staging (`~/nas_docker_staging/drupal/files/`) — **private files are not copied** |
-| 5 | `drush cache:rebuild` so drush can bootstrap the restored DB |
-| 6 | **Sanitize** user emails and truncate watchdog (see below) |
-| 7 | **Disable SMTP** (`smtp_on: false`) — no mail can leave staging |
-| 8 | Set staging-specific config (site mail, webhook secret, admin password) |
+| 1 | Verify all four containers are running |
+| 2 | `pg_dump` prod DB → `/tmp/wl-prod-refresh.dump` on host |
+| 3 | `dropdb` + `createdb` staging, `pg_restore --no-owner --no-acl` |
+| 4 | `rsync` prod public files → staging (**private files are not copied**) |
+| 5a | `drush cache:rebuild` so drush can bootstrap the restored DB |
+| 5b | Rewrite all user emails to `noreply+stg-<uid>@wilkesliberty.com` |
+| 5c | Invalidate non-admin password hashes (uid > 1) — invalid bcrypt prefix |
+| 5d | Rewrite custom email-type entity fields (dynamic enumeration via Drupal's field API) |
+| 5e | Rewrite webform submission email values (dynamic enumeration via webform config) |
+| 5f | Truncate `watchdog` table |
+| 6 | Configure SMTP to use sandbox Postmark server (`stg_postmark_server_token`) |
+| 7 | Set staging site mail, webhook secret (`stg_postmark_webhook_secret`), admin password |
+| 8 | Update `next.next_site.wilkesliberty_ui` URLs → `https://stg.int.wilkesliberty.com` |
 | 9 | `drush updatedb -y` + final `drush cache:rebuild` |
-| 10 | Verify Drupal bootstrap and display admin user info |
+| 10 | Verify bootstrap, display admin info |
 | 11 | Remove temp dump files from `/tmp` and both postgres containers |
 
 ---
 
 ## Sanitization guarantees
 
-### Email addresses
-All user email addresses in `users_field_data` are rewritten:
+### User emails
+All `users_field_data.mail` values are rewritten:
 
 ```
 realuser@example.com  →  noreply+stg-42@wilkesliberty.com
 ```
 
-where `42` is the user's uid.  Any accidental email send goes to a
-non-existent address rather than a real inbox.
+### Password hashes (non-admin)
+All non-admin accounts (uid > 1) get an invalid bcrypt-prefixed hash:
 
-**Known gaps:** custom profile entity fields that store email addresses are
-not rewritten by this step.  If your content type has an email field that
-you expose to users, add a sanitization SQL statement to the playbook.
-
-### SMTP
-
-SMTP is **disabled entirely** on staging (`smtp.settings.smtp_on = false`).
-Any code that tries to send mail will silently fail — no email leaves staging.
-
-**Upgrade path (option b):** Create a `wilkesliberty-staging` server in
-Postmark, store its token in `staging_secrets.yml` as `stg_postmark_server_token`,
-and update the playbook's SMTP isolation task to configure SMTP with that token
-instead of disabling it.  This lets you test actual mail delivery in isolation.
-
-### Watchdog
-The `watchdog` table is truncated.  Production log entries are not useful on
-staging and contain user PII (IP addresses, paths, messages).
-
-### Admin password
-The Drupal `admin` account (uid=1) password is reset to the value of
-`stg_keycloak_admin_password` in SOPS.  To retrieve it:
-
-```bash
-sops -d ansible/inventory/group_vars/staging_secrets.yml | grep stg_keycloak_admin_password
+```
+$2y$10$staging.locked.out.<uid>
 ```
 
-To use a dedicated staging Drupal admin password instead, add
-`stg_drupal_admin_password` to `staging_secrets.yml` and update the
-`Set staging Drupal admin password` task in `refresh-staging.yml`.
+This value can never match any real password.  Admins cannot reset these
+accounts via email because the sandbox SMTP only delivers to pre-approved
+Postmark recipient addresses.
 
-### What is NOT sanitized
-- **Other user passwords** — all non-admin accounts retain their prod
-  password hashes.  Because SMTP is disabled, those accounts cannot
-  receive a password-reset email, and staging is Tailscale-only anyway.
-- **Content** — all nodes, media, and config are exact clones of prod.
-- **Private files** — `~/nas_docker/drupal/private/` is not copied.
+Admin (uid=1) gets a fresh password — see "Logging in" below.
+
+### SMTP isolation
+Staging uses a **Postmark sandbox server** (`wilkesliberty-staging`).
+Sandbox servers only deliver to explicitly pre-approved recipient addresses.
+Any other `To:` address is silently discarded by Postmark.  This means:
+- You can test real email delivery end-to-end on staging
+- No risk of accidentally emailing real users regardless of what email
+  addresses remain in the DB
+- Sandbox sends do not affect production reputation or stats
+
+The sandbox token (`stg_postmark_server_token`) is isolated from production
+and stored separately in sops.
+
+### Custom entity email fields
+All `field_storage_config` entries with `type: email` are enumerated at
+runtime.  For each, both the data table and the revision table are updated:
+
+```
+noreply+stg-<entity_id>@wilkesliberty.com
+```
+
+If no custom email fields exist, the step logs "No custom email fields found."
+
+### Webform submission emails
+All webform elements with `#type: email` or `webform_email_confirm` are
+enumerated from webform config.  Matching rows in `webform_submission_data`
+are rewritten:
+
+```
+noreply+stg-webform-<sid>@wilkesliberty.com
+```
+
+If webform is not installed, or no email elements exist, the step skips
+gracefully.
+
+### Watchdog
+The `watchdog` table is truncated — no prod log PII on staging.
+
+### Next.js URLs
+`next.next_site.wilkesliberty_ui` is updated:
+
+| Key | Staging value |
+|---|---|
+| `base_url` | `https://stg.int.wilkesliberty.com` |
+| `preview_url` | `https://stg.int.wilkesliberty.com/api/draft` |
+| `revalidate_url` | `https://stg.int.wilkesliberty.com/api/revalidate` |
+
+### Private files
+`~/nas_docker/drupal/private/` is **not** copied.
 
 ---
 
-## Logging in to staging after a refresh
+## Remaining gaps
+
+| Gap | Risk | Notes |
+|---|---|---|
+| Custom profile entity email fields (non `field_storage_config`) | Low | Only applies to base-field overrides on profile entity; not currently used |
+| Content fields that store email as plain text (varchar, not email type) | Low | Would require field-by-field manual config; no such fields currently exist |
+| Revalidate / preview secrets in `next.next_site` | Low | Still set to prod values after restore; staging Next.js uses different env vars (`stg_drupal_revalidate_secret`) so there's no functional overlap, but the DB value is stale |
+
+---
+
+## Logging in after a refresh
 
 | URL | `https://api-stg.int.wilkesliberty.com/user/login` |
 |---|---|
 | Username | `admin` |
-| Password | value of `stg_keycloak_admin_password` in sops (see above) |
+| Password | `stg_drupal_admin_password` in sops (see below) |
 
-All other user accounts have their prod passwords.  Because SMTP is off
-they cannot reset passwords via email.
+To retrieve the password:
+
+```bash
+sops -d ansible/inventory/group_vars/staging_secrets.yml | grep stg_drupal_admin_password
+```
+
+All other user accounts have invalidated password hashes and cannot log in.
 
 ---
 
-## Next.js site URLs (manual check required)
+## Sops keys used by this workflow
 
-After a refresh, the Drupal `next.next_site` configuration may still reference
-production URLs (`https://www.wilkesliberty.com`).  Verify and update at:
-
-```
-https://api-stg.int.wilkesliberty.com/admin/config/services/next
-```
-
-Change `Base URL` to `https://stg.int.wilkesliberty.com` if needed.
-
-This is not automated because the config entity machine name varies per
-installation and cannot be safely assumed in the playbook.
-
----
-
-## Secrets used by the playbook
-
-| Variable | Source file | Purpose |
+| Key | File | Purpose |
 |---|---|---|
 | `drupal_db_password` | `sso_secrets.yml` | Auth for prod `pg_dump` |
-| `stg_drupal_db_password` | `staging_secrets.yml` | Auth for staging `dropdb`/`createdb`/`pg_restore`/sanitize SQL |
-| `stg_keycloak_admin_password` | `staging_secrets.yml` | Set staging Drupal admin password |
-| `postmark_webhook_secret` | `app_secrets.yml` | Reset webhook secret on staging |
+| `stg_drupal_db_password` | `staging_secrets.yml` | Auth for staging postgres operations |
+| `stg_drupal_admin_password` | `staging_secrets.yml` | Staging Drupal admin (uid=1) password |
+| `stg_postmark_server_token` | `staging_secrets.yml` | Postmark sandbox server token (fill in before first run) |
+| `stg_postmark_webhook_secret` | `staging_secrets.yml` | Staging Postmark webhook URL secret |
 
-All secrets are loaded from SOPS at playbook runtime.  Nothing is hardcoded.
+All secrets are loaded from SOPS at runtime — nothing is hardcoded.
+
+`make onprem` also applies `stg_postmark_server_token` and `stg_postmark_webhook_secret`
+to the running staging Drupal when the staging bootstrap check passes, so SMTP
+isolation and webhook credentials survive a fresh staging deploy.

@@ -7,16 +7,22 @@
 # for confirmation before proceeding.
 #
 # What this does, in order:
-#   1. Prerequisites check (both stacks must be running)
-#   2. pg_dump from wl_postgres → /tmp on host
-#   3. dropdb / createdb on wl_stg_postgres + pg_restore
-#   4. rsync public files: nas_docker → nas_docker_staging (no private files)
-#   5. Sanitize: rewrite user emails, truncate watchdog
-#   6. SMTP isolation: smtp_on = false (see TODO for Postmark staging option)
-#   7. Staging config: site mail, webhook secret, admin password
-#   8. drush updatedb + cache:rebuild
-#   9. Verify bootstrap
-#  10. Cleanup temp dump files
+#   1.  Prerequisites check (both stacks must be running)
+#   2.  pg_dump from wl_postgres → /tmp on host
+#   3.  dropdb / createdb on wl_stg_postgres + pg_restore
+#   4.  rsync public files: nas_docker → nas_docker_staging (no private files)
+#   5a. cache:rebuild so drush can bootstrap restored DB
+#   5b. Sanitize user emails (users_field_data) → noreply+stg-<uid>@…
+#   5c. Randomize non-admin password hashes (uid > 1) — invalid bcrypt prefix
+#   5d. Sanitize custom email-type entity fields (dynamic enumeration)
+#   5e. Sanitize webform submission emails (dynamic element enumeration)
+#   5f. Truncate watchdog table
+#   6.  SMTP: configure sandbox Postmark server (stg_postmark_server_token)
+#   7.  Staging config: site mail, webhook secret, admin password
+#   8.  Update next.next_site.wilkesliberty_ui → staging URLs
+#   9.  drush updatedb + cache:rebuild
+#  10.  Verify bootstrap
+#  11.  Cleanup temp dump files
 # =============================================================================
 
 - name: Refresh staging Drupal from production
@@ -44,8 +50,10 @@
     dump_in_container: /tmp/prod-refresh.dump
     dump_on_host: /tmp/wl-prod-refresh.dump
 
-    # Staging-specific overrides
+    # Staging-specific config overrides
     staging_site_mail: "staging+drupal@wilkesliberty.com"
+    staging_ui_base_url: "https://stg.int.wilkesliberty.com"
+    staging_next_site_id: "wilkesliberty_ui"
 
   pre_tasks:
     - name: Load SOPS-encrypted secrets
@@ -53,8 +61,8 @@
         file: "{{ playbook_dir }}/../inventory/group_vars/{{ item }}"
       loop:
         - sso_secrets.yml       # drupal_db_password
-        - staging_secrets.yml   # stg_drupal_db_password, stg_keycloak_admin_password
-        - app_secrets.yml       # postmark_webhook_secret
+        - staging_secrets.yml   # stg_drupal_db_password, stg_drupal_admin_password,
+                                # stg_postmark_server_token, stg_postmark_webhook_secret
       no_log: true
 
   tasks:
@@ -71,6 +79,15 @@
         done
         echo "All four containers are running."
       changed_when: false
+
+    - name: Verify stg_postmark_server_token is set
+      fail:
+        msg: >-
+          stg_postmark_server_token is empty in staging_secrets.yml.
+          Create the wilkesliberty-staging Postmark sandbox server, copy its
+          token, then run: sops --set '["stg_postmark_server_token"] "TOKEN"'
+          ansible/inventory/group_vars/staging_secrets.yml
+      when: stg_postmark_server_token is not defined or stg_postmark_server_token | length == 0
 
     # ── 2. Dump production database ───────────────────────────────────────────
 
@@ -121,8 +138,7 @@
         {{ dump_in_container }}
       register: pg_restore_result
       changed_when: true
-      # pg_restore exits 1 for non-fatal warnings (sequences, ownership) — that is OK.
-      # Exit 3 = fatal error.  Treat anything >1 as a failure.
+      # pg_restore exits 1 for non-fatal warnings (sequences, ownership). Exit 3 = fatal.
       failed_when: pg_restore_result.rc > 1
       no_log: true
 
@@ -140,16 +156,15 @@
         {{ stg_files }}/
       changed_when: true
 
-    # ── 5. First cache rebuild so drush can bootstrap the restored DB ─────────
+    # ── 5a. Initial cache rebuild so drush can bootstrap restored DB ──────────
 
     - name: Rebuild cache (initial — lets drush bootstrap restored DB)
       command: docker exec {{ stg_drupal }} drush cache:rebuild
       changed_when: true
 
-    # ── 6. Sanitize ───────────────────────────────────────────────────────────
+    # ── 5b. Sanitize: user email addresses ───────────────────────────────────
 
     - name: Rewrite user email addresses to staging-safe values
-      # Prevents any accidental mail sending to real addresses.
       # Pattern: noreply+stg-<uid>@wilkesliberty.com
       shell: |
         docker exec \
@@ -160,7 +175,112 @@
       changed_when: true
       no_log: true
 
-    - name: Truncate watchdog table (prod logs not needed on staging)
+    # ── 5c. Sanitize: non-admin password hashes ───────────────────────────────
+
+    - name: Invalidate non-admin user password hashes
+      # Sets an invalid bcrypt-prefixed hash that can never match any password.
+      # uid-suffixed to ensure uniqueness. Users cannot log in; since the
+      # sandbox SMTP only delivers to pre-approved recipients, password reset
+      # emails cannot reach most users either.  Admin (uid=1) is handled
+      # separately via drush user:password after this block.
+      shell: |
+        docker exec \
+          -e PGPASSWORD={{ stg_drupal_db_password | quote }} \
+          {{ stg_pg }} \
+          psql -U {{ db_user }} -d {{ db_name }} \
+          -c "UPDATE users_field_data SET pass = '\$2y\$10\$staging.locked.out.' || uid WHERE uid > 1"
+      changed_when: true
+      no_log: true
+
+    # ── 5d. Sanitize: custom email-type entity fields (dynamic) ──────────────
+
+    - name: Rewrite custom entity email fields
+      # Enumerates all field_storage_config entries with type=email, then for
+      # each runs UPDATE on both the data table and revision table.
+      # Logs "no custom email fields found" if none exist.
+      command: >-
+        docker exec {{ stg_drupal }} drush php:eval "
+          \$fields = \Drupal::entityTypeManager()
+            ->getStorage('field_storage_config')
+            ->loadByProperties(['type' => 'email']);
+          if (empty(\$fields)) {
+            echo 'No custom email fields found.';
+          } else {
+            \$db = \Drupal::database();
+            foreach (\$fields as \$field) {
+              \$entity_type = \$field->getTargetEntityTypeId();
+              \$field_name  = \$field->getName();
+              \$col         = \$field_name . '_value';
+              foreach ([
+                \$entity_type . '__' . \$field_name,
+                \$entity_type . '_revision__' . \$field_name,
+              ] as \$table) {
+                if (\$db->schema()->tableExists(\$table)) {
+                  \$db->query(\"UPDATE {\$table} SET {\$col} = CONCAT('noreply+stg-', entity_id, '@wilkesliberty.com') WHERE {\$col} IS NOT NULL AND {\$col} != ''\");
+                  echo \"Sanitized {\$table}.{\$col}\" . PHP_EOL;
+                }
+              }
+            }
+          }
+        "
+      register: custom_field_sanitize
+      changed_when: "'Sanitized' in custom_field_sanitize.stdout"
+
+    - name: Show custom field sanitization result
+      debug:
+        msg: "{{ custom_field_sanitize.stdout_lines }}"
+
+    # ── 5e. Sanitize: webform submission email values ─────────────────────────
+
+    - name: Rewrite webform submission email values
+      # Finds email-type elements across all webform configs, then rewrites
+      # matching rows in webform_submission_data.
+      command: >-
+        docker exec {{ stg_drupal }} drush php:eval "
+          if (!\Drupal::moduleHandler()->moduleExists('webform')) {
+            echo 'Webform module not installed — skipping.';
+            return;
+          }
+          \$email_elements = [];
+          foreach (\Drupal::configFactory()->listAll('webform.webform.') as \$name) {
+            \$raw = \Drupal::configFactory()->get(\$name)->get('elements');
+            if (!is_string(\$raw)) continue;
+            foreach (explode(PHP_EOL, \$raw) as \$line) {
+              if (preg_match('/^\s+#type:\s+email/', \$line, \$m)) {
+                preg_match_all('/^(\w+):/m', \$raw, \$keys);
+              }
+            }
+            \$parsed = \Drupal::service('serialization.yaml')->decode(\$raw);
+            foreach (\$parsed as \$key => \$def) {
+              if (is_array(\$def) && isset(\$def['#type']) && in_array(\$def['#type'], ['email', 'webform_email_confirm'])) {
+                \$email_elements[] = \$key;
+              }
+            }
+          }
+          \$email_elements = array_unique(\$email_elements);
+          if (empty(\$email_elements)) {
+            echo 'No webform email elements found — skipping.';
+            return;
+          }
+          \$db = \Drupal::database();
+          \$in = implode(',', array_map(fn(\$e) => \$db->quote(\$e), \$email_elements));
+          if (\$db->schema()->tableExists('webform_submission_data')) {
+            \$db->query(\"UPDATE webform_submission_data SET value = CONCAT('noreply+stg-webform-', sid, '@wilkesliberty.com') WHERE element_id IN ({\$in}) AND value IS NOT NULL AND value != ''\");
+            echo 'Webform submission emails sanitized for elements: ' . implode(', ', \$email_elements);
+          } else {
+            echo 'webform_submission_data table not found — no submissions to sanitize.';
+          }
+        "
+      register: webform_sanitize
+      changed_when: "'sanitized' in webform_sanitize.stdout"
+
+    - name: Show webform sanitization result
+      debug:
+        msg: "{{ webform_sanitize.stdout_lines }}"
+
+    # ── 5f. Truncate watchdog (prod logs, PII) ────────────────────────────────
+
+    - name: Truncate watchdog table
       shell: |
         docker exec \
           -e PGPASSWORD={{ stg_drupal_db_password | quote }} \
@@ -170,46 +290,90 @@
       changed_when: true
       no_log: true
 
-    - name: Set staging system site mail
+    # ── 6. SMTP: sandbox Postmark server ─────────────────────────────────────
+    # Staging uses a dedicated Postmark sandbox server (wilkesliberty-staging).
+    # Sandbox only delivers to pre-approved recipient addresses — no risk of
+    # sending to real users even if email addresses were somehow not sanitized.
+
+    - name: Set staging system site admin email
       command: >-
         docker exec {{ stg_drupal }} drush config:set
         -y system.site mail {{ staging_site_mail }}
       changed_when: true
 
-    # ── 7. SMTP isolation ─────────────────────────────────────────────────────
-    # Option (a): disable SMTP entirely on staging — mail goes nowhere.
-    # TODO: Upgrade to option (b): create a wilkesliberty-staging Postmark server,
-    # store token in staging_secrets.yml as stg_postmark_server_token, and
-    # configure staging Drupal SMTP to use that isolated server instead.
-
-    - name: Disable SMTP on staging (email isolation — no mail leaves staging)
+    - name: Configure staging SMTP settings (non-credential)
       command: >-
-        docker exec {{ stg_drupal }} drush php:eval
-        "\Drupal::configFactory()->getEditable('smtp.settings')->set('smtp_on', 0)->save();"
-      changed_when: true
+        docker exec {{ stg_drupal }} drush config:set -y smtp.settings {{ item.key }} {{ item.value | quote }}
+      loop:
+        - { key: smtp_on,        value: "true" }
+        - { key: smtp_host,      value: "{{ drupal_smtp_host }}" }
+        - { key: smtp_hostbackup,value: "" }
+        - { key: smtp_port,      value: "{{ drupal_smtp_port }}" }
+        - { key: smtp_protocol,  value: "{{ drupal_smtp_protocol }}" }
+        - { key: smtp_autotls,   value: "true" }
+        - { key: smtp_timeout,   value: "{{ drupal_smtp_timeout }}" }
+        - { key: smtp_from,      value: "{{ staging_site_mail }}" }
+        - { key: smtp_fromname,  value: "WilkesLiberty Staging" }
+      changed_when: false
 
-    # ── 8. Staging-specific config ────────────────────────────────────────────
+    - name: Configure staging SMTP credentials (sandbox Postmark token)
+      command:
+        argv:
+          - docker
+          - exec
+          - -e
+          - "STG_PM_TOKEN={{ stg_postmark_server_token }}"
+          - "{{ stg_drupal }}"
+          - drush
+          - php:eval
+          - |
+            $t = getenv('STG_PM_TOKEN');
+            $c = \Drupal::configFactory()->getEditable('smtp.settings');
+            $c->set('smtp_username', $t)->set('smtp_password', $t)->save();
+      no_log: true
+      changed_when: false
+
+    # ── 7. Staging-specific config ────────────────────────────────────────────
 
     - name: Reset Postmark webhook secret on staging
-      # Staging needs its own secret so prod Postmark webhooks never land on staging.
-      # TODO: add stg_postmark_webhook_secret to staging_secrets.yml for a
-      # fully isolated staging webhook URL.
       command: >-
         docker exec {{ stg_drupal }} drush config:set
-        -y wl_postmark_webhook.settings webhook_secret {{ postmark_webhook_secret | quote }}
+        -y wl_postmark_webhook.settings webhook_secret {{ stg_postmark_webhook_secret | quote }}
       no_log: true
       changed_when: true
-      when: postmark_webhook_secret is defined and postmark_webhook_secret | length > 0
 
     - name: Set staging Drupal admin password
-      # Uses stg_keycloak_admin_password as a convenient staging credential already
-      # in sops.  To use a dedicated password, add stg_drupal_admin_password to
-      # staging_secrets.yml and update this task.
       command: >-
         docker exec {{ stg_drupal }} drush user:password admin
-        {{ stg_keycloak_admin_password | quote }}
+        {{ stg_drupal_admin_password | quote }}
       no_log: true
       changed_when: true
+
+    # ── 8. Update next.next_site URLs ─────────────────────────────────────────
+
+    - name: Check if next.next_site config exists
+      command: >-
+        docker exec {{ stg_drupal }} drush config:get
+        next.next_site.{{ staging_next_site_id }}
+      register: next_site_check
+      changed_when: false
+      failed_when: false
+
+    - name: Update next.next_site URLs to staging
+      command: >-
+        docker exec {{ stg_drupal }} drush config:set -y
+        next.next_site.{{ staging_next_site_id }} {{ item.key }} {{ item.value | quote }}
+      loop:
+        - { key: base_url,      value: "{{ staging_ui_base_url }}" }
+        - { key: preview_url,   value: "{{ staging_ui_base_url }}/api/draft" }
+        - { key: revalidate_url,value: "{{ staging_ui_base_url }}/api/revalidate" }
+      when: next_site_check.rc == 0
+      changed_when: true
+
+    - name: Note about next.next_site
+      debug:
+        msg: "next.next_site.{{ staging_next_site_id }} not found — skipping URL update."
+      when: next_site_check.rc != 0
 
     # ── 9. Final drush hygiene ────────────────────────────────────────────────
 
@@ -264,14 +428,18 @@
           - ""
           - "Sanitization applied:"
           - "  - All user emails → noreply+stg-<uid>@wilkesliberty.com"
+          - "  - Non-admin password hashes invalidated (uid > 1)"
+          - "  - Custom email-type entity fields rewritten (see above)"
+          - "  - Webform submission emails rewritten (see above)"
           - "  - Watchdog log truncated"
-          - "  - SMTP disabled (smtp_on: false) — no mail leaves staging"
-          - "  - Admin (uid=1) password reset — see sops stg_keycloak_admin_password"
-          - "  - Postmark webhook secret reset"
+          - "  - SMTP uses sandbox Postmark server (isolated — sandbox only delivers to pre-approved recipients)"
+          - "  - Admin (uid=1) password → stg_drupal_admin_password in sops"
+          - "  - Postmark webhook secret → stg_postmark_webhook_secret in sops"
+          - "  - next.next_site URLs → https://stg.int.wilkesliberty.com"
           - ""
           - "Staging Drupal: https://api-stg.int.wilkesliberty.com"
           - "Admin login:    https://api-stg.int.wilkesliberty.com/user/login"
-          - "Credentials:    sops -d ansible/inventory/group_vars/staging_secrets.yml | grep stg_keycloak_admin_password"
+          - "Admin password: sops -d ansible/inventory/group_vars/staging_secrets.yml | grep stg_drupal_admin_password"
           - ""
-          - "NOTE: Next.js next.next_site config may still point at prod URLs."
-          - "Verify at /admin/config/services/next and update if needed."
+          - "IMPORTANT: In Postmark, add your staging test addresses as sandbox recipients"
+          - "in the wilkesliberty-staging server before testing email delivery."

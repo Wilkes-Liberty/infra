@@ -824,6 +824,60 @@
     - webcms_repo_url is defined
     - stg_drupal_bootstrap.stdout | default('') | length > 0
 
+- name: Configure staging SMTP settings (non-credential)
+  command: >-
+    docker exec wl_stg_drupal drush config:set -y smtp.settings {{ item.key }} {{ item.value | quote }}
+  loop:
+    - { key: smtp_on,        value: "true" }
+    - { key: smtp_host,      value: "{{ drupal_smtp_host }}" }
+    - { key: smtp_hostbackup,value: "" }
+    - { key: smtp_port,      value: "{{ drupal_smtp_port }}" }
+    - { key: smtp_protocol,  value: "{{ drupal_smtp_protocol }}" }
+    - { key: smtp_autotls,   value: "true" }
+    - { key: smtp_timeout,   value: "{{ drupal_smtp_timeout }}" }
+    - { key: smtp_from,      value: "staging+drupal@wilkesliberty.com" }
+    - { key: smtp_fromname,  value: "WilkesLiberty Staging" }
+  changed_when: false
+  when:
+    - webcms_repo_url is defined
+    - stg_drupal_bootstrap.stdout | default('') | length > 0
+    - stg_postmark_server_token is defined
+    - stg_postmark_server_token | length > 0
+
+- name: Configure staging SMTP credentials (sandbox Postmark token)
+  command:
+    argv:
+      - docker
+      - exec
+      - -e
+      - "STG_PM_TOKEN={{ stg_postmark_server_token }}"
+      - wl_stg_drupal
+      - drush
+      - php:eval
+      - |
+        $t = getenv('STG_PM_TOKEN');
+        $c = \Drupal::configFactory()->getEditable('smtp.settings');
+        $c->set('smtp_username', $t)->set('smtp_password', $t)->save();
+  no_log: true
+  changed_when: false
+  when:
+    - webcms_repo_url is defined
+    - stg_drupal_bootstrap.stdout | default('') | length > 0
+    - stg_postmark_server_token is defined
+    - stg_postmark_server_token | length > 0
+
+- name: Set staging Postmark webhook secret
+  command: >-
+    docker exec wl_stg_drupal drush config:set
+    -y wl_postmark_webhook.settings webhook_secret {{ stg_postmark_webhook_secret | quote }}
+  no_log: true
+  changed_when: false
+  when:
+    - webcms_repo_url is defined
+    - stg_drupal_bootstrap.stdout | default('') | length > 0
+    - stg_postmark_webhook_secret is defined
+    - stg_postmark_webhook_secret | length > 0
+
 # ============================================================================
 # PHASE 8: POST-DEPLOYMENT VALIDATION
 # ============================================================================
