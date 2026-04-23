@@ -358,7 +358,7 @@
         msg: "{{ stg_verify.stdout }}"
 
     - name: Show staging admin user info
-      command: docker exec {{ stg_drupal }} drush user:information 1
+      command: docker exec {{ stg_drupal }} drush user:information --uid=1
       register: stg_admin_info
       changed_when: false
 
