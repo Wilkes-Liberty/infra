@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.wilkesliberty.backup</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>{{ ansible_env.HOME }}/Scripts/backup-onprem.sh</string>
+    </array>
+
+    <!-- Explicit PATH so the script can find docker regardless of how launchd
+         was started. The script also exports PATH internally; this is belt-and-
+         suspenders in case bash itself can't be found via a relative path. -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>HOME</key>
+        <string>{{ ansible_env.HOME }}</string>
+    </dict>
+
+    <!-- Run daily at 02:00 -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>2</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>{{ ansible_env.HOME }}/Backups/wilkesliberty/logs/backup.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>{{ ansible_env.HOME }}/Backups/wilkesliberty/logs/backup-error.log</string>
+
+    <!-- Do not run immediately on load, only at scheduled time -->
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>
