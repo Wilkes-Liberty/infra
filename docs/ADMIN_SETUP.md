@@ -9,6 +9,9 @@ sops -d ansible/inventory/group_vars/sso_secrets.yml
 sops -d ansible/inventory/group_vars/app_secrets.yml
 ```
 
+**Related docs:**
+- [STAGING_REFRESH.md](STAGING_REFRESH.md) — how to clone prod → staging
+
 ---
 
 ## 1. Drupal OAuth2 Consumer (blocker for Next.js content fetching)
@@ -86,7 +89,37 @@ After `make vps` completes, `https://www.wilkesliberty.com` should be fetching l
 
 ---
 
-## 2. Keycloak (SSO — set up when you're ready to add user login)
+## 2. Postmark Webhook
+
+The `wl_postmark_webhook` module receives bounce, spam-complaint, and delivery events from Postmark and auto-suppresses bad addresses.
+
+`make onprem` sets the webhook secret automatically from `app_secrets.yml`. The only manual step is registering the URL in Postmark's dashboard.
+
+### Register the webhook in Postmark
+
+1. In Postmark → **Servers → wilkesliberty-production → Message Streams → Default Transactional Stream → Webhooks**
+2. Add a webhook:
+   - **URL**: `https://api.wilkesliberty.com/api/webhooks/postmark/<secret>`
+   - Replace `<secret>` with the value of `postmark_webhook_secret` from `app_secrets.yml`:
+     ```bash
+     sops -d ansible/inventory/group_vars/app_secrets.yml | grep postmark_webhook_secret
+     ```
+   - **Events to send**: Delivery, Bounce, SpamComplaint (at minimum)
+3. Click **Check** to send a test payload — you should see a `200` response.
+
+### Admin UI
+
+- **View events + suppressed addresses**: `https://api.wilkesliberty.com/admin/reports/postmark-events`
+- **Settings + test dispatch**: `https://api.wilkesliberty.com/admin/config/services/postmark-webhook`
+- **Drush**: `drush wl-postmark:suppressions` — list all current suppressions
+
+### Staging webhook
+
+Staging uses a separate Postmark **sandbox server** (`wilkesliberty-staging`) with its own token stored in `staging_secrets.yml`. The sandbox only delivers to pre-approved recipient addresses — no risk of mailing real users. See [STAGING_REFRESH.md](STAGING_REFRESH.md) for setup.
+
+---
+
+## 3. Keycloak (SSO — set up when you're ready to add user login)
 
 Keycloak is running but has no realms or clients configured yet. The site works without it — it's only needed when you want to add authenticated user flows.
 
@@ -128,7 +161,7 @@ sops -d ansible/inventory/group_vars/sso_secrets.yml | grep keycloak_admin_passw
 
 ---
 
-## 3. Grafana
+## 4. Grafana
 
 **Reveal the admin password:**
 ```bash
@@ -171,7 +204,7 @@ sops -d ansible/inventory/group_vars/sso_secrets.yml | grep grafana_admin_passwo
 
 ---
 
-## 4. Prometheus
+## 5. Prometheus
 
 No manual setup required. Prometheus scrapes are configured in `docker/prometheus/prometheus.yml` and deployed by Ansible.
 
@@ -187,7 +220,7 @@ No manual setup required. Prometheus scrapes are configured in `docker/prometheu
 
 ---
 
-## 5. Alertmanager
+## 6. Alertmanager
 
 No manual setup required. The config is rendered from `docker/alertmanager/config.yml.j2` by Ansible during `make onprem`.
 
@@ -207,7 +240,7 @@ Then `make onprem` to re-render the config.
 
 ---
 
-## 6. Uptime Kuma
+## 7. Uptime Kuma
 
 Uptime Kuma is self-provisioning on first boot — no credentials in sops.
 
@@ -224,7 +257,7 @@ Uptime Kuma is self-provisioning on first boot — no credentials in sops.
 
 ---
 
-## 7. Solr
+## 8. Solr
 
 Solr runs **without authentication** — it relies entirely on the Caddy CIDR restriction at `search.int.wilkesliberty.com` (only admin CIDRs from `all.yml` can reach it). There is no Solr-level username/password.
 
@@ -248,7 +281,7 @@ docker exec wl_solr curl -sf http://localhost:8983/solr/admin/cores?action=STATU
 
 ---
 
-## 8. PostgreSQL / Redis (no web UI)
+## 9. PostgreSQL / Redis (no web UI)
 
 **Connect to Drupal's PostgreSQL database:**
 ```bash
@@ -278,16 +311,59 @@ docker exec -it wl_redis redis-cli -a "<password>" ping
 
 ---
 
+## 10. Nightly config snapshots
+
+`make onprem` deploys two launchd agents that run at 3:00 AM (prod) and 3:05 AM (staging):
+
+- Export `drush config:export` from the running container
+- Push a `auto/config-TIMESTAMP` branch to the `webcms` repo (branched off `origin/master` or `origin/staging`)
+- Log a watchdog entry and rotate logs older than 30 days
+
+**Scripts:** `~/Scripts/config-snapshot-prod.sh` and `~/Scripts/config-snapshot-staging.sh`
+
+**Logs:** `~/Backups/wilkesliberty/logs/config-snapshot.log`
+
+`smtp.settings` and `wl_postmark_webhook.settings` are in `config_ignore.settings.yml` — they are intentionally excluded from exports because Ansible is the sole source of truth for those values.
+
+If you need to export config manually:
+```bash
+docker exec wl_drupal drush config:export -y
+cd ~/Repositories/webcms && git status  # review changes
+```
+
+---
+
 ## Quick-reference: sops commands
 
 ```bash
-# Reveal all app secrets (OAuth, Postmark, revalidation)
+# App secrets (OAuth credentials, Postmark token, revalidation/preview secrets, webhook secrets)
 sops -d ansible/inventory/group_vars/app_secrets.yml
 
-# Reveal all service passwords (Keycloak, Grafana, DB, Redis)
+# Service passwords (Keycloak, Grafana, DB, Redis, Proton Mail SMTP)
 sops -d ansible/inventory/group_vars/sso_secrets.yml
+
+# Staging secrets (staging DB password, staging admin password, staging Postmark token + webhook secret)
+sops -d ansible/inventory/group_vars/staging_secrets.yml
 
 # Edit a secrets file (decrypts in $EDITOR, re-encrypts on save)
 sops ansible/inventory/group_vars/app_secrets.yml
 sops ansible/inventory/group_vars/sso_secrets.yml
+sops ansible/inventory/group_vars/staging_secrets.yml
 ```
+
+### Key inventory by file
+
+| Key | File | Used for |
+|-----|------|----------|
+| `drupal_client_id` / `drupal_client_secret` | `app_secrets.yml` | Next.js → Drupal OAuth2 |
+| `drupal_revalidate_secret` / `drupal_preview_secret` | `app_secrets.yml` | Next.js ISR + preview |
+| `postmark_server_token` | `app_secrets.yml` | Production Drupal SMTP |
+| `postmark_webhook_secret` | `app_secrets.yml` | Postmark → Drupal webhook URL |
+| `keycloak_admin_password` | `sso_secrets.yml` | Keycloak bootstrap admin |
+| `grafana_admin_password` | `sso_secrets.yml` | Grafana admin |
+| `drupal_db_password` | `sso_secrets.yml` | Production PostgreSQL |
+| `redis_password` | `sso_secrets.yml` | Redis auth |
+| `stg_drupal_db_password` | `staging_secrets.yml` | Staging PostgreSQL |
+| `stg_drupal_admin_password` | `staging_secrets.yml` | Staging Drupal admin (uid=1) |
+| `stg_postmark_server_token` | `staging_secrets.yml` | Staging sandbox SMTP (Postmark sandbox server) |
+| `stg_postmark_webhook_secret` | `staging_secrets.yml` | Staging webhook URL secret |

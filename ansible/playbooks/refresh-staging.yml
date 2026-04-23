@@ -1,0 +1,405 @@
+---
+# =============================================================================
+# Playbook: refresh-staging.yml
+# =============================================================================
+# Wipes the staging Drupal database and replaces it with a sanitized clone
+# of production.  DESTRUCTIVE — run via make refresh-staging which prompts
+# for confirmation before proceeding.
+#
+# What this does, in order:
+#   1.  Prerequisites check (both stacks must be running)
+#   2.  pg_dump from wl_postgres → /tmp on host
+#   3.  dropdb / createdb on wl_stg_postgres + pg_restore
+#   4.  rsync public files: nas_docker → nas_docker_staging (no private files)
+#   5a. cache:rebuild so drush can bootstrap restored DB
+#   5b. Sanitize user emails (users_field_data) → noreply+stg-<uid>@…
+#   5c. Randomize non-admin password hashes (uid > 1) — invalid bcrypt prefix
+#   5d. Sanitize custom email-type entity fields (dynamic enumeration)
+#   5e. Sanitize webform submission emails (dynamic element enumeration)
+#   5f. Truncate watchdog table
+#   6.  SMTP: configure sandbox Postmark server (stg_postmark_server_token)
+#   7.  Staging config: site mail, webhook secret, admin password
+#   8.  Update next.next_site.wilkesliberty_ui → staging URLs
+#   9.  drush updatedb + cache:rebuild
+#  10.  Verify bootstrap
+#  11.  Cleanup temp dump files
+# =============================================================================
+
+- name: Refresh staging Drupal from production
+  hosts: wl-onprem
+  become: false
+  gather_facts: true
+
+  vars_files:
+    - "../inventory/group_vars/all.yml"
+
+  vars:
+    # Container and DB names
+    prod_pg: wl_postgres
+    prod_drupal: wl_drupal
+    stg_pg: wl_stg_postgres
+    stg_drupal: wl_stg_drupal
+    db_user: drupal
+    db_name: drupal
+
+    # File paths
+    prod_files: "{{ ansible_env.HOME }}/nas_docker/drupal/files"
+    stg_files: "{{ ansible_env.HOME }}/nas_docker_staging/drupal/files"
+
+    # Temp dump paths
+    dump_in_container: /tmp/prod-refresh.dump
+    dump_on_host: /tmp/wl-prod-refresh.dump
+
+    # Staging-specific config overrides
+    staging_site_mail: "staging+drupal@wilkesliberty.com"
+    staging_ui_base_url: "https://stg.int.wilkesliberty.com"
+    staging_next_site_id: "wilkesliberty_ui"
+
+  pre_tasks:
+    - name: Load SOPS-encrypted secrets
+      community.sops.load_vars:
+        file: "{{ playbook_dir }}/../inventory/group_vars/{{ item }}"
+      loop:
+        - sso_secrets.yml       # drupal_db_password
+        - staging_secrets.yml   # stg_drupal_db_password, stg_drupal_admin_password,
+                                # stg_postmark_server_token, stg_postmark_webhook_secret
+      no_log: true
+
+  tasks:
+
+    # ── 1. Prerequisites ──────────────────────────────────────────────────────
+
+    - name: Verify required containers are running
+      shell: |
+        for c in {{ prod_pg }} {{ prod_drupal }} {{ stg_pg }} {{ stg_drupal }}; do
+          if ! docker ps --filter "name=$c" --filter "status=running" | grep -qw "$c"; then
+            echo "FAIL: container $c is not running" >&2
+            exit 1
+          fi
+        done
+        echo "All four containers are running."
+      changed_when: false
+
+    - name: Verify stg_postmark_server_token is set
+      fail:
+        msg: >-
+          stg_postmark_server_token is empty in staging_secrets.yml.
+          Create the wilkesliberty-staging Postmark sandbox server, copy its
+          token, then run: sops --set '["stg_postmark_server_token"] "TOKEN"'
+          ansible/inventory/group_vars/staging_secrets.yml
+      when: stg_postmark_server_token is not defined or stg_postmark_server_token | length == 0
+
+    # ── 2. Dump production database ───────────────────────────────────────────
+
+    - name: Dump production database inside prod postgres container
+      shell: >-
+        docker exec
+        -e PGPASSWORD={{ drupal_db_password | quote }}
+        {{ prod_pg }}
+        pg_dump -U {{ db_user }} -F c -f {{ dump_in_container }} {{ db_name }}
+      changed_when: true
+      no_log: true
+
+    - name: Copy dump from prod postgres to host
+      command: docker cp {{ prod_pg }}:{{ dump_in_container }} {{ dump_on_host }}
+      changed_when: true
+
+    # ── 3. Restore into staging database ─────────────────────────────────────
+
+    - name: Drop staging database
+      shell: >-
+        docker exec
+        -e PGPASSWORD={{ stg_drupal_db_password | quote }}
+        {{ stg_pg }}
+        dropdb -U {{ db_user }} --if-exists {{ db_name }}
+      changed_when: true
+      no_log: true
+
+    - name: Create fresh staging database
+      shell: >-
+        docker exec
+        -e PGPASSWORD={{ stg_drupal_db_password | quote }}
+        {{ stg_pg }}
+        createdb -U {{ db_user }} {{ db_name }}
+      changed_when: true
+      no_log: true
+
+    - name: Copy dump into staging postgres container
+      command: docker cp {{ dump_on_host }} {{ stg_pg }}:{{ dump_in_container }}
+      changed_when: true
+
+    - name: Restore dump into staging database
+      shell: >-
+        docker exec
+        -e PGPASSWORD={{ stg_drupal_db_password | quote }}
+        {{ stg_pg }}
+        pg_restore -U {{ db_user }} -d {{ db_name }}
+        --no-owner --no-acl
+        {{ dump_in_container }}
+      register: pg_restore_result
+      changed_when: true
+      # pg_restore exits 1 for non-fatal warnings (sequences, ownership). Exit 3 = fatal.
+      failed_when: pg_restore_result.rc > 1
+      no_log: true
+
+    - name: Show pg_restore warnings (if any)
+      debug:
+        msg: "pg_restore completed with warnings (rc={{ pg_restore_result.rc }}). This is normal."
+      when: pg_restore_result.rc == 1
+
+    # ── 4. Sync public files (no private files) ───────────────────────────────
+
+    - name: Sync prod public files to staging
+      shell: >-
+        rsync -a --delete
+        {{ prod_files }}/
+        {{ stg_files }}/
+      changed_when: true
+
+    # ── 5a. Initial cache rebuild so drush can bootstrap restored DB ──────────
+
+    - name: Rebuild cache (initial — lets drush bootstrap restored DB)
+      command: docker exec {{ stg_drupal }} drush cache:rebuild
+      changed_when: true
+
+    # ── 5b. Sanitize: user email addresses ───────────────────────────────────
+
+    - name: Rewrite user email addresses to staging-safe values
+      # Pattern: noreply+stg-<uid>@wilkesliberty.com
+      shell: |
+        docker exec \
+          -e PGPASSWORD={{ stg_drupal_db_password | quote }} \
+          {{ stg_pg }} \
+          psql -U {{ db_user }} -d {{ db_name }} \
+          -c "UPDATE users_field_data SET mail = 'noreply+stg-' || uid || '@wilkesliberty.com' WHERE uid > 0"
+      changed_when: true
+      no_log: true
+
+    # ── 5c. Sanitize: non-admin password hashes ───────────────────────────────
+
+    - name: Invalidate non-admin user password hashes
+      # Sets an invalid bcrypt-prefixed hash that can never match any password.
+      # uid-suffixed to ensure uniqueness. Users cannot log in; since the
+      # sandbox SMTP only delivers to pre-approved recipients, password reset
+      # emails cannot reach most users either.  Admin (uid=1) is handled
+      # separately via drush user:password after this block.
+      shell: |
+        docker exec \
+          -e PGPASSWORD={{ stg_drupal_db_password | quote }} \
+          {{ stg_pg }} \
+          psql -U {{ db_user }} -d {{ db_name }} \
+          -c "UPDATE users_field_data SET pass = '\$2y\$10\$staging.locked.out.' || uid WHERE uid > 1"
+      changed_when: true
+      no_log: true
+
+    # ── 5d. Sanitize: custom email-type entity fields (dynamic) ──────────────
+    # Uses drush scr (script file) to avoid YAML→shell→php:eval escape-chain
+    # issues with $variables and \Drupal namespace prefixes.
+
+    - name: Copy email-field sanitization script into staging container
+      command: >-
+        docker cp
+        {{ playbook_dir }}/../files/sanitize_email_fields.php
+        {{ stg_drupal }}:/tmp/sanitize_email_fields.php
+      changed_when: true
+
+    - name: Rewrite custom entity email fields
+      command: docker exec {{ stg_drupal }} drush scr /tmp/sanitize_email_fields.php
+      register: custom_field_sanitize
+      changed_when: "'Sanitized' in custom_field_sanitize.stdout"
+
+    - name: Remove email-field script from container
+      command: docker exec {{ stg_drupal }} rm -f /tmp/sanitize_email_fields.php
+      changed_when: true
+
+    - name: Show custom field sanitization result
+      debug:
+        msg: "{{ custom_field_sanitize.stdout_lines }}"
+
+    # ── 5e. Sanitize: webform submission email values ─────────────────────────
+
+    - name: Copy webform sanitization script into staging container
+      command: >-
+        docker cp
+        {{ playbook_dir }}/../files/sanitize_webform_emails.php
+        {{ stg_drupal }}:/tmp/sanitize_webform_emails.php
+      changed_when: true
+
+    - name: Rewrite webform submission email values
+      command: docker exec {{ stg_drupal }} drush scr /tmp/sanitize_webform_emails.php
+      register: webform_sanitize
+      changed_when: "'sanitized' in webform_sanitize.stdout"
+
+    - name: Remove webform script from container
+      command: docker exec {{ stg_drupal }} rm -f /tmp/sanitize_webform_emails.php
+      changed_when: true
+
+    - name: Show webform sanitization result
+      debug:
+        msg: "{{ webform_sanitize.stdout_lines }}"
+
+    # ── 5f. Truncate watchdog (prod logs, PII) ────────────────────────────────
+
+    - name: Truncate watchdog table
+      shell: |
+        docker exec \
+          -e PGPASSWORD={{ stg_drupal_db_password | quote }} \
+          {{ stg_pg }} \
+          psql -U {{ db_user }} -d {{ db_name }} \
+          -c "TRUNCATE watchdog"
+      changed_when: true
+      no_log: true
+
+    # ── 6. SMTP: sandbox Postmark server ─────────────────────────────────────
+    # Staging uses a dedicated Postmark sandbox server (wilkesliberty-staging).
+    # Sandbox only delivers to pre-approved recipient addresses — no risk of
+    # sending to real users even if email addresses were somehow not sanitized.
+
+    - name: Set staging system site admin email
+      command: >-
+        docker exec {{ stg_drupal }} drush config:set
+        -y system.site mail {{ staging_site_mail }}
+      changed_when: true
+
+    - name: Configure staging SMTP settings (non-credential)
+      command: >-
+        docker exec {{ stg_drupal }} drush config:set -y smtp.settings {{ item.key }} {{ item.value | quote }}
+      loop:
+        - { key: smtp_on,        value: "true" }
+        - { key: smtp_host,      value: "{{ drupal_smtp_host }}" }
+        - { key: smtp_hostbackup,value: "" }
+        - { key: smtp_port,      value: "{{ drupal_smtp_port }}" }
+        - { key: smtp_protocol,  value: "{{ drupal_smtp_protocol }}" }
+        - { key: smtp_autotls,   value: "true" }
+        - { key: smtp_timeout,   value: "{{ drupal_smtp_timeout }}" }
+        - { key: smtp_from,      value: "{{ staging_site_mail }}" }
+        - { key: smtp_fromname,  value: "WilkesLiberty Staging" }
+      changed_when: false
+
+    - name: Configure staging SMTP credentials (sandbox Postmark token)
+      command:
+        argv:
+          - docker
+          - exec
+          - -e
+          - "STG_PM_TOKEN={{ stg_postmark_server_token }}"
+          - "{{ stg_drupal }}"
+          - drush
+          - php:eval
+          - |
+            $t = getenv('STG_PM_TOKEN');
+            $c = \Drupal::configFactory()->getEditable('smtp.settings');
+            $c->set('smtp_username', $t)->set('smtp_password', $t)->save();
+      no_log: true
+      changed_when: false
+
+    # ── 7. Staging-specific config ────────────────────────────────────────────
+
+    - name: Reset Postmark webhook secret on staging
+      command: >-
+        docker exec {{ stg_drupal }} drush config:set
+        -y wl_postmark_webhook.settings webhook_secret {{ stg_postmark_webhook_secret | quote }}
+      no_log: true
+      changed_when: true
+
+    - name: Set staging Drupal admin password
+      command: >-
+        docker exec {{ stg_drupal }} drush user:password admin
+        {{ stg_drupal_admin_password | quote }}
+      no_log: true
+      changed_when: true
+
+    # ── 8. Update next.next_site URLs ─────────────────────────────────────────
+
+    - name: Check if next.next_site config exists
+      command: >-
+        docker exec {{ stg_drupal }} drush config:get
+        next.next_site.{{ staging_next_site_id }}
+      register: next_site_check
+      changed_when: false
+      failed_when: false
+
+    - name: Update next.next_site URLs to staging
+      command: >-
+        docker exec {{ stg_drupal }} drush config:set -y
+        next.next_site.{{ staging_next_site_id }} {{ item.key }} {{ item.value | quote }}
+      loop:
+        - { key: base_url,      value: "{{ staging_ui_base_url }}" }
+        - { key: preview_url,   value: "{{ staging_ui_base_url }}/api/draft" }
+        - { key: revalidate_url,value: "{{ staging_ui_base_url }}/api/revalidate" }
+      when: next_site_check.rc == 0
+      changed_when: true
+
+    - name: Note about next.next_site
+      debug:
+        msg: "next.next_site.{{ staging_next_site_id }} not found — skipping URL update."
+      when: next_site_check.rc != 0
+
+    # ── 9. Final drush hygiene ────────────────────────────────────────────────
+
+    - name: Run database updates
+      command: docker exec {{ stg_drupal }} drush updatedb -y
+      changed_when: true
+
+    - name: Final cache rebuild
+      command: docker exec {{ stg_drupal }} drush cache:rebuild
+      changed_when: true
+
+    # ── 10. Verify ────────────────────────────────────────────────────────────
+
+    - name: Verify staging Drupal bootstrap
+      command: docker exec {{ stg_drupal }} drush status --fields=bootstrap
+      register: stg_verify
+      changed_when: false
+      failed_when: stg_verify.stdout | length == 0
+
+    - name: Show staging bootstrap status
+      debug:
+        msg: "{{ stg_verify.stdout }}"
+
+    - name: Show staging admin user info
+      command: docker exec {{ stg_drupal }} drush user:information --uid=1
+      register: stg_admin_info
+      changed_when: false
+
+    - name: Display admin user details
+      debug:
+        msg: "{{ stg_admin_info.stdout_lines }}"
+
+    # ── 11. Cleanup ───────────────────────────────────────────────────────────
+
+    - name: Remove dump from prod postgres container
+      command: docker exec {{ prod_pg }} rm -f {{ dump_in_container }}
+      changed_when: true
+
+    - name: Remove dump from staging postgres container
+      command: docker exec {{ stg_pg }} rm -f {{ dump_in_container }}
+      changed_when: true
+
+    - name: Remove dump from host /tmp
+      file:
+        path: "{{ dump_on_host }}"
+        state: absent
+
+    - name: Staging refresh complete
+      debug:
+        msg:
+          - "✅ Staging refresh complete!"
+          - ""
+          - "Sanitization applied:"
+          - "  - All user emails → noreply+stg-<uid>@wilkesliberty.com"
+          - "  - Non-admin password hashes invalidated (uid > 1)"
+          - "  - Custom email-type entity fields rewritten (see above)"
+          - "  - Webform submission emails rewritten (see above)"
+          - "  - Watchdog log truncated"
+          - "  - SMTP uses sandbox Postmark server (isolated — sandbox only delivers to pre-approved recipients)"
+          - "  - Admin (uid=1) password → stg_drupal_admin_password in sops"
+          - "  - Postmark webhook secret → stg_postmark_webhook_secret in sops"
+          - "  - next.next_site URLs → https://stg.int.wilkesliberty.com"
+          - ""
+          - "Staging Drupal: https://api-stg.int.wilkesliberty.com"
+          - "Admin login:    https://api-stg.int.wilkesliberty.com/user/login"
+          - "Admin password: sops -d ansible/inventory/group_vars/staging_secrets.yml | grep stg_drupal_admin_password"
+          - ""
+          - "IMPORTANT: In Postmark, add your staging test addresses as sandbox recipients"
+          - "in the wilkesliberty-staging server before testing email delivery."
