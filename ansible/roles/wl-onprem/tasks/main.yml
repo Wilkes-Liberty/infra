@@ -767,12 +767,12 @@
     var: staging_docker_status.stdout_lines
   when: webcms_repo_url is defined
 
-- name: Wait for staging Drupal to be ready
+- name: Check if staging Drupal is bootstrapped
+  # drush status --fields=bootstrap returns non-empty ("Bootstrap: Successful")
+  # only when Drupal is fully installed and can reach the DB. An empty response
+  # (e.g. fresh/empty DB) means Drupal isn't installed yet — skip module tasks.
   command: docker exec wl_stg_drupal drush status --fields=bootstrap
-  register: stg_drupal_status
-  retries: 10
-  delay: 10
-  until: stg_drupal_status.rc == 0
+  register: stg_drupal_bootstrap
   changed_when: false
   failed_when: false
   when: webcms_repo_url is defined
@@ -791,7 +791,7 @@
   changed_when: false
   when:
     - webcms_repo_url is defined
-    - stg_drupal_status.rc == 0
+    - stg_drupal_bootstrap.stdout | default('') | length > 0
 
 - name: Check wl_postmark_webhook schema integrity in staging
   command: >-
@@ -802,7 +802,7 @@
   failed_when: false
   when:
     - webcms_repo_url is defined
-    - stg_drupal_status.rc == 0
+    - stg_drupal_bootstrap.stdout | default('') | length > 0
 
 - name: Reinstall wl_postmark_webhook in staging if schema is missing
   command: |
@@ -812,7 +812,7 @@
     "
   when:
     - webcms_repo_url is defined
-    - stg_drupal_status.rc == 0
+    - stg_drupal_bootstrap.stdout | default('') | length > 0
     - stg_postmark_schema_check.rc is defined
     - stg_postmark_schema_check.rc != 0
 
@@ -822,7 +822,7 @@
   changed_when: "'already enabled' not in stg_postmark_module_enable.stdout"
   when:
     - webcms_repo_url is defined
-    - stg_drupal_status.rc == 0
+    - stg_drupal_bootstrap.stdout | default('') | length > 0
 
 # ============================================================================
 # PHASE 8: POST-DEPLOYMENT VALIDATION
