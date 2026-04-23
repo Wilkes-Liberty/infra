@@ -473,16 +473,67 @@
   changed_when: false
   failed_when: false
 
-- name: Reset Postgres role passwords to match container env (drupal, keycloak)
+- name: Ensure postgres management superuser and wl_app limited role exist
+  # Security hardening (least-privilege):
+  #   - postgres: management superuser for Ansible ops (ALTER USER, etc.)
+  #   - wl_app: Drupal's application role — no superuser, drupal-DB-only access
+  # Note: the POSTGRES_USER=drupal bootstrap role cannot have SUPERUSER revoked
+  # (PostgreSQL constraint). Mitigation: Drupal connects as wl_app, which has no
+  # cross-database access. keycloak DB has CONNECT revoked from PUBLIC.
+  shell: |
+    set -e
+    DRUPAL_PW=$(docker exec wl_drupal env | sed -n 's/^DRUPAL_DB_PASSWORD=//p')
+    # Step 1: create postgres management superuser via drupal bootstrap rights
+    docker exec -i wl_postgres psql -U drupal -d postgres << 'SQL'
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'postgres') THEN
+        CREATE ROLE postgres SUPERUSER LOGIN;
+      END IF;
+    END
+    $$;
+    SQL
+    # Step 2: create wl_app limited app role (Drupal connects as this)
+    docker exec wl_postgres psql -U postgres -d postgres \
+      -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'wl_app') THEN CREATE ROLE wl_app LOGIN; END IF; END \$\$;"
+    # Step 3: set wl_app password to match DRUPAL_DB_PASSWORD
+    if [ -n "$DRUPAL_PW" ]; then
+      docker exec wl_postgres psql -U postgres -d postgres \
+        -c "ALTER ROLE wl_app WITH PASSWORD '$DRUPAL_PW';" >/dev/null
+    fi
+    # Step 4: grant wl_app all necessary privileges on drupal DB only
+    docker exec -i wl_postgres psql -U postgres -d drupal << 'SQL'
+    GRANT CONNECT ON DATABASE drupal TO wl_app;
+    GRANT USAGE, CREATE ON SCHEMA public TO wl_app;
+    GRANT ALL ON ALL TABLES IN SCHEMA public TO wl_app;
+    GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO wl_app;
+    ALTER DEFAULT PRIVILEGES FOR ROLE drupal IN SCHEMA public GRANT ALL ON TABLES TO wl_app;
+    ALTER DEFAULT PRIVILEGES FOR ROLE drupal IN SCHEMA public GRANT ALL ON SEQUENCES TO wl_app;
+    SQL
+    # Step 5: revoke keycloak DB access from PUBLIC (wl_app must not reach keycloak)
+    docker exec -i wl_postgres psql -U postgres -d postgres << 'SQL'
+    REVOKE CONNECT ON DATABASE keycloak FROM PUBLIC;
+    GRANT CONNECT ON DATABASE keycloak TO keycloak;
+    GRANT CONNECT ON DATABASE keycloak TO postgres;
+    SQL
+    echo "role setup complete"
+  args:
+    executable: /bin/bash
+  changed_when: false
+  no_log: true
+  when: pg_ready.rc == 0
+
+- name: Reset Postgres role passwords to match container env (drupal, keycloak, wl_app)
   shell: |
     set -e
     DRUPAL_PW=$(docker exec wl_drupal env | sed -n 's/^DRUPAL_DB_PASSWORD=//p')
     KC_PW=$(docker exec wl_postgres env | sed -n 's/^KEYCLOAK_DB_PASSWORD=//p')
     if [ -n "$DRUPAL_PW" ]; then
-      docker exec wl_postgres psql -U drupal -d drupal -c "ALTER USER drupal WITH PASSWORD '$DRUPAL_PW';" >/dev/null
+      docker exec wl_postgres psql -U postgres -d postgres -c "ALTER USER drupal WITH PASSWORD '$DRUPAL_PW';" >/dev/null
+      docker exec wl_postgres psql -U postgres -d postgres -c "ALTER USER wl_app WITH PASSWORD '$DRUPAL_PW';" >/dev/null
     fi
     if [ -n "$KC_PW" ]; then
-      docker exec wl_postgres psql -U drupal -d drupal -c "ALTER USER keycloak WITH PASSWORD '$KC_PW';" >/dev/null
+      docker exec wl_postgres psql -U postgres -d postgres -c "ALTER USER keycloak WITH PASSWORD '$KC_PW';" >/dev/null
     fi
     echo "passwords synced"
   args:
@@ -669,6 +720,59 @@
   debug:
     var: staging_docker_status.stdout_lines
   when: webcms_repo_url is defined
+
+- name: Wait for staging Postgres to be healthy
+  command: docker exec wl_stg_postgres pg_isready -U drupal -d drupal
+  register: stg_pg_ready
+  retries: 12
+  delay: 5
+  until: stg_pg_ready.rc == 0
+  changed_when: false
+  failed_when: false
+  when: webcms_repo_url is defined
+
+- name: Ensure staging postgres management superuser and wl_app limited role exist
+  shell: |
+    set -e
+    STG_DRUPAL_PW=$(docker exec wl_stg_drupal env 2>/dev/null | sed -n 's/^DRUPAL_DB_PASSWORD=//p' || true)
+    # Create postgres management superuser via drupal bootstrap rights
+    docker exec -i wl_stg_postgres psql -U drupal -d postgres << 'SQL'
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'postgres') THEN
+        CREATE ROLE postgres SUPERUSER LOGIN;
+      END IF;
+    END
+    $$;
+    SQL
+    # Create wl_app limited app role
+    docker exec wl_stg_postgres psql -U postgres -d postgres \
+      -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'wl_app') THEN CREATE ROLE wl_app LOGIN; END IF; END \$\$;"
+    if [ -n "$STG_DRUPAL_PW" ]; then
+      docker exec wl_stg_postgres psql -U postgres -d postgres \
+        -c "ALTER ROLE wl_app WITH PASSWORD '$STG_DRUPAL_PW';" >/dev/null
+    fi
+    docker exec -i wl_stg_postgres psql -U postgres -d drupal << 'SQL'
+    GRANT CONNECT ON DATABASE drupal TO wl_app;
+    GRANT USAGE, CREATE ON SCHEMA public TO wl_app;
+    GRANT ALL ON ALL TABLES IN SCHEMA public TO wl_app;
+    GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO wl_app;
+    ALTER DEFAULT PRIVILEGES FOR ROLE drupal IN SCHEMA public GRANT ALL ON TABLES TO wl_app;
+    ALTER DEFAULT PRIVILEGES FOR ROLE drupal IN SCHEMA public GRANT ALL ON SEQUENCES TO wl_app;
+    SQL
+    docker exec -i wl_stg_postgres psql -U postgres -d postgres << 'SQL'
+    REVOKE CONNECT ON DATABASE keycloak FROM PUBLIC;
+    GRANT CONNECT ON DATABASE keycloak TO keycloak;
+    GRANT CONNECT ON DATABASE keycloak TO postgres;
+    SQL
+    echo "staging role setup complete"
+  args:
+    executable: /bin/bash
+  changed_when: false
+  no_log: true
+  when:
+    - webcms_repo_url is defined
+    - stg_pg_ready.rc == 0
 
 # ============================================================================
 # PHASE 8: POST-DEPLOYMENT VALIDATION

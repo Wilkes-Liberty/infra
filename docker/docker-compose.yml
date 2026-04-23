@@ -31,9 +31,10 @@ services:
     volumes:
       - ~/nas_docker/drupal/files:/opt/drupal/web/sites/default/files
       - ~/nas_docker/drupal/private:/opt/drupal/private
+      - ~/Repositories/webcms/config/sync:/opt/drupal/config/sync
     environment:
       - DRUPAL_DB_HOST=postgres
-      - DRUPAL_DB_USER=drupal
+      - DRUPAL_DB_USER=wl_app
       - DRUPAL_DB_PASSWORD=${DRUPAL_DB_PASSWORD:?DRUPAL_DB_PASSWORD is required}
       - DRUPAL_DB_NAME=drupal
       - DRUPAL_HASH_SALT=${DRUPAL_HASH_SALT:?DRUPAL_HASH_SALT is required}
