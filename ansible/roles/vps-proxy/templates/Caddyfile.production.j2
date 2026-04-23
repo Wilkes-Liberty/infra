@@ -108,16 +108,39 @@ api.wilkesliberty.com {
         method OPTIONS
     }
     respond @options 204
-    
-    # Rate limiting (optional)
-    # rate_limit {
-    #     zone api {
-    #         key {remote_host}
-    #         events 100
-    #         window 1m
-    #     }
-    # }
-    
+
+    # ── Rate limiting ──────────────────────────────────────────────────
+    # Requires mholt/caddy-ratelimit plugin (installed via make vps custom binary).
+
+    # General DoS shield: 300 req/min per IP
+    rate_limit {
+        zone api_dos {
+            key    {remote_host}
+            events 300
+            window 1m
+        }
+    }
+
+    # Drupal login page: 10 req/min per IP
+    @drupal_login path /user/login /user/login/*
+    rate_limit @drupal_login {
+        zone drupal_login {
+            key    {remote_host}
+            events 10
+            window 1m
+        }
+    }
+
+    # Contact/webform submission: 10 req/hr per IP
+    @contact path /api/contact /api/contact/* /api/webform /api/webform/*
+    rate_limit @contact {
+        zone contact_form {
+            key    {remote_host}
+            events 10
+            window 1h
+        }
+    }
+
     log {
         output file /var/log/caddy/api.log
         format json
@@ -132,14 +155,44 @@ auth.wilkesliberty.com {
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-For {remote_host}
         header_up X-Forwarded-Proto {scheme}
-        
+
         # Keycloak-specific headers
         header_up X-Forwarded-Host {host}
         header_up X-Forwarded-Port 443
-        
     }
-    
+
     import public_headers_api
+
+    # ── Rate limiting ──────────────────────────────────────────────────
+
+    # General DoS shield: 300 req/min per IP
+    rate_limit {
+        zone auth_dos {
+            key    {remote_host}
+            events 300
+            window 1m
+        }
+    }
+
+    # Keycloak login page (browser flow): 10 req/min per IP
+    @kc_login path /realms/*/protocol/openid-connect/auth
+    rate_limit @kc_login {
+        zone keycloak_login {
+            key    {remote_host}
+            events 10
+            window 1m
+        }
+    }
+
+    # Keycloak token endpoint (API/service accounts): 60 req/min per IP
+    @kc_token path /realms/*/protocol/openid-connect/token
+    rate_limit @kc_token {
+        zone keycloak_token {
+            key    {remote_host}
+            events 60
+            window 1m
+        }
+    }
 
     log {
         output file /var/log/caddy/auth.log

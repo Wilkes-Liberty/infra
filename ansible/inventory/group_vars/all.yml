@@ -57,6 +57,10 @@ infra_repo_url: "git@github.com:Wilkes-Liberty/infra.git"
 php_version: "8.3"
 node_major: "20"
 solr_version: "9.6.1"
+# Pinned Caddy version for custom binary (includes mholt/caddy-ratelimit plugin).
+# To upgrade: bump this version and run make vps. The binary is replaced when
+# http.handlers.rate_limit is absent from caddy list-modules output.
+caddy_custom_version: "v2.11.2"
 
 # ── Alert / Notification Settings ─────────────────────────────────────
 # Used to render docker/alertmanager/config.yml.j2 via the wl-onprem role.

@@ -322,6 +322,26 @@
     name: caddy
     state: present
 
+- name: Install xcaddy (needed to build custom Caddy with rate_limit plugin)
+  community.general.homebrew:
+    name: xcaddy
+    state: present
+
+- name: Check if on-prem Caddy has rate_limit module
+  command: /opt/homebrew/bin/caddy list-modules
+  register: caddy_onprem_modules
+  failed_when: false
+  changed_when: false
+
+- name: Build custom Caddy with rate_limit plugin for macOS (~2-3 min, runs once)
+  # xcaddy compiles a fresh Caddy binary with the given module baked in.
+  # Output path replaces the Homebrew binary so launchd picks it up automatically.
+  command: >
+    xcaddy build {{ caddy_custom_version }}
+    --with github.com/mholt/caddy-ratelimit
+    --output /opt/homebrew/bin/caddy
+  when: "'http.handlers.rate_limit' not in (caddy_onprem_modules.stdout | default(''))"
+
 - name: Create Caddy config and log directories
   file:
     path: "{{ item }}"

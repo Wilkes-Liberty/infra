@@ -51,7 +51,7 @@
     port: "{{ item }}"
     proto: tcp
   loop: ['80', '443']
-  when: "'vps' in group_names"
+  when: "'cloud-vps' in group_names"
 
 # ── ON-PREM: no public ports needed ─────────────────────────────────
 # All services (Drupal :8080, Keycloak :8081, Solr :8983, Redis :6379,

@@ -133,25 +133,24 @@ UFW deployed via `ansible/roles/common/tasks/firewall.yml`: default deny incomin
 CoreDNS binds on Tailscale IP only. Caddy internal binds on Tailscale IP only. `search.int`, `metrics.int`, `alerts.int` additionally restricted to `admin_allow_cidrs` (Caddy `remote_ip` check). On-prem Docker services bind to `localhost:PORT` not `0.0.0.0:PORT`.
 
 ### 3.6 SSH hardening on VPS
-**Status: ❌ Not done in Ansible**
+**Status: ✅ Done (2026-04-23)**
 
-The `common` role is a stub (`# TODO: implement this role` in `ansible/roles/common/tasks/main.yml`). UFW restricts SSH to admin CIDRs, but no Ansible task hardens `sshd_config`: `PasswordAuthentication`, `PermitRootLogin`, or `PubkeyAuthentication` are not explicitly set. No fail2ban deployed.
+`common` role implemented and wired into `ansible/playbooks/vps.yml`. Deployed live.
 
-**Action (high priority):** Implement the `common` role with:
-```yaml
-- name: Harden sshd_config
-  lineinfile:
-    path: /etc/ssh/sshd_config
-    regexp: "{{ item.regexp }}"
-    line: "{{ item.line }}"
-  loop:
-    - { regexp: '^#?PasswordAuthentication', line: 'PasswordAuthentication no' }
-    - { regexp: '^#?PermitRootLogin', line: 'PermitRootLogin no' }
-    - { regexp: '^#?PubkeyAuthentication', line: 'PubkeyAuthentication yes' }
-  notify: restart sshd
-- name: Install fail2ban
-  apt: name=fail2ban state=present
-```
+**What was done:**
+- Drop-in `/etc/ssh/sshd_config.d/99-wilkesliberty.conf` deployed (survives OS updates):
+  ```
+  PermitRootLogin prohibit-password   ← key auth only; password login blocked
+  PasswordAuthentication no
+  PubkeyAuthentication yes
+  X11Forwarding no
+  AllowUsers root
+  ```
+- `fail2ban` installed with sshd jail: 5 failures in 600s → 1hr ban
+- `unattended-upgrades` enabled (security updates only, automatic)
+- UFW rules confirmed correct for VPS (`cloud-vps` group: allows 80/443 + SSH from admin CIDRs + Tailscale)
+
+Verified: `ssh -o PasswordAuthentication=yes root@<vps>` → `Permission denied (publickey)`. Key auth still works.
 
 ### 3.7 TLS minimum version enforced
 **Status: ✅ Done**
@@ -187,21 +186,24 @@ Individual Drupal file fields have type/size restrictions configured per-field (
 Drupal's Form API generates and validates CSRF tokens on all state-changing form submissions automatically. REST/JSON:API endpoints that use OAuth2 bearer tokens are CSRF-exempt by design (bearer token = no cookie session).
 
 ### 4.5 Rate limiting on sensitive endpoints
-**Status: ❌ Not done**
+**Status: ✅ Done (2026-04-23)**
 
-`Caddyfile.production.j2` lines 113–122: the `rate_limit {}` block is commented out entirely. No rate limiting on: `/user/login`, `/api/contact`, `/api/webhooks/postmark/*`, or JSON:API write endpoints.
+Custom Caddy binary (`v2.11.2` + `mholt/caddy-ratelimit`) deployed on the VPS. Rate limiting active on all public endpoints:
 
-**Action (high priority):** Uncomment and configure Caddy rate limiting. Minimum:
-```
-rate_limit {
-  zone auth {
-    key {remote_host}
-    events 10
-    window 1m
-  }
-}
-```
-Apply to login endpoints. Keycloak brute-force detection (§2.6) handles the SSO path separately.
+| Zone | Matcher | Limit |
+|---|---|---|
+| `api_dos` | all API requests | 300 req/min per IP |
+| `drupal_login` | `/user/login` | 10 req/min per IP |
+| `contact_form` | `/api/contact`, `/api/webform` | 10 req/hr per IP |
+| `auth_dos` | all auth requests | 300 req/min per IP |
+| `keycloak_login` | `/realms/*/protocol/openid-connect/auth` | 10 req/min per IP |
+| `keycloak_token` | `/realms/*/protocol/openid-connect/token` | 60 req/min per IP |
+
+Equivalent rate limits applied to internal `Caddyfile.internal.j2` (`drupal_login_int`, `keycloak_login_int`, `keycloak_token_int` zones).
+
+Verified live: `for i in $(seq 1 12); do curl -s -o /dev/null -w "%{http_code}\n" https://api.wilkesliberty.com/user/login; done` returned 429 on request 12.
+
+Caddy version pinned in `all.yml` as `caddy_custom_version: "v2.11.2"`. The binary is replaced on next `make vps` only when `http.handlers.rate_limit` is absent from `caddy list-modules` output.
 
 ### 4.6 Webhook signature verification
 **Status: ⚠️ Partial**
@@ -274,11 +276,22 @@ pip-audit
 `backup-onprem.sh` deployed via Ansible to `~/Scripts/`. launchd agent `com.wilkesliberty.backup` runs daily at 4:00 AM. Backup encrypted with AES-256 via `BACKUP_ENCRYPTION_KEY`. Synced to Proton Drive via rsync.
 
 ### 6.2 Backup restore tested
-**Status: ❌ Not done**
+**Status: ✅ Done (2026-04-23)**
 
-No restore test procedure exists or has been performed. Backups are untested.
+`scripts/test-backup-restore.sh` restores the latest daily dump into a temporary `postgres:16` Docker container, verifies ≥50 tables, all core Drupal tables, node count, and config count, then tears down cleanly.
 
-**Action (high priority):** Perform a restore test immediately. On a scratch volume or DDEV environment, restore the encrypted backup and verify Drupal bootstraps. Schedule quarterly.
+Run with:
+```bash
+make test-backup-restore
+# or against a specific backup:
+scripts/test-backup-restore.sh --backup-dir ~/Backups/wilkesliberty/daily/YYYY-MM-DD_HHMMSS
+```
+
+First live run (2026-04-23): 399 tables, 1 node, 2212 config entries — **PASS**.
+
+See `docs/BACKUP_RESTORE.md` for full procedure, quarterly drill steps, and known issue with 20-byte launchd dumps.
+
+**Schedule:** Run `make test-backup-restore` quarterly (or after any backup script change).
 
 ### 6.3 App DB user is not a superuser
 **Status: ✅ Done (2026-04-23)**
@@ -476,10 +489,6 @@ Run before every production deploy:
 
 | Priority | Item | Section |
 |----------|------|---------|
-| 🔴 High | Drupal Postgres user has Superuser privileges | §6.3 |
-| 🔴 High | SSH hardening not in Ansible (`common` role is a stub) | §3.6 |
-| 🔴 High | Backup restore never tested | §6.2 |
-| 🔴 High | Rate limiting commented out in Caddyfile | §4.5 |
 | 🟡 Medium | Keycloak brute force / password policy / 2FA not configured | §2.6 |
 | 🟡 Medium | No credential rotation schedule | §1.4 |
 | 🟡 Medium | Rollback procedure not documented | §7.4 |

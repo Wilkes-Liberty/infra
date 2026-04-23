@@ -1,7 +1,68 @@
 ---
-# TODO: implement this role
-- debug:
-    msg: "Role common would run here."
+# ── SSH Hardening ─────────────────────────────────────────────────────────────
+# Uses a drop-in file under sshd_config.d/ rather than editing sshd_config
+# directly — OS package upgrades cannot clobber our settings.
+
+- name: Create sshd drop-in directory
+  file:
+    path: /etc/ssh/sshd_config.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Deploy sshd hardening drop-in
+  template:
+    src: 99-wilkesliberty.conf.j2
+    dest: /etc/ssh/sshd_config.d/99-wilkesliberty.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart sshd
+
+# ── fail2ban ─────────────────────────────────────────────────────────────────
+
+- name: Install fail2ban
+  apt:
+    name: fail2ban
+    state: present
+    update_cache: yes
+
+- name: Deploy fail2ban jail configuration
+  template:
+    src: jail.local.j2
+    dest: /etc/fail2ban/jail.local
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart fail2ban
+
+- name: Enable and start fail2ban
+  systemd:
+    name: fail2ban
+    enabled: true
+    state: started
+
+# ── Unattended security upgrades ─────────────────────────────────────────────
+
+- name: Install unattended-upgrades
+  apt:
+    name:
+      - unattended-upgrades
+      - apt-listchanges
+    state: present
+
+- name: Enable unattended-upgrades (security updates only)
+  copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+    owner: root
+    group: root
+    mode: '0644'
+
+# ── Firewall ─────────────────────────────────────────────────────────────────
 
 - name: Apply firewall rules
   include_tasks: firewall.yml
