@@ -193,38 +193,24 @@
       no_log: true
 
     # ── 5d. Sanitize: custom email-type entity fields (dynamic) ──────────────
+    # Uses drush scr (script file) to avoid YAML→shell→php:eval escape-chain
+    # issues with $variables and \Drupal namespace prefixes.
+
+    - name: Copy email-field sanitization script into staging container
+      command: >-
+        docker cp
+        {{ playbook_dir }}/../files/sanitize_email_fields.php
+        {{ stg_drupal }}:/tmp/sanitize_email_fields.php
+      changed_when: true
 
     - name: Rewrite custom entity email fields
-      # Enumerates all field_storage_config entries with type=email, then for
-      # each runs UPDATE on both the data table and revision table.
-      # Logs "no custom email fields found" if none exist.
-      command: >-
-        docker exec {{ stg_drupal }} drush php:eval "
-          \$fields = \Drupal::entityTypeManager()
-            ->getStorage('field_storage_config')
-            ->loadByProperties(['type' => 'email']);
-          if (empty(\$fields)) {
-            echo 'No custom email fields found.';
-          } else {
-            \$db = \Drupal::database();
-            foreach (\$fields as \$field) {
-              \$entity_type = \$field->getTargetEntityTypeId();
-              \$field_name  = \$field->getName();
-              \$col         = \$field_name . '_value';
-              foreach ([
-                \$entity_type . '__' . \$field_name,
-                \$entity_type . '_revision__' . \$field_name,
-              ] as \$table) {
-                if (\$db->schema()->tableExists(\$table)) {
-                  \$db->query(\"UPDATE {\$table} SET {\$col} = CONCAT('noreply+stg-', entity_id, '@wilkesliberty.com') WHERE {\$col} IS NOT NULL AND {\$col} != ''\");
-                  echo \"Sanitized {\$table}.{\$col}\" . PHP_EOL;
-                }
-              }
-            }
-          }
-        "
+      command: docker exec {{ stg_drupal }} drush scr /tmp/sanitize_email_fields.php
       register: custom_field_sanitize
       changed_when: "'Sanitized' in custom_field_sanitize.stdout"
+
+    - name: Remove email-field script from container
+      command: docker exec {{ stg_drupal }} rm -f /tmp/sanitize_email_fields.php
+      changed_when: true
 
     - name: Show custom field sanitization result
       debug:
@@ -232,47 +218,21 @@
 
     # ── 5e. Sanitize: webform submission email values ─────────────────────────
 
-    - name: Rewrite webform submission email values
-      # Finds email-type elements across all webform configs, then rewrites
-      # matching rows in webform_submission_data.
+    - name: Copy webform sanitization script into staging container
       command: >-
-        docker exec {{ stg_drupal }} drush php:eval "
-          if (!\Drupal::moduleHandler()->moduleExists('webform')) {
-            echo 'Webform module not installed — skipping.';
-            return;
-          }
-          \$email_elements = [];
-          foreach (\Drupal::configFactory()->listAll('webform.webform.') as \$name) {
-            \$raw = \Drupal::configFactory()->get(\$name)->get('elements');
-            if (!is_string(\$raw)) continue;
-            foreach (explode(PHP_EOL, \$raw) as \$line) {
-              if (preg_match('/^\s+#type:\s+email/', \$line, \$m)) {
-                preg_match_all('/^(\w+):/m', \$raw, \$keys);
-              }
-            }
-            \$parsed = \Drupal::service('serialization.yaml')->decode(\$raw);
-            foreach (\$parsed as \$key => \$def) {
-              if (is_array(\$def) && isset(\$def['#type']) && in_array(\$def['#type'], ['email', 'webform_email_confirm'])) {
-                \$email_elements[] = \$key;
-              }
-            }
-          }
-          \$email_elements = array_unique(\$email_elements);
-          if (empty(\$email_elements)) {
-            echo 'No webform email elements found — skipping.';
-            return;
-          }
-          \$db = \Drupal::database();
-          \$in = implode(',', array_map(fn(\$e) => \$db->quote(\$e), \$email_elements));
-          if (\$db->schema()->tableExists('webform_submission_data')) {
-            \$db->query(\"UPDATE webform_submission_data SET value = CONCAT('noreply+stg-webform-', sid, '@wilkesliberty.com') WHERE element_id IN ({\$in}) AND value IS NOT NULL AND value != ''\");
-            echo 'Webform submission emails sanitized for elements: ' . implode(', ', \$email_elements);
-          } else {
-            echo 'webform_submission_data table not found — no submissions to sanitize.';
-          }
-        "
+        docker cp
+        {{ playbook_dir }}/../files/sanitize_webform_emails.php
+        {{ stg_drupal }}:/tmp/sanitize_webform_emails.php
+      changed_when: true
+
+    - name: Rewrite webform submission email values
+      command: docker exec {{ stg_drupal }} drush scr /tmp/sanitize_webform_emails.php
       register: webform_sanitize
       changed_when: "'sanitized' in webform_sanitize.stdout"
+
+    - name: Remove webform script from container
+      command: docker exec {{ stg_drupal }} rm -f /tmp/sanitize_webform_emails.php
+      changed_when: true
 
     - name: Show webform sanitization result
       debug:
