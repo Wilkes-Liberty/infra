@@ -574,6 +574,16 @@
     - postmark_server_token is defined
     - postmark_server_token | length > 0
 
+- name: Enable config_ignore module (required for smtp.settings export protection)
+  # Use php:eval to avoid drush's translation-download batch which can fail in
+  # production due to missing locale stream wrapper, returning non-zero even
+  # though the module installs successfully.
+  command: >-
+    docker exec wl_drupal drush php:eval
+    "\Drupal::service('module_installer')->install(['config_ignore']);"
+  changed_when: false
+  when: drupal_status.rc == 0
+
 - name: Check wl_postmark_webhook schema integrity (postmark_events table)
   # If the module is in core.extension but the table is missing (happens when
   # pm:enable ran against an older image and hook_schema never fired), we must
