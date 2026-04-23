@@ -119,45 +119,310 @@ Staging uses a separate Postmark **sandbox server** (`wilkesliberty-staging`) wi
 
 ---
 
-## 3. Keycloak (SSO — set up when you're ready to add user login)
+## 3. Keycloak — First-run setup and SSO
 
-Keycloak is running but has no realms or clients configured yet. The site works without it — it's only needed when you want to add authenticated user flows.
+Keycloak is running. Perform this section once to create the realm, your user, and the OIDC clients that wire SSO to Grafana and (optionally) Drupal.
 
-**Reveal the admin password:**
+> **What's wired vs what needs work:**
+> - **Keycloak admin access** — just log in; no infra changes needed.
+> - **Grafana SSO** — the config block exists in `docker/docker-compose.yml` as a comment. To activate: uncomment it, add `grafana_oauth_client_secret` to sops, add the var to `docker/.env.j2`, run `make onprem`. Flagged below.
+> - **Drupal SSO (openid_connect)** — module is installed via composer but not enabled or wired in Ansible. Flagged below; follow the manual steps.
+> - **Uptime Kuma** — no SSO support; skip.
+
+---
+
+### Step A — Log in to the Keycloak admin console
+
+**Login URLs:**
+- Over Tailscale (preferred): `https://auth.int.wilkesliberty.com/admin/`
+- Public (from outside Tailscale): `https://auth.wilkesliberty.com/admin/`
+
+**Username**: `admin`
+
+**Password** (reveal from sops):
 ```bash
 sops -d ansible/inventory/group_vars/sso_secrets.yml | grep keycloak_admin_password
 ```
 
-**Login URLs:**
-- Over Tailscale (preferred): `https://auth.int.wilkesliberty.com/admin/`
-- Public: `https://auth.wilkesliberty.com/admin/`
+---
 
-**Admin username**: `admin` (set via `KEYCLOAK_ADMIN=admin` in `docker-compose.yml`)
+### Step B — Create the `wilkesliberty` realm
 
-### First-run setup
+The bootstrap `admin` user lands in the `master` realm. All work below happens in a dedicated realm.
 
-1. **Log in** and immediately change the bootstrap admin password via the account menu → Manage Account → Password.
+1. Top-left realm dropdown → **Create realm**
+2. **Realm name**: `wilkesliberty` (exact — this slug appears in every OIDC URL)
+3. **Display name**: `Wilkes & Liberty`
+4. **Enabled**: ON
+5. Click **Create**
+6. Verify the top-left dropdown now reads `wilkesliberty`
 
-2. **Create the `wilkesliberty` realm**
-   - Top-left dropdown → **Create realm**
-   - Realm name: `wilkesliberty`
-   - Display name: `Wilkes & Liberty`
-   - Save.
-   - This name matters — the Grafana OAuth URLs in `docker/.env` and `docker-compose.yml` reference `realms/wilkesliberty`.
+---
 
-3. **Realm settings to configure**
-   - **General tab** → Display name: `Wilkes & Liberty`
-   - **Login tab** → disable "User registration" (you don't want self-signup)
-   - **Email tab** → configure SMTP (use Postmark: host `smtp.postmarkapp.com`, port 587, from `inquiry@wilkesliberty.com`, auth username/password from Postmark)
-   - **Password policy** → add at minimum: length 12, not username
+### Step C — Recommended realm settings
 
-4. **Create a realm admin user** (separate from the bootstrap `admin`)
-   - Users → Add user: username `jmcerda` (or your name), email `3@wilkesliberty.com`
-   - Set a password on the Credentials tab (turn off "Temporary")
-   - Assign the `realm-admin` role from the `realm-management` client (Role Mappings tab → Client Roles → realm-management → realm-admin)
-   - After verifying you can log in as this user, you can demote or delete the bootstrap `admin`.
+**Realm settings → Login tab:**
+| Setting | Value |
+|---------|-------|
+| User registration | OFF |
+| Edit username | OFF |
+| Forgot password | ON (requires SMTP — configure Email tab first) |
+| Remember me | ON |
+| Verify email | ON (sends verification via Postmark SMTP) |
 
-5. **No clients needed yet** — Keycloak is not wired to Drupal, Next.js, or Grafana in the current config. See the Grafana section below for when you're ready to add SSO.
+**Realm settings → Email tab** (configure SMTP so Keycloak can send verification + reset emails):
+| Field | Value |
+|-------|-------|
+| From | `inquiry@wilkesliberty.com` |
+| From display name | `Wilkes & Liberty` |
+| Host | `smtp.postmarkapp.com` |
+| Port | `587` |
+| Enable SSL | OFF |
+| Enable StartTLS | ON |
+| Authentication → Username | Postmark server token (same as `postmark_server_token` in `app_secrets.yml`) |
+| Authentication → Password | same token |
+
+Click **Save**, then **Test connection** to confirm.
+
+**Realm settings → Authentication → Password policy** (add these policies):
+- Minimum length: `12`
+- Not username
+- Not email
+
+**Realm settings → Sessions → Tokens tab:**
+- Access token lifespan: `15 minutes` (default is fine)
+- SSO session idle: `30 minutes`
+- SSO session max: `10 hours`
+
+---
+
+### Step D — Create realm roles
+
+Realm roles → **Create role** (create each of these):
+
+| Role name | Used for |
+|-----------|----------|
+| `admin` | Keycloak admin console access |
+| `drupal-admin` | Drupal administrator mapping |
+| `grafana-admin` | Grafana Admin role mapping |
+| `user` | Basic login — can authenticate but no app admin privileges |
+
+---
+
+### Step E — Create your first user (yourself)
+
+**Users → Add user:**
+
+| Field | Value |
+|-------|-------|
+| Username | `jmcerda` |
+| Email | `3@wilkesliberty.com` |
+| Email verified | ON (skip the verification flow for bootstrap user) |
+| First name | *(your name)* |
+| Last name | *(your name)* |
+| Enabled | ON |
+
+Click **Create**. Then:
+
+**Credentials tab → Set password:**
+- Enter a strong password
+- **Temporary**: OFF (don't force reset on first login for yourself)
+- Click **Save password**
+
+**Role mapping tab → Assign role:**
+- Click **Assign role**
+- Filter by "realm roles"
+- Select: `admin`, `drupal-admin`, `grafana-admin`, `user`
+- Click **Assign**
+
+After this step you have a named personal account. Day-to-day use this account, not the bootstrap `admin`.
+
+---
+
+### Step F — Create OIDC clients (enables SSO per app)
+
+#### Grafana
+
+> **Status: requires 3 infra changes before this works.** See "Wire Grafana OAuth in Ansible" below.
+
+**In Keycloak → Clients → Create client:**
+
+| Field | Value |
+|-------|-------|
+| Client type | OpenID Connect |
+| Client ID | `grafana` |
+| Name | `Grafana (monitor.int)` |
+
+Click **Next**.
+
+| Field | Value |
+|-------|-------|
+| Client authentication | ON (confidential) |
+| Standard flow | ON |
+| Direct access grants | OFF |
+| Service accounts roles | OFF |
+
+Click **Next → Save**.
+
+**Settings tab:**
+| Field | Value |
+|-------|-------|
+| Valid redirect URIs | `https://monitor.int.wilkesliberty.com/login/generic_oauth` |
+| Web origins | `https://monitor.int.wilkesliberty.com` |
+
+Click **Save**.
+
+**Credentials tab** → Copy the **Client secret** (you'll need it below).
+
+**Wire Grafana OAuth in Ansible** (3 changes, then `make onprem`):
+
+1. **Add the secret to sops:**
+   ```bash
+   sops ansible/inventory/group_vars/sso_secrets.yml
+   # add: grafana_oauth_client_secret: "<paste client secret>"
+   ```
+
+2. **Add the env var to `docker/.env.j2`** (after the `GRAFANA_ADMIN_PASSWORD` line):
+   ```
+   GRAFANA_OAUTH_CLIENT_SECRET={{ grafana_oauth_client_secret | default('') }}
+   ```
+
+3. **Uncomment the OAuth block in `docker/docker-compose.yml`** (lines ~342–353 in the Grafana service env section). The block to uncomment:
+   ```yaml
+   - GF_AUTH_GENERIC_OAUTH_ENABLED=true
+   - GF_AUTH_GENERIC_OAUTH_NAME=Keycloak
+   - GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP=true
+   - GF_AUTH_GENERIC_OAUTH_CLIENT_ID=grafana
+   - GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET=${GRAFANA_OAUTH_CLIENT_SECRET}
+   - GF_AUTH_GENERIC_OAUTH_SCOPES=openid profile email
+   - GF_AUTH_GENERIC_OAUTH_AUTH_URL=https://auth.int.wilkesliberty.com/realms/wilkesliberty/protocol/openid-connect/auth
+   - GF_AUTH_GENERIC_OAUTH_TOKEN_URL=https://auth.int.wilkesliberty.com/realms/wilkesliberty/protocol/openid-connect/token
+   - GF_AUTH_GENERIC_OAUTH_API_URL=https://auth.int.wilkesliberty.com/realms/wilkesliberty/protocol/openid-connect/userinfo
+   - GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH=contains(realm_access.roles[*], 'grafana-admin') && 'Admin' || 'Viewer'
+   - GF_AUTH_DISABLE_LOGIN_FORM=true
+   - GF_AUTH_SIGNOUT_REDIRECT_URL=https://auth.int.wilkesliberty.com/realms/wilkesliberty/protocol/openid-connect/logout
+   ```
+   > **Note:** The existing comment uses `auth.wilkesliberty.com` (public) and `groups[*]` for the role path — use `auth.int.wilkesliberty.com` and `realm_access.roles[*]` as shown above.
+
+4. Run `make onprem` to re-deploy.
+
+After deploy, `https://monitor.int.wilkesliberty.com` shows a "Sign in with Keycloak" button. Users with the `grafana-admin` realm role become Grafana Admins; all others become Viewers.
+
+---
+
+#### Drupal (`openid_connect` module)
+
+> **Status: module is installed via composer but not enabled or configured in Ansible. Enable it manually, then configure in the Drupal UI.**
+
+**In Keycloak → Clients → Create client:**
+
+| Field | Value |
+|-------|-------|
+| Client type | OpenID Connect |
+| Client ID | `drupal` |
+| Name | `Drupal (api.int)` |
+
+Click **Next**.
+
+| Field | Value |
+|-------|-------|
+| Client authentication | ON (confidential) |
+| Standard flow | ON |
+| Direct access grants | OFF |
+
+Click **Next → Save**.
+
+**Settings tab:**
+| Field | Value |
+|-------|-------|
+| Valid redirect URIs | `https://api.int.wilkesliberty.com/*`, `https://api.wilkesliberty.com/*` |
+| Web origins | `https://api.int.wilkesliberty.com`, `https://api.wilkesliberty.com` |
+
+Click **Save**. Copy the **Client secret** from the Credentials tab.
+
+**Enable and configure in Drupal:**
+
+```bash
+# Enable the module
+docker exec wl_drupal drush pm:enable openid_connect -y
+docker exec wl_drupal drush cr
+```
+
+Then in the Drupal admin UI at `https://api.wilkesliberty.com/admin/config/services/openid-connect`:
+
+1. **Add OpenID Connect client** → select **Generic**
+2. Fill in:
+   | Field | Value |
+   |-------|-------|
+   | Name | `Keycloak` |
+   | Client ID | `drupal` |
+   | Client secret | *(paste from Keycloak Credentials tab)* |
+   | Issuer URL | `https://auth.int.wilkesliberty.com/realms/wilkesliberty` |
+3. **Settings tab** → Login with Keycloak button: ON
+4. Save.
+
+After this, Drupal's `/user/login` shows a "Log in with Keycloak" button. Keycloak users are provisioned as Drupal users on first SSO login (role mapping is manual via Drupal's user admin).
+
+---
+
+#### Uptime Kuma
+
+No SSO available. Use the admin credentials from the first-run setup wizard and store them in your password manager.
+
+---
+
+### Step G — Add a second user
+
+**Users → Add user** — same flow as Step E, with these differences:
+- **Temporary** password: ON (they reset on first login)
+- Assign only the roles they need (`user` for basic login, `drupal-admin`/`grafana-admin` as appropriate)
+
+After creating, the user receives a verification email at their address (via Postmark SMTP). They complete setup at `https://auth.int.wilkesliberty.com/realms/wilkesliberty/account`.
+
+---
+
+### Step H — Test the full SSO flow
+
+Once Grafana OAuth is wired and deployed:
+
+1. In a private browser window, go to `https://monitor.int.wilkesliberty.com`
+2. Click **Sign in with Keycloak**
+3. Log in with your `jmcerda` account credentials
+4. You should land back in Grafana authenticated as Admin (because of `grafana-admin` role)
+5. Log out from Grafana → should redirect to Keycloak logout → clears the SSO session
+
+For Drupal, go to `https://api.wilkesliberty.com/user/login` → click **Log in with Keycloak** → same flow.
+
+---
+
+### Step I — Optional hardening (after SSO is working)
+
+**Enforce 2FA for admin accounts:**
+1. Realm settings → Authentication → Flows → copy **Browser** flow
+2. In the copy, set **OTP Form** → **Required**
+3. Bind it: Realm settings → Authentication → Required actions → set as default for users with `admin` role
+4. Alternatively: Users → select a user → Credentials tab → Credential reset → OTP
+
+**Brute-force detection:**
+- Realm settings → Security defenses → **Brute force detection**: ON
+- Max login failures: `5`, Wait increment: `30 seconds`, Max wait: `15 minutes`
+
+---
+
+### Step J — Sops keys added during this flow
+
+After Step F, add these to sops:
+```bash
+sops ansible/inventory/group_vars/sso_secrets.yml
+```
+```yaml
+grafana_oauth_client_secret: "<Keycloak grafana client secret>"
+```
+
+The Drupal client secret is a one-time paste into the Drupal UI (not stored in sops or Ansible, since `openid_connect` is not yet Ansible-managed). If you want it in sops for reference, add:
+```yaml
+drupal_oidc_client_secret: "<Keycloak drupal client secret>"
+```
 
 ---
 
@@ -190,17 +455,7 @@ sops -d ansible/inventory/group_vars/sso_secrets.yml | grep grafana_admin_passwo
      - `9628` — PostgreSQL Database
      - `763` — Redis Dashboard
 
-4. **Keycloak SSO (optional — do this after Keycloak is set up)**
-   The env vars are already commented in `docker/docker-compose.yml` and `docker/.env`. When ready:
-   - Create a `grafana` client in Keycloak (realm `wilkesliberty`):
-     - Client type: OpenID Connect
-     - Client ID: `grafana`
-     - Client authentication: ON (confidential)
-     - Valid redirect URIs: `https://monitor.int.wilkesliberty.com/login/generic_oauth`
-     - Web origins: `https://monitor.int.wilkesliberty.com`
-   - Copy the client secret from the Credentials tab
-   - Uncomment the `GF_AUTH_GENERIC_OAUTH_*` block in `~/nas_docker/.env` and fill in the client secret
-   - `docker compose restart grafana`
+4. **Keycloak SSO** — see Section 3, Step F (Grafana). Full wiring instructions are there.
 
 ---
 

@@ -37,7 +37,7 @@ services:
       - {{ ansible_env.HOME }}/Repositories/staging/webcms/config/sync:/opt/drupal/config/sync
     environment:
       - DRUPAL_DB_HOST=postgres
-      - DRUPAL_DB_USER=drupal
+      - DRUPAL_DB_USER=wl_app
       - DRUPAL_DB_PASSWORD=${STG_DRUPAL_DB_PASSWORD:?STG_DRUPAL_DB_PASSWORD is required}
       - DRUPAL_DB_NAME=drupal
       - DRUPAL_HASH_SALT=${STG_DRUPAL_HASH_SALT:?STG_DRUPAL_HASH_SALT is required}
