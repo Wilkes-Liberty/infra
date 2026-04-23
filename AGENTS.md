@@ -276,6 +276,8 @@ Deploys and configures everything on the on-prem server in a single playbook run
 - **docs/CONFIG_EXPORT.md** — Drupal config export workflow: nightly auto-snapshot, manual export, config_ignore, where files land
 - **docs/STAGING_REFRESH.md** — `make refresh-staging`: clone prod DB + files to staging with full sanitization
 - **docs/BACKUP_RESTORE.md** — Backup structure, restore test procedure, and quarterly drill steps
+- **docs/TAILSCALE_ACL_DESIGN.md** — Tag taxonomy and ACL HuJSON design (Premium); must be reviewed and signed off before applying to the tailnet
+- **docs/TAILSCALE_PREMIUM.md** — Premium features overview, tag-based ACL how-to, Tailscale SSH setup, network flow logs, activation checklist
 
 ### Compliance & Security Docs (`docs/compliance/`)
 
