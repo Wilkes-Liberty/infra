@@ -276,3 +276,22 @@ Deploys and configures everything on the on-prem server in a single playbook run
 - **docs/CONFIG_EXPORT.md** — Drupal config export workflow: nightly auto-snapshot, manual export, config_ignore, where files land
 - **docs/STAGING_REFRESH.md** — `make refresh-staging`: clone prod DB + files to staging with full sanitization
 - **docs/BACKUP_RESTORE.md** — Backup structure, restore test procedure, and quarterly drill steps
+
+### Compliance & Security Docs (`docs/compliance/`)
+
+- **docs/compliance/DEVELOPER_SECURITY.md** — Developer security practices: secrets, auth, encryption, dependency management, deployment, monitoring, hardening
+- **docs/compliance/INCIDENT_RESPONSE.md** — NIST 800-61 incident response plan: phases, contact tree, playbooks (credential compromise, container compromise, data breach, service outage), post-incident report template
+- **docs/compliance/SSP.md** — System Security Plan: all 110 NIST 800-171 Rev 2 controls mapped with status (✅/⚠️/❌/N/A), implementation evidence, and POA&M references
+- **docs/compliance/POAM.md** — Plan of Action & Milestones: 34 open items with remediation approach and target dates; 7 completed items
+- **docs/compliance/ACCESS_CONTROL.md** — Access control policy: system inventory, role definitions, provisioning procedure, credential rotation schedule, periodic review
+- **docs/compliance/CONFIG_MANAGEMENT.md** — Configuration management: baseline policy, change procedures, component inventory, rollback procedure
+- **docs/compliance/DATA_CLASSIFICATION.md** — Data classification policy: 4 tiers (Public/Internal/Confidential/CUI), data inventory, handling requirements, media sanitization
+- **docs/compliance/BCDR.md** — Business Continuity & Disaster Recovery: RTO/RPO targets, 5 disaster scenarios with step-by-step recovery procedures, test schedule
+- **docs/compliance/VENDOR_RISK.md** — Vendor risk management: 6 vendors (Tailscale, Postmark, Njalla, Proton Drive, GitHub, Let's Encrypt) with SOC 2/FedRAMP status, annual review process
+
+### Team Docs (`docs/team/`)
+
+- **docs/team/ROLES.md** — Role definitions (Owner, Developer, Contractor), RACI matrix, Security Officer duties, succession planning
+- **docs/team/ONBOARDING.md** — New hire/contractor onboarding: manager checklist, Day 1 steps, required reading list, role-specific access table
+- **docs/team/OFFBOARDING.md** — Offboarding checklist: 24-hour revocation, Tailscale/GitHub/Keycloak removal, credential rotation, involuntary termination notes
+- **docs/team/SECURITY_TRAINING.md** — Security training plan: 5 modules, completion acknowledgment template, annual refresher cadence, training records
