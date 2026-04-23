@@ -245,21 +245,25 @@ No Trivy, Snyk, or Docker Scout scanning in CI or as a pre-deploy check. No CI/C
 **Action:** Add `trivy image wilkesliberty/webcms:latest` as a manual pre-deploy check. Document in deployment checklist. Long-term: add to a CI pipeline.
 
 ### 5.4 Dependency scanning
-**Status: ❌ Not done**
+**Status: ✅ Done (2026-04-23)**
 
-No documented `composer audit`, `npm audit`, or `pip-audit` cadence.
+Cadence documented in `docs/UPDATE_CADENCE.md`. Monthly composer audit + npm audit; quarterly pip-audit + Ansible collection review. Commands:
 
-**Action:** Add to quarterly audit cadence:
 ```bash
-# Drupal
-docker exec wl_drupal composer audit
+# Drupal (composer audit via Docker — no host composer needed)
+docker run --rm -v ~/Repositories/webcms:/app -w /app \
+  -e COMPOSER_HOME=/tmp/composer-home --user "$(id -u):$(id -g)" \
+  composer:2 audit
 
-# Next.js (on VPS or dev machine)
+# Next.js
 cd ~/Repositories/ui && npm audit
 
-# Ansible/Python (if pip packages)
+# Ansible/Python
 pip-audit
+ansible-galaxy collection list
 ```
+
+**First run (2026-04-23):** 4 advisories found (3 drupal/core CVEs + 1 graphql-php DoS). drupal/core updated to 11.3.8 immediately. graphql-php CVE-2026-40476 blocked upstream — see Open Issues.
 
 ### 5.5 Secrets in environment only (not image layers)
 **Status: ✅ Done**
@@ -395,13 +399,31 @@ Staging environment exists and `make refresh-staging` is documented. There is no
 **Action:** Add a checklist item to `DEPLOYMENT_CHECKLIST.md`: "Deploy to staging and smoke-test before deploying to production."
 
 ### 7.6 Auto-update policy for OS and packages
-**Status: ⚠️ Partial — VPS auto-updates done; on-prem and app cadence not documented**
+**Status: ✅ Done (2026-04-23)**
 
-VPS: `unattended-upgrades` deployed via the `common` Ansible role (security-only updates). Deployed live as part of SSH hardening (§3.6, 2026-04-23).
+**VPS:** `unattended-upgrades` deployed via the `common` Ansible role — security-only OS updates, automatic. Deployed live as part of SSH hardening (§3.6).
 
-On-prem macOS: no equivalent to `unattended-upgrades`; macOS system updates are manual. Docker Desktop auto-updates when configured in preferences.
+**On-prem macOS:** no equivalent to `unattended-upgrades`; macOS system updates are manual. Docker Desktop auto-updates when configured.
 
-**Remaining action:** Document a monthly cadence for: `docker exec wl_drupal composer update drupal/core-*`, Docker image version bumps (update pinned tags in `docker-compose.yml`), Keycloak minor upgrades.
+**Application-level cadence:** fully documented in `docs/UPDATE_CADENCE.md`. Summary:
+
+| Layer | Check frequency | Apply window |
+|---|---|---|
+| Drupal core / contrib security | Weekly | 7 days |
+| Drupal core / contrib non-security | Monthly | Best effort |
+| Composer deps + `composer audit` | Monthly | Security: 7 days |
+| npm / Next.js (`npm audit`) | Monthly | Security: 7 days |
+| Docker base images | Monthly (patch) · quarterly (major) | Best effort |
+| Keycloak | Quarterly | Test staging first |
+| PHP / Node.js runtime | Quarterly | Follow LTS schedule |
+| Python / Ansible (`pip-audit`) | Quarterly | Best effort |
+| Tailscale VPS | Monthly | Best effort |
+
+**Emergency response:** critical/high CVEs patched within 24 hours of a fix being available; medium within 7 days. Full triage procedure in `docs/UPDATE_CADENCE.md §Emergency Response`.
+
+**Tracking:** commit message format `security: <component> <old> → <new> (<SA/CVE>)`; `git log --grep="security:"` is the audit trail.
+
+**First applied (2026-04-23):** `drupal/core 11.3.6 → 11.3.8` (SA-CORE-2026-001/002/003). One upstream-blocked item remains: `webonyx/graphql-php` CVE-2026-40476 blocked by `drupal/graphql 4.13.0 → ^14.x` constraint — tracked in Open Issues.
 
 ---
 
@@ -526,9 +548,8 @@ Run before every production deploy:
 | 🟡 Medium | Keycloak brute force / password policy / 2FA not configured | §2.6 |
 | 🟡 Medium | No credential rotation schedule | §1.4 |
 | 🟡 Medium | Rollback procedure not documented | §7.4 |
-| 🟡 Medium | No dependency scanning (composer/npm audit) | §5.4 |
-| 🟡 Medium | App/Docker update cadence not documented (VPS OS updates ✅) | §7.6 |
 | 🟡 Medium | Dockerfile base images not fully pinned | §5.2 |
+| 🟡 Medium | `webonyx/graphql-php` CVE-2026-40476 (DoS) — blocked upstream; fix requires `drupal/graphql` 5.x stable | §5.4 / §7.6 |
 | 🟡 Medium | No incident response runbook | §10.1 |
 | 🟡 Medium | PII retention policy not documented | §11.1 |
 | 🟢 Low | CSP contains `unsafe-inline` / `unsafe-eval` | §3.3 |

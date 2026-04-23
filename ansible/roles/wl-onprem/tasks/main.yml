@@ -596,13 +596,27 @@
         -c "ALTER ROLE wl_app WITH PASSWORD '$DRUPAL_PW';" >/dev/null
     fi
     # Step 4: grant wl_app all necessary privileges on drupal DB only
-    docker exec -i wl_postgres psql -U postgres -d drupal << 'SQL'
+    docker exec -i wl_postgres psql -U postgres -d drupal -v ON_ERROR_STOP=1 << 'SQL'
     GRANT CONNECT ON DATABASE drupal TO wl_app;
     GRANT USAGE, CREATE ON SCHEMA public TO wl_app;
     GRANT ALL ON ALL TABLES IN SCHEMA public TO wl_app;
     GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO wl_app;
     ALTER DEFAULT PRIVILEGES FOR ROLE drupal IN SCHEMA public GRANT ALL ON TABLES TO wl_app;
     ALTER DEFAULT PRIVILEGES FOR ROLE drupal IN SCHEMA public GRANT ALL ON SEQUENCES TO wl_app;
+    DO $$ DECLARE r record;
+    BEGIN
+      FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+      LOOP
+        EXECUTE 'ALTER TABLE public.' || quote_ident(r.tablename) || ' OWNER TO wl_app';
+      END LOOP;
+    END $$;
+    DO $$ DECLARE r record;
+    BEGIN
+      FOR r IN SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema = 'public'
+      LOOP
+        EXECUTE 'ALTER SEQUENCE public.' || quote_ident(r.sequence_name) || ' OWNER TO wl_app';
+      END LOOP;
+    END $$;
     SQL
     # Step 5: revoke keycloak DB access from PUBLIC (wl_app must not reach keycloak)
     docker exec -i wl_postgres psql -U postgres -d postgres << 'SQL'
@@ -906,13 +920,27 @@
       docker exec wl_stg_postgres psql -U postgres -d postgres \
         -c "ALTER ROLE wl_app WITH PASSWORD '$STG_DRUPAL_PW';" >/dev/null
     fi
-    docker exec -i wl_stg_postgres psql -U postgres -d drupal << 'SQL'
+    docker exec -i wl_stg_postgres psql -U postgres -d drupal -v ON_ERROR_STOP=1 << 'SQL'
     GRANT CONNECT ON DATABASE drupal TO wl_app;
     GRANT USAGE, CREATE ON SCHEMA public TO wl_app;
     GRANT ALL ON ALL TABLES IN SCHEMA public TO wl_app;
     GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO wl_app;
     ALTER DEFAULT PRIVILEGES FOR ROLE drupal IN SCHEMA public GRANT ALL ON TABLES TO wl_app;
     ALTER DEFAULT PRIVILEGES FOR ROLE drupal IN SCHEMA public GRANT ALL ON SEQUENCES TO wl_app;
+    DO $$ DECLARE r record;
+    BEGIN
+      FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+      LOOP
+        EXECUTE 'ALTER TABLE public.' || quote_ident(r.tablename) || ' OWNER TO wl_app';
+      END LOOP;
+    END $$;
+    DO $$ DECLARE r record;
+    BEGIN
+      FOR r IN SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema = 'public'
+      LOOP
+        EXECUTE 'ALTER SEQUENCE public.' || quote_ident(r.sequence_name) || ' OWNER TO wl_app';
+      END LOOP;
+    END $$;
     SQL
     docker exec -i wl_stg_postgres psql -U postgres -d postgres << 'SQL'
     REVOKE CONNECT ON DATABASE keycloak FROM PUBLIC;
