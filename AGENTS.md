@@ -270,6 +270,7 @@ Deploys and configures everything on the on-prem server in a single playbook run
 - **docs/TERRAFORM_SOPS_WORKFLOW.md** — Terraform + SOPS secrets workflow
 - **docs/deployment-guide.md** — Detailed deployment guide
 - **docs/ADMIN_SETUP.md** — First-run manual setup for all admin UIs (Drupal OAuth consumer, Keycloak SSO, Grafana, Solr, Uptime Kuma)
+- **docs/COMPANY_PROFILE.md** — Organization identity: legal entity name, active EPA subcontract, Tier 4 Public Trust, continuous-evaluation obligations, spousal/related-party disclosure, subcontractor flow-down clause status
 - **docs/PROJECT_PLAN.md** — Active-work sequencing dashboard: current initiative (Keycloak + Tailscale SSO foundation), queued initiatives, backlog top-5, and decision log. Complements OPEN_ISSUES.md (parts bin) and SECURITY_CHECKLIST.md (steady-state audit)
 - **docs/OPEN_ISSUES.md** — Central punch list of every known gap, upstream block, and deferred enhancement; items are removed or moved to Changelog when resolved
 - **docs/SECURITY_CHECKLIST.md** — Pre-deployment security checklist + ongoing audit with done/partial/not-done status for every item

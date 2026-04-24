@@ -77,7 +77,7 @@
 
 ## 6. Federal Compliance Readiness
 
-_Added 2026-04-23. Priority workstream: Wilkes & Liberty is moving toward federal contracting. These items document the gap between current state and a posture that can credibly support NIST 800-171 compliance claims. See `docs/compliance/` for all draft documents._
+_Updated 2026-04-23. W&L infrastructure is not in scope of the EPA contract (EPA work runs on a separate device). These items document gaps between current state and aspirational federal-readiness posture, plus current-relevance items for the principal's Tier 4 Public Trust credentialing. See `docs/compliance/` for all documents._
 
 | Severity | Title | Description | Target document | Action owner | Revisit |
 |----------|-------|-------------|----------------|-------------|---------|
@@ -97,6 +97,7 @@ _Added 2026-04-23. Priority workstream: Wilkes & Liberty is moving toward federa
 | 🟡 Medium | Security Awareness Training cadence | What training new hires receive, annual refreshers, phishing-awareness procedure. | [docs/team/SECURITY_TRAINING.md](team/SECURITY_TRAINING.md) | user + code session | Draft ready — review and adapt |
 | 🟢 Low | Tailscale Premium activation checklist | ~~Once upgraded~~ **In progress** — Premium activated 2026-04-23. Docs written. Remaining: assign device tags, apply ACL JSON (pending sign-off), enable SSH on VPS via Ansible, configure flow log destination. | [docs/TAILSCALE_PREMIUM.md](TAILSCALE_PREMIUM.md) | user — dashboard + Ansible update | See activation checklist in TAILSCALE_PREMIUM.md |
 | 🟢 Low | Tailscale tag taxonomy & ACL design | ~~Draft pending~~ **In progress** — [TAILSCALE_ACL_DESIGN.md](TAILSCALE_ACL_DESIGN.md) written with full tag taxonomy, ACL HuJSON, test assertions, and sign-off checklist. Pending: owner review → apply to tailnet. | [docs/TAILSCALE_ACL_DESIGN.md](TAILSCALE_ACL_DESIGN.md) | user — review ACL doc, then apply | Review TAILSCALE_ACL_DESIGN.md and sign off |
+| 🟡 Medium | Document Tier 4 continuous-evaluation self-reporting obligations | Tier 4 Public Trust positions require self-reporting of specified life events (foreign travel, foreign contacts, financial hardship, cohabitant changes, arrests/charges). Self-reporting routes through the immediate prime (clearance sponsor of record), not directly to the agency or higher-tier prime. The specific triggers and timelines are set by the immediate prime's FSO. These are not documented anywhere in this repo. | [docs/COMPANY_PROFILE.md](COMPANY_PROFILE.md) | user — consult immediate prime's FSO | Before next period of performance renewal or SF-86 re-investigation |
 
 ---
 

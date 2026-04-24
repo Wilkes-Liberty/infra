@@ -5,9 +5,10 @@
 **System owner:** Jeremy Michael Cerda (`jmcerda` / `jmcerda@wilkesliberty.com`)  
 **Framework:** NIST SP 800-171 Rev 2 (110 controls)  
 **Last reviewed:** 2026-04-23  
-**Document status:** Draft — requires legal review before submission to federal customer
+**Document status:** Draft — internal use; update before formal submission to federal customer or prime contractor  
+**Principal credentialing:** Jeremy Michael Cerda holds a Tier 4 Public Trust position as a lower-tier subcontractor on an EPA-supporting engagement (see COMPANY_PROFILE.md). This infrastructure is **not in scope** of that contract — EPA work is performed on a separate device.
 
-> **Note:** This SSP is prospective. The WilkesLiberty platform does not currently process or store Controlled Unclassified Information (CUI). This document describes the current security posture and identifies gaps (referenced to POA&M items) that would need to be closed before the system is authorized to handle CUI.
+> **Note:** This SSP describes the aspirational-federal-readiness posture of the WilkesLiberty platform — good hygiene appropriate for a firm whose principal holds federal trust clearance, and preparation for future engagements where this platform may be in scope. The platform does not currently process or store Controlled Unclassified Information (CUI). Gaps identified in this SSP are tracked in POA&M.md.
 
 ---
 
@@ -17,7 +18,7 @@
 **Architecture:** Two-host stack — on-prem macOS server (Docker Compose: Drupal, Keycloak, PostgreSQL, Redis, Solr, monitoring) connected via Tailscale WireGuard mesh to a Njalla cloud VPS (Caddy, Next.js). See [ENVIRONMENT_OVERVIEW.md](../ENVIRONMENT_OVERVIEW.md) and `CLAUDE.md`/`AGENTS.md` for full architecture details.  
 **CUI categories handled:** None at present. Wilkes & Liberty, LLC must update this SSP before accepting work involving CUI under DFARS 252.204-7012 or equivalent clauses.  
 **System boundary:** All components in `infra/` repo scope, including the webcms and ui repos that run on this infrastructure.  
-**Authorization status:** Not yet authorized for CUI. Operating under commercial posture.
+**Authorization status:** Not yet formally authorized for CUI. This platform is not currently in scope of the EPA subcontract — EPA work is performed on a separate device. See COMPANY_PROFILE.md.
 
 ---
 
