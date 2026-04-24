@@ -94,14 +94,31 @@ The Eero Pro 7 Max is a strong foundation for this architecture:
 
 ## 4. Procurement
 
+**AT&T plan confirmed: Internet 5000 (5 Gbps symmetric).** The Eero Pro 7 Max has a 10GbE WAN port and can deliver full line rate. Any firewall with a sub-10GbE WAN port will cap throughput. Choose model before ordering.
+
+### 4.1 Firewall Model Comparison
+
+| Model | Price | WAN port | Notes |
+|-------|-------|---------|-------|
+| **Firewalla Gold SE** | ~$450 | 4× 2.5GbE | Caps WAN at ~2.3 Gbps — roughly half of paid line speed. Acceptable if 2.5 Gbps is enough for realistic workloads (most internet destinations can't sustain more than 1 Gbps to a single host anyway). Same Firewalla UX as Gold Pro; native Tailscale integration; easiest setup. |
+| **Firewalla Gold Pro** | ~$900 | 2× 10GbE + 2× 2.5GbE | Full 5 Gbps line-rate. Same Firewalla UX, DNS filtering, mDNS reflector, built-in Tailscale. Best choice for line-speed preservation within the Firewalla ecosystem. |
+| **UniFi Dream Machine Pro Max** | ~$600 | 10GbE SFP+ WAN + 10GbE SFP+ LAN + 8× 2.5GbE | Full line-rate. Richer platform: unified GUI across firewall, switches, and APs; deeper IDS/IPS; advanced logging. No native Tailscale (WireGuard site-to-site supported). Steeper learning curve. Best long-term if you want one managed-network platform. |
+| **UniFi Cloud Gateway Fiber** | ~$279–500 | 10GbE SFP+ WAN | Cheapest 10GbE option; less capable than UDM Pro Max; historically limited stock. |
+| **pfSense / OPNsense on Protectli** | ~$800+ | 10GbE NIC (varies) | Maximum flexibility; maximum effort. Not recommended unless you want to invest deeply in network administration. |
+
+> **Recommendation:** The **Firewalla Gold Pro** is the default balanced choice for this environment. It preserves full 5 Gbps line rate, keeps the same Firewalla UX and configuration model described throughout this plan, includes built-in Tailscale (which fits the existing Tailscale-heavy architecture), and requires no re-learning. The ~$450 premium over the Gold SE buys full line-rate preservation and headroom for any future AT&T speed tier upgrade.
+>
+> If you want to invest in a managed-network platform for the long term — a single GUI for switches, APs, and firewall — the **UniFi Dream Machine Pro Max** is the stronger long-term bet at a lower price point. The tradeoffs are real: learning curve, no native Tailscale integration, and adding UniFi mid-project increases scope. Best considered after Phases A–D are complete and the network rewrite is your primary focus.
+>
+> The **Firewalla Gold SE** remains reasonable if capping at 2.5 Gbps is acceptable and you want the lowest cost and simplest setup. For most home-office workloads — including simultaneous 4K streaming, VoIP, and heavy cloud sync across multiple devices — 2.5 Gbps is not a practical bottleneck.
+
+### 4.2 Items to Procure
+
 | Item | Purpose | Estimated cost | Status |
 |------|---------|---------------|--------|
-| **Firewalla Gold SE** | Router/firewall replacing Eero's routing role | ~$450 | Not yet purchased |
-| **Firewalla Gold Plus / Pro** *(conditional — see WAN speed note below)* | Higher-speed WAN port if AT&T plan is multi-gig | ~$600–900 | Evaluate after confirming AT&T plan speed |
+| **Firewall** *(model TBD — see §4.1 and Open Questions)* | Router/firewall replacing Eero's routing role | ~$450–900 | **Decide model before ordering** |
 | **Managed PoE switch** (if needed) | VLAN-aware switch for wired server rack ports and wired Aqara cameras | ~$100–200 | Evaluate during pre-migration survey — only needed if current switch is unmanaged and wired VLAN tagging is required |
 | **Cat6 patch cables** (if needed) | Clean up rack cabling to labeled-and-tidy standard | ~$20 | Evaluate |
-
-> **⚠️ WAN speed decision point:** The Eero Pro 7 Max has a **10GbE WAN port** and can fully saturate a multi-gig AT&T fiber plan (2Gbps, 5Gbps, etc.). The **Firewalla Gold SE WAN port is 2.5GbE** — inserting it between the ONT and the Eero will cap throughput at ~2.3Gbps even if AT&T delivers more. **Jeremy: confirm your AT&T plan speed before ordering.** If your plan is 1Gbps or below, the Gold SE is fine. If you are on a 2Gbps+ plan or plan to upgrade, consider the **Firewalla Gold Plus** (2.5GbE WAN, slightly higher specs) or **Firewalla Gold Pro** (10GbE WAN, ~$900) to avoid bottlenecking the WAN. See also `docs/OPEN_ISSUES.md` for the tracking item.
 
 > **Managed switch decision:** If the wired Aqara cameras and server rack currently connect through an unmanaged switch, that switch cannot do VLAN tagging — all wired ports will land on the native/untagged VLAN. Options: (a) replace with a VLAN-aware managed switch, (b) trunk directly from Firewalla to each device with a VLAN-aware port, or (c) accept that wired cameras are on the same VLAN as WiFi IoT (acceptable if `iot-homekit` is already isolated from work). Decide during pre-migration survey.
 
@@ -112,9 +129,9 @@ The Eero Pro 7 Max is a strong foundation for this architecture:
 1. **Keycloak Phase A complete** (`docs/PROJECT_PLAN.md` Phase A) — identity foundation stable before changing network topology.
 2. **Tailscale Phase B complete** — Tailscale OIDC wired to Keycloak so Tailscale connectivity is stable through network changes.
 3. **Current network documented** — record all device IPs, MAC addresses, and physical connections before touching anything. Paste into a local scratch doc.
-4. **AT&T gateway bridge mode confirmed** — see Open Questions §8. If bridge mode isn't available, the plan needs to adjust (see §8.1).
+4. **AT&T gateway IP Passthrough enabled** — The AT&T BGW320 and BGW620 gateways (standard hardware for Internet 5000) do not support true bridge mode but do support **IP Passthrough**, which is functionally equivalent for single-NAT operation. Enable this before inserting the new firewall: log into the gateway (`192.168.1.254`), navigate to **Firewall → IP Passthrough**, select **Passthrough**, and assign the new firewall's MAC address as the passthrough device. The firewall will then receive the public IP directly. See Step 2.
 5. **Eero bridge mode confirmed** — Confirmed: Eero Pro 7 Max supports bridge mode.
-6. **Firewalla Gold SE received** — allow 3–5 days for delivery after ordering.
+6. **New firewall received** — decide model per §4.1 before purchasing; allow 3–5 days delivery after ordering.
 
 ---
 
@@ -128,22 +145,22 @@ Execute in order. Each step has a rollback path. Do not skip ahead.
 - Confirm which switch ports serve the server rack and which serve cameras.
 - **Rollback:** Nothing changed — no rollback needed.
 
-### Step 2 — Confirm AT&T gateway bridge mode
+### Step 2 — Enable IP Passthrough on AT&T gateway
 - Log into AT&T gateway admin page (`192.168.1.254` default).
-- Check whether "IP Passthrough" or "Bridge Mode" is available and set up.
-- If already in passthrough: verify Eero gets the public IP. If not, configure per AT&T's current UI.
-- **Rollback:** Re-enable NAT on AT&T gateway.
-- **Risk:** Some AT&T gateways refuse full bridge mode; double-NAT (AT&T NAT + Eero NAT) is the fallback — this does not break Tailscale but may affect port forwarding.
+- Navigate to **Firewall → IP Passthrough**. Set mode to **Passthrough**, select the new firewall's MAC address as the passthrough device, and save.
+- **AT&T hardware note:** BGW320 and BGW620 (standard hardware for Internet 5000) do not support true bridge mode — IP Passthrough is the correct equivalent and is fully supported. The gateway continues to handle the ONT/fiber handoff; the new firewall takes over all routing from its WAN port.
+- Verify: after enabling passthrough, the new firewall's WAN interface should show a public IP (not `192.168.x.x`).
+- **Rollback:** Disable IP Passthrough in AT&T gateway UI — the gateway resumes NAT and Eero can be reconnected directly. Internet restored.
 
-### Step 3 — Place Firewalla Gold SE between ONT and Eero
+### Step 3 — Place new firewall between AT&T gateway and Eero
 - Power off Eero (all nodes).
-- Connect Firewalla WAN port to AT&T gateway LAN port (or directly to ONT if AT&T gateway is in bridge mode).
-- Connect Firewalla LAN port to Eero primary node's WAN port.
-- Power on Firewalla. Confirm Firewalla gets an IP from AT&T (or the public IP if AT&T is in passthrough).
-- Confirm Firewalla's Firewalla app shows WAN connected.
-- Power on Eero. Confirm Eero sees Firewalla as upstream and gets an IP.
+- Connect firewall WAN port to AT&T gateway LAN port (IP Passthrough will hand the public IP to the firewall's MAC).
+- Connect firewall LAN port to Eero primary node's WAN port.
+- Power on firewall. Confirm it receives the public IP from AT&T via IP Passthrough (not a `192.168.x.x` address).
+- Confirm the firewall's management app shows WAN connected.
+- Power on Eero. Confirm Eero sees the new firewall as upstream and gets an IP.
 - **Do not put Eero into bridge mode yet** — wait until VLANs are tested.
-- **Rollback:** Remove Firewalla, reconnect Eero directly to AT&T gateway. Internet restored.
+- **Rollback:** Remove new firewall, reconnect Eero directly to AT&T gateway, disable IP Passthrough (or re-point it to Eero's MAC). Internet restored.
 
 ### Step 4 — Verify basic connectivity before any VLAN work
 - From a device connected to Eero: confirm internet access.
@@ -234,7 +251,7 @@ HomeKit requires mDNS for local device discovery. VLANs break mDNS by default; F
 | # | Question | Why it matters |
 |---|----------|---------------|
 | 1 | Is AT&T gateway currently in IP Passthrough / bridge mode? | Determines whether Firewalla gets the public IP directly or needs to handle double-NAT |
-| 2 | What is your AT&T fiber plan speed (1Gbps, 2Gbps, 5Gbps)? | **Drives Firewalla model selection** — Gold SE is 2.5GbE WAN; if plan is multi-gig, consider Gold Plus/Pro. See Procurement §4. |
+| 2 | Which firewall model: Firewalla Gold Pro (~$900), Gold SE (~$450), or UniFi Dream Machine Pro Max (~$600)? | **Decide before ordering.** AT&T is confirmed at 5 Gbps; Gold SE caps WAN at 2.5 Gbps; Gold Pro and UDM Pro Max preserve full line rate. See §4.1 comparison and recommendation. |
 | 3 | Is the current switch managed or unmanaged? PoE or non-PoE? | Determines whether VLAN tagging on wired ports requires a switch replacement |
 | 4 | Are the Aqara PoE cameras powered by a PoE injector or PoE switch? | Affects whether a managed PoE switch is needed as part of procurement |
 | 5 | Which room is each camera currently in / what is its physical placement? | Required to complete the camera inventory table in PHYSICAL_SECURITY.md §4.1 |
