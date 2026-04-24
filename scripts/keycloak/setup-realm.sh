@@ -276,7 +276,7 @@ upsert_client() {
       -H "Authorization: Bearer ${TOKEN}" \
       -H "Content-Type: application/json" \
       -d "${payload}")
-    id=$(echo "${RESP}" | grep -i "^location:" | sed 's|.*/||' | tr -d '\r\n')
+    id=$(echo "${RESP}" | grep -i "^location:" | sed 's|.*/||' | tr -d '\r\n' || true)
   else
     echo "  Updating client: ${client_id} (${id})"
     curl -s -f -o /dev/null \
@@ -418,18 +418,53 @@ for e in json.load(sys.stdin):
       -H "Content-Type: application/json" \
       -d '{"provider":"deny-access-authenticator"}'
 
-    echo "  Auth flow created (manual step required — see note below)."
+    echo "  Auth flow created."
   fi
-  echo ""
-  echo "  NOTE: The deny-non-operators sub-flow requires manual configuration in the"
-  echo "  Keycloak Admin UI to set the condition authenticator config:"
-  echo "    Authentication → Flows → browser-deny-non-operators"
-  echo "    → deny-non-operators → Condition - User Role"
-  echo "    → Config: Role = wl-operator, Negate = true"
-  echo "    → Set sub-flow to REQUIRED, Deny Access to REQUIRED"
-  echo ""
 else
   echo "  Auth flow already exists: ${DENY_FLOW_ID}"
+fi
+
+# Configure the conditional-user-role authenticator in the deny-non-operators sub-flow.
+# Runs on every invocation — idempotent: POST if no config exists, PUT to update if one does.
+echo "  Configuring deny-non-operators condition authenticator..."
+COND_EXECS=$(curl -s -f \
+  "${KEYCLOAK_URL}/admin/realms/${REALM}/authentication/flows/browser-deny-non-operators/executions" \
+  -H "Authorization: Bearer ${TOKEN}")
+
+COND_EXEC_ID=$(echo "${COND_EXECS}" | python3 -c "
+import sys,json
+for e in json.load(sys.stdin):
+    if e.get('providerId')=='conditional-user-role':
+        print(e['id']); break
+" 2>/dev/null || true)
+
+if [[ -n "${COND_EXEC_ID}" ]]; then
+  COND_CONFIG_ID=$(echo "${COND_EXECS}" | python3 -c "
+import sys,json
+for e in json.load(sys.stdin):
+    if e.get('providerId')=='conditional-user-role':
+        print(e.get('authenticationConfig', '')); break
+" 2>/dev/null || true)
+
+  COND_PAYLOAD='{"alias":"require-wl-operator","config":{"condUserRole":"wl-operator","negate":"true"}}'
+
+  if [[ -z "${COND_CONFIG_ID}" ]]; then
+    echo "  Setting condition: alias=require-wl-operator, role=wl-operator, negate=true"
+    curl -s -f -o /dev/null \
+      -X POST "${KEYCLOAK_URL}/admin/realms/${REALM}/authentication/executions/${COND_EXEC_ID}/config" \
+      -H "Authorization: Bearer ${TOKEN}" \
+      -H "Content-Type: application/json" \
+      -d "${COND_PAYLOAD}"
+  else
+    echo "  Updating existing condition config (${COND_CONFIG_ID})..."
+    curl -s -f -o /dev/null \
+      -X PUT "${KEYCLOAK_URL}/admin/realms/${REALM}/authentication/config/${COND_CONFIG_ID}" \
+      -H "Authorization: Bearer ${TOKEN}" \
+      -H "Content-Type: application/json" \
+      -d "${COND_PAYLOAD}"
+  fi
+else
+  echo "  WARNING: conditional-user-role execution not found — condition not configured"
 fi
 
 # Bind the custom flow to the drupal client
@@ -443,6 +478,10 @@ if [[ -n "${DRUPAL_ID}" ]]; then
 fi
 
 # ── Users ─────────────────────────────────────────────────────────────────────
+# Refresh token — the sections above issue many API calls; KC master realm default
+# access token TTL is 60s, so the token obtained at script start may have expired.
+echo "Refreshing admin token before user operations..."
+TOKEN=$(get_admin_token "${ADMIN_PASS}")
 echo "Configuring users..."
 
 upsert_user() {
@@ -468,7 +507,7 @@ print(users[0]['id'] if users else '')
       -H "Authorization: Bearer ${TOKEN}" \
       -H "Content-Type: application/json" \
       -d "${payload}")
-    USER_ID=$(echo "${RESP}" | grep -i "^location:" | sed 's|.*/||' | tr -d '\r\n')
+    USER_ID=$(echo "${RESP}" | grep -i "^location:" | sed 's|.*/||' | tr -d '\r\n' || true)
   else
     echo "  User exists: ${username} (${USER_ID})"
     curl -s -f -o /dev/null \
@@ -528,25 +567,29 @@ assign_group() {
 [[ -n "${JEREMY_ID}" ]] && assign_group "${JEREMY_ID}" "operators"
 [[ -n "${ALEKSANDRA_ID}" ]] && assign_group "${ALEKSANDRA_ID}" "business-continuity"
 
-# Assign realm roles
-assign_role() {
-  local user_id="$1"
+# Assign realm roles to groups (design: roles on groups, not individual users).
+# Group members inherit roles; Keycloak evaluates group role mappings at token issuance.
+assign_group_role() {
+  local group_name="$1"
   local role_name="$2"
-  local role_json
+  local group_id role_json
+  group_id=$(json_array_id_by_name "${GROUPS_JSON}" "${group_name}")
   role_json=$(curl -s -f "${KEYCLOAK_URL}/admin/realms/${REALM}/roles/${role_name}" \
     -H "Authorization: Bearer ${TOKEN}" 2>/dev/null || true)
-  if [[ -n "${role_json}" && "${role_json}" != *"error"* ]]; then
+  if [[ -n "${group_id}" && -n "${role_json}" && "${role_json}" != *"error"* ]]; then
     curl -s -f -o /dev/null \
-      -X POST "${KEYCLOAK_URL}/admin/realms/${REALM}/users/${user_id}/role-mappings/realm" \
+      -X POST "${KEYCLOAK_URL}/admin/realms/${REALM}/groups/${group_id}/role-mappings/realm" \
       -H "Authorization: Bearer ${TOKEN}" \
       -H "Content-Type: application/json" \
       -d "[${role_json}]" || true
-    echo "  Assigned role ${role_name} → ${user_id}"
+    echo "  Assigned role ${role_name} → group ${group_name}"
+  else
+    echo "  Skipped role assignment: group '${group_name}' or role '${role_name}' not found"
   fi
 }
 
-[[ -n "${JEREMY_ID}" ]] && assign_role "${JEREMY_ID}" "wl-operator"
-[[ -n "${ALEKSANDRA_ID}" ]] && assign_role "${ALEKSANDRA_ID}" "wl-business-continuity"
+assign_group_role "operators" "wl-operator"
+assign_group_role "business-continuity" "wl-business-continuity"
 
 # ── Print client secrets ───────────────────────────────────────────────────────
 echo ""
@@ -576,8 +619,10 @@ if [[ -n "${DRUPAL_ID}" ]]; then
   echo ""
 fi
 
-echo " Auth flow note: if this was a fresh run, manually configure the"
-echo " deny-non-operators condition in Keycloak Admin UI (see note above)."
-echo ""
+echo " Remaining manual steps:"
+echo "   1. Set passwords for jeremy and aleksandra in KC Admin UI"
+echo "   2. In browser-deny-non-operators flow: set deny-non-operators sub-flow"
+echo "      to REQUIRED and Deny Access authenticator to REQUIRED"
+echo "      (Authentication → Flows → browser-deny-non-operators)"
 echo " When secrets are in SOPS, run: make onprem"
 echo "════════════════════════════════════════════════════════════"
