@@ -150,6 +150,7 @@ if [[ "${REALM_EXISTS}" == "404" ]]; then
 else
   echo "  Realm exists, updating settings..."
   kc_put "" '{
+    "sslRequired": "external",
     "registrationAllowed": false,
     "bruteForceProtected": true,
     "permanentLockout": false,
