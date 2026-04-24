@@ -77,7 +77,7 @@ The daily launchd job was producing empty (≈20 byte) `.sql.gz` files on every 
 - `com.wilkesliberty.backup.plist` has an `EnvironmentVariables` block with the same PATH
 - `check_prerequisites()` runs before any I/O — aborts with a Postmark alert if docker or wl_postgres is unavailable
 - Dumps go to `.tmp` first; size-check (< 10 KB → failure + Postmark alert); only `mv` to final name on success
-- Any failure sends a Postmark email alert to `3@wilkesliberty.com` with the reason and recent error log tail
+- Any failure sends a Postmark email alert to `jmcerda@wilkesliberty.com` with the reason and recent error log tail
 
 If you see 20-byte dumps after this fix, check `~/Backups/wilkesliberty/logs/backup-error.log` — a Postmark alert should also have been sent. See `docs/SECURITY_CHECKLIST.md §6.8` for the full evidence.
 

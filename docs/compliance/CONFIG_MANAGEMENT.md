@@ -1,7 +1,7 @@
 # Configuration Management Plan
 
 **Organization:** Wilkes & Liberty  
-**Maintained by:** Jeremias M. Cerda (`3@wilkesliberty.com`)  
+**Maintained by:** Jeremy Michael Cerda (`jmcerda@wilkesliberty.com`)  
 **Last reviewed:** 2026-04-23  
 **Framework reference:** NIST SP 800-171 §3.4
 

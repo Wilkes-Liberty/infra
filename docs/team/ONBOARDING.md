@@ -1,7 +1,7 @@
 # New Employee / Contractor Onboarding
 
 **Organization:** Wilkes & Liberty  
-**Maintained by:** Jeremias M. Cerda (`3@wilkesliberty.com`)  
+**Maintained by:** Jeremy Michael Cerda (`jmcerda@wilkesliberty.com`)  
 **Last reviewed:** 2026-04-23
 
 ---
@@ -100,19 +100,21 @@ All staff must read and confirm they understand the following documents:
 | Access control policy | docs/compliance/ACCESS_CONTROL.md | Who can access what |
 | Data classification | docs/compliance/DATA_CLASSIFICATION.md | How to handle sensitive data |
 
-**Acknowledgment:** After completing the reading, send an email to `3@wilkesliberty.com` with subject line "Onboarding acknowledgment — [Your Name] — [Date]" confirming you have read and understood all documents.
+**Acknowledgment:** After completing the reading, send an email to `jmcerda@wilkesliberty.com` with subject line "Onboarding acknowledgment — [Your Name] — [Date]" confirming you have read and understood all documents.
 
 ---
 
 ## Role-specific access (fill in at hire time)
 
-| Access point | Aleksandra Cerda (`acerda`) | Notes |
-|-------------|----------------------------|-------|
-| GitHub | [x] Write | `webcms`, `ui`, `infra` repos (read) |
-| Tailscale | [x] dev (`tag:dev`) | Staging services + Grafana only |
-| Keycloak | [x] user / [ ] drupal-admin / [ ] grafana-admin | `dev` realm role; grafana-admin TBD |
-| SOPS age key | [ ] No | Developer role — no secrets access |
-| Production deploy (`make onprem`) | [ ] No | Owner/Admin only |
+_This doc covers employee and contractor onboarding. The spousal break-glass account (Aleksandra Cerda / `acerda`) is provisioned separately — see PROJECT_PLAN.md Phase D. It does not go through this onboarding process._
+
+| Access point | [EMPLOYEE_NAME]'s level | Notes |
+|-------------|------------------------|-------|
+| GitHub | [ ] Read / [ ] Write / [ ] Admin | Which repos? |
+| Tailscale | [ ] user-device / [ ] dev / [ ] admin | Tag assigned |
+| Keycloak | [ ] user / [ ] drupal-admin / [ ] grafana-admin | |
+| SOPS age key | [ ] Yes / [ ] No | Admin role only |
+| Production deploy (`make onprem`) | [ ] Yes / [ ] No | Owner/Admin only |
 
 ---
 
@@ -124,4 +126,4 @@ Complete the initial security training within 30 days. See [SECURITY_TRAINING.md
 
 ## Contact
 
-Questions? Reach Jeremias M. Cerda at `3@wilkesliberty.com` or via Tailscale SSH (`ssh jmcerda@<onprem-ip>`).
+Questions? Reach Jeremy Michael Cerda at `jmcerda@wilkesliberty.com` or via Tailscale SSH (`ssh jmcerda@<onprem-ip>`).

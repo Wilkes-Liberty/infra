@@ -1,7 +1,7 @@
 # Developer Security Practices
 
 **Organization:** Wilkes & Liberty  
-**Maintained by:** Jeremias M. Cerda (`3@wilkesliberty.com`)  
+**Maintained by:** Jeremy Michael Cerda (`jmcerda@wilkesliberty.com`)  
 **Last reviewed:** 2026-04-23  
 **Audience:** Internal reference · Prospective client review · Compliance assessment
 
@@ -103,7 +103,7 @@ All deployments are driven by Ansible (`make onprem`, `make vps`) — no manual 
 ## 7. Monitoring & Incident Detection
 
 - **Prometheus** scrapes metrics from all services. 16 alert rules are configured covering service health, disk usage, response time, and error rates.
-- **Alertmanager** routes alerts to `3@wilkesliberty.com` via Proton Mail SMTP.
+- **Alertmanager** routes alerts to `jmcerda@wilkesliberty.com` via Proton Mail SMTP.
 - **Drupal watchdog** captures application-level errors; reviewable at `/admin/reports/dblog` and via `drush watchdog:show`.
 - **Caddy JSON logs** are written to `/var/log/caddy/` on the VPS for each vhost.
 - **Backup failure alerts** are sent via Postmark if the daily backup script detects Docker unavailability, container downtime, or an undersized dump.

@@ -1,7 +1,7 @@
 # Security Training Plan
 
 **Organization:** Wilkes & Liberty  
-**Maintained by:** Jeremias M. Cerda (`3@wilkesliberty.com`)  
+**Maintained by:** Jeremy Michael Cerda (`jmcerda@wilkesliberty.com`)  
 **Last reviewed:** 2026-04-23  
 **Framework reference:** NIST SP 800-171 §3.2.1, §3.2.2, §3.2.3
 
@@ -11,7 +11,7 @@
 
 All staff with access to Wilkes & Liberty systems must complete initial security training within **30 days of hire** and annual refresher training thereafter. Contractors with system access must complete role-scoped training before receiving credentials.
 
-The Security Officer (Jeremias M. Cerda) is responsible for maintaining this plan and confirming completion.
+The Security Officer (Jeremy Michael Cerda) is responsible for maintaining this plan and confirming completion.
 
 ---
 
@@ -44,7 +44,7 @@ Topics:
 
 **Module 1 Quiz:**
 1. What is the 24-hour rule for offboarding? (Answer: Access must be revoked within 24 hours of departure.)
-2. You receive an email with a link to reset your Tailscale password. You didn't request a reset. What do you do? (Answer: Do not click. Report to `3@wilkesliberty.com`.)
+2. You receive an email with a link to reset your Tailscale password. You didn't request a reset. What do you do? (Answer: Do not click. Report to `jmcerda@wilkesliberty.com`.)
 3. Where should company credentials be stored? (Answer: In the shared password manager — never in code, docs, or personal storage.)
 4. What data classification applies to Drupal form submissions? (Answer: Confidential — may contain PII.)
 
@@ -74,7 +74,7 @@ Topics:
 - Tailscale tag-based ACLs: what your tag allows, what it does not allow
 - Keycloak roles: user vs drupal-admin vs grafana-admin
 - GitHub access: what you can push, what requires review
-- Requesting elevated access: ask Jeremias M. Cerda; access is temporary and logged
+- Requesting elevated access: ask Jeremy Michael Cerda; access is temporary and logged
 - Never share credentials or device access, even with colleagues
 - Report unauthorized access attempts immediately
 
@@ -116,7 +116,7 @@ Topics:
 
 ## Acknowledgment Form
 
-After completing all required modules, send an email to `3@wilkesliberty.com` with the following content:
+After completing all required modules, send an email to `jmcerda@wilkesliberty.com` with the following content:
 
 ```
 Subject: Security training acknowledgment — [Your Name] — [Date]

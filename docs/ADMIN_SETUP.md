@@ -216,7 +216,7 @@ Realm roles → **Create role** (create each of these):
 | Field | Value |
 |-------|-------|
 | Username | `jmcerda` |
-| Email | `3@wilkesliberty.com` |
+| Email | `jmcerda@wilkesliberty.com` |
 | Email verified | ON (skip the verification flow for bootstrap user) |
 | First name | *(your name)* |
 | Last name | *(your name)* |
@@ -482,7 +482,7 @@ No manual setup required. The config is rendered from `docker/alertmanager/confi
 **URL:** `https://alerts.int.wilkesliberty.com` (Tailscale + admin CIDR restricted)
 
 **Alert destinations already configured:**
-- Email to `3@wilkesliberty.com` via Proton Mail SMTP (credentials in `sso_secrets.yml`)
+- Email to `jmcerda@wilkesliberty.com` via Proton Mail SMTP (credentials in `sso_secrets.yml`)
 
 **To add Slack alerts:** edit `sso_secrets.yml` and add your Slack incoming webhook URL:
 ```bash

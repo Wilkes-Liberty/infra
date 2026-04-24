@@ -2,7 +2,7 @@
 
 **Organization:** Wilkes & Liberty  
 **System name:** WilkesLiberty Content & Delivery Platform  
-**System owner:** Jeremias M. Cerda (`jmcerda` / `3@wilkesliberty.com`)  
+**System owner:** Jeremy Michael Cerda (`jmcerda` / `jmcerda@wilkesliberty.com`)  
 **Framework:** NIST SP 800-171 Rev 2 (110 controls)  
 **Last reviewed:** 2026-04-23  
 **Document status:** Draft — requires legal review before submission to federal customer

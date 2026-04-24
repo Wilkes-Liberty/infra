@@ -1,7 +1,7 @@
 # Roles & Responsibilities
 
 **Organization:** Wilkes & Liberty  
-**Maintained by:** Jeremias M. Cerda (`3@wilkesliberty.com`)  
+**Maintained by:** Jeremy Michael Cerda (`jmcerda@wilkesliberty.com`)  
 **Last reviewed:** 2026-04-23
 
 ---
@@ -10,8 +10,10 @@
 
 | Name | Username | Role | Email |
 |------|----------|------|-------|
-| Jeremias M. Cerda | `jmcerda` | Owner / CTO / Security Lead / Backup Owner / DR Lead | `3@wilkesliberty.com` |
-| Aleksandra Cerda | `acerda` | Developer | `acerda@wilkesliberty.com` |
+| Jeremy Michael Cerda | `jmcerda` | Owner / CTO / Security Lead / Privacy Officer / DR Lead | `jmcerda@wilkesliberty.com` |
+| Aleksandra Cerda | `acerda` | Break-glass / Business Continuity Contact (spouse) | `acerda@wilkesliberty.com` |
+
+_Note: Aleksandra Cerda's account is a spousal break-glass account for business continuity only — not an employee role. See Succession Planning and PROJECT_PLAN.md Phase D for details._
 
 ---
 
@@ -19,7 +21,7 @@
 
 ### Owner / CTO / Security Lead
 
-Currently: Jeremias M. Cerda (`jmcerda`)
+Currently: Jeremy Michael Cerda (`jmcerda`)
 
 **Responsibilities:**
 - Overall accountability for security posture
@@ -62,7 +64,7 @@ Currently: Jeremias M. Cerda (`jmcerda`)
 
 ## RACI Matrix
 
-| Function | Jeremias (Owner) | Developer | Contractor |
+| Function | Jeremy (Owner) | Developer | Contractor |
 |----------|---------------|-----------|-----------|
 | Production deployment | **R/A** | I | — |
 | Staging deployment | R/A | **R** | — |
@@ -81,7 +83,7 @@ _R = Responsible · A = Accountable · C = Consulted · I = Informed_
 
 ## Security Officer Duties
 
-The Security Officer (currently Jeremias M. Cerda) is responsible for:
+The Security Officer (currently Jeremy Michael Cerda) is responsible for:
 
 1. **Quarterly:** Review SECURITY_CHECKLIST.md and update status on each item.
 2. **Quarterly:** Run `make test-backup-restore`; confirm backups are healthy.
@@ -96,10 +98,13 @@ The Security Officer (currently Jeremias M. Cerda) is responsible for:
 
 ## Succession Planning
 
-In the event the Owner (Jeremias M. Cerda) is unavailable for an extended period:
+In the event the Owner (Jeremy Michael Cerda) is unavailable for an extended period:
 
-1. The secondary responder (Aleksandra Cerda — see INCIDENT_RESPONSE.md contact tree) assumes the Security Officer role temporarily.
-2. The SOPS age key must be recoverable from the password manager without Jeremias's participation — confirm this is the case.
-3. All critical credentials are documented in ACCESS_CONTROL.md §5 and accessible via the password manager.
+1. **Immediate:** Aleksandra Cerda (spouse / business continuity contact) can be reached at `acerda@wilkesliberty.com`. Her Keycloak break-glass account can be activated to allow minimum-necessary access if required. See INCIDENT_RESPONSE.md for the activation procedure.
+2. **Within 48 hours:** Engage an external consultant or trusted technical contact to assist with any operational tasks requiring infra access.
+3. The SOPS age key must be recoverable from the password manager without Jeremy's participation — confirm this is the case and that Aleksandra knows how to retrieve it.
+4. All critical credentials are documented in ACCESS_CONTROL.md §5 and accessible via the password manager.
 
-_Update this section as the team grows._
+_Aleksandra's break-glass account grants no standing access. It must be explicitly enabled when needed and disabled when the emergency is resolved. See PROJECT_PLAN.md Phase D for provisioning details._
+
+_Update this section as the team grows to include a qualified technical successor._
