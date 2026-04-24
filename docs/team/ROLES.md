@@ -105,6 +105,6 @@ In the event the Owner (Jeremy Michael Cerda) is unavailable for an extended per
 3. The SOPS age key must be recoverable from the password manager without Jeremy's participation — confirm this is the case and that Aleksandra knows how to retrieve it.
 4. All critical credentials are documented in ACCESS_CONTROL.md §5 and accessible via the password manager.
 
-_Aleksandra's break-glass account grants no standing access. It must be explicitly enabled when needed and disabled when the emergency is resolved. See PROJECT_PLAN.md Phase D for provisioning details._
+_Aleksandra's Tailscale enrollment (`tag:business-continuity`) is standing — she can connect anytime. Her Keycloak account has no active roles by default; roles are granted only during an acknowledged emergency and revoked after. See PROJECT_PLAN.md Phase D for provisioning details._
 
 _Update this section as the team grows to include a qualified technical successor._
