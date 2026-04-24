@@ -139,7 +139,9 @@ services:
           memory: 2G
 
   keycloak:
-    image: quay.io/keycloak/keycloak:25.0
+    # KC 26 replaces KC_PROXY=edge with KC_PROXY_HEADERS=xforwarded.
+    # Verify latest 26.x patch at https://quay.io/repository/keycloak/keycloak?tab=tags
+    image: quay.io/keycloak/keycloak:26.0.7
     container_name: wl_keycloak
     restart: unless-stopped
     # Use production 'start' mode — NOT 'start-dev' (dev mode disables security features)
@@ -152,15 +154,18 @@ services:
       - KC_DB_URL_DATABASE=keycloak
       - KC_DB_USERNAME=keycloak
       - KC_DB_PASSWORD=${KEYCLOAK_DB_PASSWORD:?KEYCLOAK_DB_PASSWORD is required}
-      # Admin credentials
+      # BOOTSTRAP ONLY — Keycloak reads this once on first container start and writes to Postgres.
+      # Re-running Ansible does NOT rotate the live credential. To rotate after drift:
+      #   scripts/keycloak/rotate-admin-password.sh
+      # Never change this in the Keycloak UI without also updating sso_secrets.yml via SOPS.
       - KEYCLOAK_ADMIN=admin
       - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}
       # HTTP configuration (TLS handled by reverse proxy)
       - KC_HTTP_ENABLED=true
       - KC_HOSTNAME_STRICT=false
-      - KC_HOSTNAME_STRICT_HTTPS=false
-      # Proxy mode: Keycloak trusts X-Forwarded-* headers from the reverse proxy
-      - KC_PROXY=edge
+      # Proxy mode (KC 26+): trust X-Forwarded-* headers from Caddy reverse proxy.
+      # Replaces KC_PROXY=edge which was deprecated in KC 25 and removed in KC 27.
+      - KC_PROXY_HEADERS=xforwarded
       # Enable health and metrics endpoints
       - KC_HEALTH_ENABLED=true
       - KC_METRICS_ENABLED=true
@@ -484,7 +489,7 @@ networks:
 # ================== NOTES ==================
 # Pinned image versions (update intentionally, not automatically):
 #   postgres:16, redis:7-alpine, solr:9.6 — stable major versions
-#   quay.io/keycloak/keycloak:25.0        — verify at https://quay.io/keycloak/keycloak
+#   quay.io/keycloak/keycloak:26.0.7      — verify at https://quay.io/repository/keycloak/keycloak?tab=tags
 #   prom/prometheus:v2.53.0               — verify at https://github.com/prometheus/prometheus/releases
 #   grafana/grafana:11.1.0                — verify at https://github.com/grafana/grafana/releases
 #   prom/alertmanager:v0.27.0             — verify at https://github.com/prometheus/alertmanager/releases

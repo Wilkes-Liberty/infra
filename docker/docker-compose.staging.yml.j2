@@ -71,7 +71,7 @@ services:
     restart: unless-stopped
     volumes:
       - {{ ansible_env.HOME }}/nas_docker_staging/postgres:/var/lib/postgresql/data
-      - {{ ansible_env.HOME }}/Repositories/infra/docker/postgres/init:/docker-entrypoint-initdb.d:ro
+      - {{ ansible_env.HOME }}/Repositories/infra/docker/postgres/init-staging:/docker-entrypoint-initdb.d:ro
     environment:
       - POSTGRES_DB=drupal
       - POSTGRES_USER=drupal
@@ -130,7 +130,7 @@ services:
           memory: 1G
 
   keycloak:
-    image: quay.io/keycloak/keycloak:25.0
+    image: quay.io/keycloak/keycloak:26.0.7
     container_name: wl_stg_keycloak
     restart: unless-stopped
     command: start
@@ -138,15 +138,15 @@ services:
       - KC_DB=postgres
       - KC_DB_URL_HOST=postgres
       - KC_DB_URL_PORT=5432
-      - KC_DB_URL_DATABASE=keycloak
+      # Separate DB from production — staging is throwaway; drop and recreate freely.
+      - KC_DB_URL_DATABASE=keycloak_stage
       - KC_DB_USERNAME=keycloak
       - KC_DB_PASSWORD=${STG_KEYCLOAK_DB_PASSWORD:?STG_KEYCLOAK_DB_PASSWORD is required}
       - KEYCLOAK_ADMIN=admin
       - KEYCLOAK_ADMIN_PASSWORD=${STG_KEYCLOAK_ADMIN_PASSWORD:?STG_KEYCLOAK_ADMIN_PASSWORD is required}
       - KC_HTTP_ENABLED=true
       - KC_HOSTNAME_STRICT=false
-      - KC_HOSTNAME_STRICT_HTTPS=false
-      - KC_PROXY=edge
+      - KC_PROXY_HEADERS=xforwarded
       - KC_HEALTH_ENABLED=true
       - KC_METRICS_ENABLED=true
     ports:
