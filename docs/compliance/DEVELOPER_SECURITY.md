@@ -1,7 +1,7 @@
 # Developer Security Practices
 
 **Organization:** Wilkes & Liberty  
-**Maintained by:** Jeremy (`3@wilkesliberty.com`)  
+**Maintained by:** Jeremias M. Cerda (`3@wilkesliberty.com`)  
 **Last reviewed:** 2026-04-23  
 **Audience:** Internal reference · Prospective client review · Compliance assessment
 

@@ -2,7 +2,7 @@
 
 **Organization:** Wilkes & Liberty  
 **Framework:** NIST SP 800-61 Rev 2  
-**Maintained by:** Jeremy (`3@wilkesliberty.com`)  
+**Maintained by:** Jeremias M. Cerda (`3@wilkesliberty.com`)  
 **Last reviewed:** 2026-04-23  
 **Applies to:** All systems under `wilkesliberty.com` (on-prem server, Njalla VPS, associated SaaS accounts)
 
@@ -12,8 +12,8 @@
 
 | Role | Name | Contact | Escalation order |
 |------|------|---------|-----------------|
-| Incident Commander / Primary Responder | Jeremy | `3@wilkesliberty.com` · [PHONE — fill in] | 1st |
-| Secondary Responder / Backup | [NAME — fill in] | [EMAIL] · [PHONE] | 2nd (if primary unreachable) |
+| Incident Commander / Primary Responder | Jeremias M. Cerda (`jmcerda`) | `3@wilkesliberty.com` · TBD | 1st |
+| Secondary Responder / Backup | Aleksandra Cerda (`acerda`) | `acerda@wilkesliberty.com` · TBD | 2nd (if primary unreachable) |
 | Legal Counsel (if data breach) | [NAME — fill in] | [EMAIL] · [PHONE] | Notify within 24h of confirmed breach |
 | Key Customer / Client Notification | [NAME — fill in] | [EMAIL] | Notify within 72h of confirmed breach affecting their data |
 

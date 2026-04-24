@@ -1,7 +1,7 @@
 # Access Control Policy
 
 **Organization:** Wilkes & Liberty  
-**Maintained by:** Jeremy (`3@wilkesliberty.com`)  
+**Maintained by:** Jeremias M. Cerda (`3@wilkesliberty.com`)  
 **Last reviewed:** 2026-04-23  
 **Framework reference:** NIST SP 800-171 §3.1, §3.5
 
@@ -37,7 +37,7 @@ This policy defines who has access to what systems, how access is granted and re
 | **Contractor** (future) | Same as Developer but scoped to specific repos; access revoked at contract end | Subset of GitHub repos; no infrastructure access |
 | **Readonly** (future) | Can view Grafana dashboards and logs; no write access | Grafana, Prometheus (view-only) |
 
-_Current team size: 1. Roles above define the future state. The Owner role maps to Jeremy._
+_Current team size: 1. Roles above define the future state. The Owner role maps to Jeremias M. Cerda (`jmcerda`)._
 
 ---
 
@@ -55,7 +55,7 @@ Access is provisioned in this order at the start of employment:
 
 ### 3.2 Access approval
 
-All access provisioning requires written approval (email or Slack message from Jeremy). Access grants are logged in the git history of the relevant config file (Tailscale ACL, GitHub org settings, etc.).
+All access provisioning requires written approval (email or Slack message from Jeremias M. Cerda). Access grants are logged in the git history of the relevant config file (Tailscale ACL, GitHub org settings, etc.).
 
 ### 3.3 Minimum access principle
 
@@ -136,4 +136,4 @@ All access changes are logged:
 - **Keycloak:** realm events (when configured)
 - **SOPS secrets updates:** git commit history on `ansible/inventory/group_vars/`
 
-Access provisioning and revocation events are traceable to git commits with the date, operator (Jeremy), and change description.
+Access provisioning and revocation events are traceable to git commits with the date, operator (Jeremias M. Cerda), and change description.

@@ -1,25 +1,25 @@
 # Roles & Responsibilities
 
 **Organization:** Wilkes & Liberty  
-**Maintained by:** Jeremy (`3@wilkesliberty.com`)  
+**Maintained by:** Jeremias M. Cerda (`3@wilkesliberty.com`)  
 **Last reviewed:** 2026-04-23
 
 ---
 
 ## Current Team
 
-| Name | Role | Email |
-|------|------|-------|
-| Jeremy | Owner / System Administrator / Security Officer | `3@wilkesliberty.com` |
-| _[Second hire]_ | _[Role — fill in]_ | _[Email]_ |
+| Name | Username | Role | Email |
+|------|----------|------|-------|
+| Jeremias M. Cerda | `jmcerda` | Owner / CTO / Security Lead / Backup Owner / DR Lead | `3@wilkesliberty.com` |
+| Aleksandra Cerda | `acerda` | Developer | `acerda@wilkesliberty.com` |
 
 ---
 
 ## Role Definitions
 
-### Owner / System Administrator / Security Officer
+### Owner / CTO / Security Lead
 
-Currently: Jeremy
+Currently: Jeremias M. Cerda (`jmcerda`)
 
 **Responsibilities:**
 - Overall accountability for security posture
@@ -62,7 +62,7 @@ Currently: Jeremy
 
 ## RACI Matrix
 
-| Function | Jeremy (Owner) | Developer | Contractor |
+| Function | Jeremias (Owner) | Developer | Contractor |
 |----------|---------------|-----------|-----------|
 | Production deployment | **R/A** | I | — |
 | Staging deployment | R/A | **R** | — |
@@ -81,7 +81,7 @@ _R = Responsible · A = Accountable · C = Consulted · I = Informed_
 
 ## Security Officer Duties
 
-The Security Officer (currently Jeremy) is responsible for:
+The Security Officer (currently Jeremias M. Cerda) is responsible for:
 
 1. **Quarterly:** Review SECURITY_CHECKLIST.md and update status on each item.
 2. **Quarterly:** Run `make test-backup-restore`; confirm backups are healthy.
@@ -96,10 +96,10 @@ The Security Officer (currently Jeremy) is responsible for:
 
 ## Succession Planning
 
-In the event the Owner (Jeremy) is unavailable for an extended period:
+In the event the Owner (Jeremias M. Cerda) is unavailable for an extended period:
 
-1. The secondary responder (see INCIDENT_RESPONSE.md contact tree) assumes the Security Officer role.
-2. The SOPS age key must be recoverable from the password manager without Jeremy's participation — confirm this is the case.
+1. The secondary responder (Aleksandra Cerda — see INCIDENT_RESPONSE.md contact tree) assumes the Security Officer role temporarily.
+2. The SOPS age key must be recoverable from the password manager without Jeremias's participation — confirm this is the case.
 3. All critical credentials are documented in ACCESS_CONTROL.md §5 and accessible via the password manager.
 
 _Update this section as the team grows._

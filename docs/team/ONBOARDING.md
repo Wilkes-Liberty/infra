@@ -1,7 +1,7 @@
 # New Employee / Contractor Onboarding
 
 **Organization:** Wilkes & Liberty  
-**Maintained by:** Jeremy (`3@wilkesliberty.com`)  
+**Maintained by:** Jeremias M. Cerda (`3@wilkesliberty.com`)  
 **Last reviewed:** 2026-04-23
 
 ---
@@ -106,13 +106,13 @@ All staff must read and confirm they understand the following documents:
 
 ## Role-specific access (fill in at hire time)
 
-| Access point | [EMPLOYEE_NAME]'s level | Notes |
-|-------------|------------------------|-------|
-| GitHub | [ ] Read / [ ] Write / [ ] Admin | Which repos? |
-| Tailscale | [ ] user-device / [ ] dev / [ ] admin | Tag assigned |
-| Keycloak | [ ] user / [ ] drupal-admin / [ ] grafana-admin | |
-| SOPS age key | [ ] Yes / [ ] No | Admin role only |
-| Production deploy (`make onprem`) | [ ] Yes / [ ] No | Owner/Admin only |
+| Access point | Aleksandra Cerda (`acerda`) | Notes |
+|-------------|----------------------------|-------|
+| GitHub | [x] Write | `webcms`, `ui`, `infra` repos (read) |
+| Tailscale | [x] dev (`tag:dev`) | Staging services + Grafana only |
+| Keycloak | [x] user / [ ] drupal-admin / [ ] grafana-admin | `dev` realm role; grafana-admin TBD |
+| SOPS age key | [ ] No | Developer role — no secrets access |
+| Production deploy (`make onprem`) | [ ] No | Owner/Admin only |
 
 ---
 
@@ -124,4 +124,4 @@ Complete the initial security training within 30 days. See [SECURITY_TRAINING.md
 
 ## Contact
 
-Questions? Reach Jeremy at `3@wilkesliberty.com` or via Tailscale SSH (`ssh jeremy@<onprem-ip>`).
+Questions? Reach Jeremias M. Cerda at `3@wilkesliberty.com` or via Tailscale SSH (`ssh jmcerda@<onprem-ip>`).
