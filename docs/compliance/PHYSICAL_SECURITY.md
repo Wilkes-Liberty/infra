@@ -62,6 +62,8 @@ The home network is partitioned into three trust zones. **The current state is a
 
 **Current state gap:** The flat network means IoT devices and work systems share a broadcast domain. This is tracked as a HIGH-priority open issue — see `docs/OPEN_ISSUES.md` §Physical Security & Network. Mitigation until segmentation is live: Tailscale provides encrypted overlay for W&L server traffic regardless of local network topology; EPA device is kept physically separate.
 
+_Current mesh hardware: Eero Pro 7 Max (Wi-Fi 7, 10GbE WAN port, built-in Thread border router) — confirmed supports bridge mode required by Path 2._
+
 ---
 
 ## 4. Device Inventory

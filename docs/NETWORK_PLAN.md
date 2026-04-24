@@ -26,7 +26,7 @@ Firewalla Gold SE resolves this by adding a proper firewall with VLAN support up
 |-----------|---------|
 | **ISP** | AT&T Fiber |
 | **Modem/ONT** | AT&T gateway (bridge-mode status: **unconfirmed** — see Open Questions) |
-| **Router / Mesh** | Eero mesh — 3 indoor nodes + 1 outdoor extender |
+| **Router / Mesh** | Eero Pro 7 Max mesh (3 indoor + 1 outdoor extender) — Wi-Fi 7, 10GbE WAN port, built-in Thread border router |
 | **VLAN capability** | None. Eero supports only a single Guest Network; does not support 802.1Q VLANs or multiple SSIDs with VLAN tagging. |
 | **Guest Network** | Available but insufficient: no mDNS reflection (breaks HomeKit discovery), no per-device ACLs |
 | **Switch** | [FILL IN — confirm whether current switch is managed or unmanaged; PoE status] |
@@ -53,7 +53,7 @@ AT&T ONT / gateway (bridge mode)
         └── SSID: guest       → VLAN 50
 ```
 
-> **Note on Eero bridge mode:** Eero bridge mode disables Eero's DHCP and routing; Eero nodes become 802.11 access points that pass VLAN-tagged traffic to Firewalla. Verify your Eero model supports bridge mode before purchase — see Open Questions §9.
+> **Note on Eero bridge mode:** Eero bridge mode disables Eero's DHCP and routing; Eero nodes become 802.11 access points that pass VLAN-tagged traffic to Firewalla. The Eero Pro 7 Max supports bridge mode — confirmed.
 
 ### 3.1 VLAN Design
 
@@ -79,6 +79,17 @@ AT&T ONT / gateway (bridge mode)
 | Built-in Tailscale | May allow Tailscale to run on Firewalla itself — simplifies remote admin; evaluate during setup |
 | Intrusion detection (IDS) | Passthrough IDS for anomaly detection; lightweight, built-in |
 
+### 3.3 Pros of Current Gear for the New Design
+
+The Eero Pro 7 Max is a strong foundation for this architecture:
+
+| Feature | Benefit |
+|---------|---------|
+| **Wi-Fi 7 (802.11be)** | Future-proof wireless; handles high-density IoT + multi-device work load with headroom to spare |
+| **10GbE WAN port** | Can fully utilize a multi-gig AT&T fiber plan (1Gbps, 2Gbps, or higher) — but see Procurement §4 for Firewalla WAN-speed note |
+| **Built-in Thread border router** | Eero Pro 7 Max acts as a native Thread border router (Matter-compatible). Eve devices running Thread can route through the Eero's native Thread BR rather than requiring a HomePod as the sole Thread hub. This may simplify the `iot-homekit` VLAN design: Thread mesh operates at L2 and is separate from IP routing, so Eve accessories may remain reachable from the Eero/HomePod Thread BR even after VLAN changes — but verify behavior in bridge mode (see Open Questions and Step 6). |
+| **Mesh backhaul** | Tri-band backhaul on indoor nodes; outdoor extender extends coverage without additional APs |
+
 ---
 
 ## 4. Procurement
@@ -86,8 +97,11 @@ AT&T ONT / gateway (bridge mode)
 | Item | Purpose | Estimated cost | Status |
 |------|---------|---------------|--------|
 | **Firewalla Gold SE** | Router/firewall replacing Eero's routing role | ~$450 | Not yet purchased |
+| **Firewalla Gold Plus / Pro** *(conditional — see WAN speed note below)* | Higher-speed WAN port if AT&T plan is multi-gig | ~$600–900 | Evaluate after confirming AT&T plan speed |
 | **Managed PoE switch** (if needed) | VLAN-aware switch for wired server rack ports and wired Aqara cameras | ~$100–200 | Evaluate during pre-migration survey — only needed if current switch is unmanaged and wired VLAN tagging is required |
 | **Cat6 patch cables** (if needed) | Clean up rack cabling to labeled-and-tidy standard | ~$20 | Evaluate |
+
+> **⚠️ WAN speed decision point:** The Eero Pro 7 Max has a **10GbE WAN port** and can fully saturate a multi-gig AT&T fiber plan (2Gbps, 5Gbps, etc.). The **Firewalla Gold SE WAN port is 2.5GbE** — inserting it between the ONT and the Eero will cap throughput at ~2.3Gbps even if AT&T delivers more. **Jeremy: confirm your AT&T plan speed before ordering.** If your plan is 1Gbps or below, the Gold SE is fine. If you are on a 2Gbps+ plan or plan to upgrade, consider the **Firewalla Gold Plus** (2.5GbE WAN, slightly higher specs) or **Firewalla Gold Pro** (10GbE WAN, ~$900) to avoid bottlenecking the WAN. See also `docs/OPEN_ISSUES.md` for the tracking item.
 
 > **Managed switch decision:** If the wired Aqara cameras and server rack currently connect through an unmanaged switch, that switch cannot do VLAN tagging — all wired ports will land on the native/untagged VLAN. Options: (a) replace with a VLAN-aware managed switch, (b) trunk directly from Firewalla to each device with a VLAN-aware port, or (c) accept that wired cameras are on the same VLAN as WiFi IoT (acceptable if `iot-homekit` is already isolated from work). Decide during pre-migration survey.
 
@@ -99,7 +113,7 @@ AT&T ONT / gateway (bridge mode)
 2. **Tailscale Phase B complete** — Tailscale OIDC wired to Keycloak so Tailscale connectivity is stable through network changes.
 3. **Current network documented** — record all device IPs, MAC addresses, and physical connections before touching anything. Paste into a local scratch doc.
 4. **AT&T gateway bridge mode confirmed** — see Open Questions §8. If bridge mode isn't available, the plan needs to adjust (see §8.1).
-5. **Eero bridge mode confirmed** — see Open Questions §9. Eero bridge mode support depends on model generation.
+5. **Eero bridge mode confirmed** — Confirmed: Eero Pro 7 Max supports bridge mode.
 6. **Firewalla Gold SE received** — allow 3–5 days for delivery after ordering.
 
 ---
@@ -145,6 +159,7 @@ Execute in order. Each step has a rollback path. Do not skip ahead.
 - In Eero app: **Settings → Network Settings → DHCP & NAT → Bridge Mode → Enable**.
 - Confirm: Eero nodes are now APs only; they pass VLAN-tagged frames to Firewalla.
 - Confirm: internet access still works from a device connected to Eero.
+- **Thread border router sub-check:** The Eero Pro 7 Max has a built-in Thread border router. Verify that Thread devices (Eve switches, outlets, water leak sensor) remain reachable from the Home app after Eero goes into bridge mode. Thread mesh operates at 802.15.4 (L2), separate from IP routing, so the Thread BR *may* continue to function in bridge mode — but this is not explicitly documented by Eero. If Eve devices go offline: check whether a HomePod on `iot-homekit` VLAN is taking over the Thread BR role (HomePods also act as Thread BRs and will do so automatically). If neither is working, consult Eero support forums or contact Eero support directly. Do not declare Step 6 complete until Eve devices are confirmed reachable from the Home app.
 - **Rollback:** Re-enable DHCP & NAT in Eero app.
 
 ### Step 7 — Create SSIDs on Firewalla and tag to VLANs
@@ -219,7 +234,7 @@ HomeKit requires mDNS for local device discovery. VLANs break mDNS by default; F
 | # | Question | Why it matters |
 |---|----------|---------------|
 | 1 | Is AT&T gateway currently in IP Passthrough / bridge mode? | Determines whether Firewalla gets the public IP directly or needs to handle double-NAT |
-| 2 | What is the Eero model? (Eero Pro 6, Eero 6, Eero Pro, original gen?) | Bridge mode is supported on Eero Pro 6 / Eero 6 and later; original gen Eero may not support it |
+| 2 | What is your AT&T fiber plan speed (1Gbps, 2Gbps, 5Gbps)? | **Drives Firewalla model selection** — Gold SE is 2.5GbE WAN; if plan is multi-gig, consider Gold Plus/Pro. See Procurement §4. |
 | 3 | Is the current switch managed or unmanaged? PoE or non-PoE? | Determines whether VLAN tagging on wired ports requires a switch replacement |
 | 4 | Are the Aqara PoE cameras powered by a PoE injector or PoE switch? | Affects whether a managed PoE switch is needed as part of procurement |
 | 5 | Which room is each camera currently in / what is its physical placement? | Required to complete the camera inventory table in PHYSICAL_SECURITY.md §4.1 |
