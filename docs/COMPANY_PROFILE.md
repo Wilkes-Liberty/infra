@@ -8,7 +8,32 @@
 
 ## Overview
 
-Wilkes & Liberty, LLC is a small technology firm providing headless CMS, web delivery, and digital infrastructure services. W&L has no active federal contracts. The compliance posture in this repo is aspirational-federal-readiness preparation for future W&L bids.
+Wilkes & Liberty, LLC is a small technology firm providing headless CMS, web delivery, and digital infrastructure services. W&L is a **returning federal performer** — the company previously served as a lower-tier subcontractor on an HHS/CMS engagement (via Scope Infotec) for 3+ years, ending 2025. W&L has no active federal contracts at present. The compliance posture in this repo is preparation for the company's next federal engagement, grounded in prior operational experience under federal subcontract flow-downs.
+
+---
+
+## Past Performance
+
+### W&L Corporate Past Performance
+
+| Field | Value |
+|-------|-------|
+| **Engagement** | HHS / CMS |
+| **W&L's role** | Lower-tier subcontractor |
+| **Immediate prime** | Scope Infotec Inc (placeholder — confirm firm name with Jeremy) |
+| **Higher-tier chain** | Scope Infotec → HHS/CMS |
+| **Period of performance** | [FILL IN start date] through 2025 (3+ years) |
+| **Scope** | [FILL IN by Jeremy — technology domains, deliverables, CUI categories if any] |
+| **Compliance frameworks applied** | [FILL IN by Jeremy — e.g., NIST 800-171, HIPAA adjacent, etc.] |
+| **Reference contact** | [FILL IN by Jeremy — Scope Infotec point of contact willing to serve as reference] |
+| **Outcomes** | [FILL IN by Jeremy — key deliverables completed, metrics if available] |
+| **Engagement end reason** | [FILL IN by Jeremy — contract expiration, recompete, etc.] |
+
+_Retained CMS compliance artifacts (SSPs, audit logs, training records from this engagement) may be referenceable for future bids — see OPEN_ISSUES.md §6 (Jeremy-only items)._
+
+> **Positioning note:** W&L has operated under federal subcontract flow-down clauses and understands the compliance expectations of a federal subcontractor. This is not a first-time bidder posture.
+
+See `docs/PAST_PERFORMANCE.md` for the full structured record (W&L corporate + principal/key personnel).
 
 ---
 
