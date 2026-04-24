@@ -6,9 +6,9 @@
 **Framework:** NIST SP 800-171 Rev 2 (110 controls)  
 **Last reviewed:** 2026-04-23  
 **Document status:** Draft — internal use; update before formal submission to federal customer or prime contractor  
-**Federal engagement:** Wilkes & Liberty, LLC is an active subcontractor on an EPA prime contract (see COMPANY_PROFILE.md). Jeremy Michael Cerda holds a Tier 4 Public Trust position under this engagement.
+**Principal credentialing:** Jeremy Michael Cerda holds a Tier 4 Public Trust position as a lower-tier subcontractor on an EPA-supporting engagement (see COMPANY_PROFILE.md). This infrastructure is **not in scope** of that contract — EPA work is performed on a separate device.
 
-> **Note:** This SSP describes the security posture of the WilkesLiberty platform as it supports an **active federal subcontract**. The platform does not currently process or store Controlled Unclassified Information (CUI) — confirm with the prime whether CUI flows down under the EPA engagement. Gaps identified in this SSP are tracked in POA&M.md and are being actively remediated.
+> **Note:** This SSP describes the aspirational-federal-readiness posture of the WilkesLiberty platform — good hygiene appropriate for a firm whose principal holds federal trust clearance, and preparation for future engagements where this platform may be in scope. The platform does not currently process or store Controlled Unclassified Information (CUI). Gaps identified in this SSP are tracked in POA&M.md.
 
 ---
 
@@ -18,7 +18,7 @@
 **Architecture:** Two-host stack — on-prem macOS server (Docker Compose: Drupal, Keycloak, PostgreSQL, Redis, Solr, monitoring) connected via Tailscale WireGuard mesh to a Njalla cloud VPS (Caddy, Next.js). See [ENVIRONMENT_OVERVIEW.md](../ENVIRONMENT_OVERVIEW.md) and `CLAUDE.md`/`AGENTS.md` for full architecture details.  
 **CUI categories handled:** None at present. Wilkes & Liberty, LLC must update this SSP before accepting work involving CUI under DFARS 252.204-7012 or equivalent clauses.  
 **System boundary:** All components in `infra/` repo scope, including the webcms and ui repos that run on this infrastructure.  
-**Authorization status:** Not yet formally authorized for CUI. Active EPA subcontract in progress; CUI applicability to be confirmed with prime. Subcontractor flow-down clauses apply per FAR 52.244-6.
+**Authorization status:** Not yet formally authorized for CUI. This platform is not currently in scope of the EPA subcontract — EPA work is performed on a separate device. See COMPANY_PROFILE.md.
 
 ---
 

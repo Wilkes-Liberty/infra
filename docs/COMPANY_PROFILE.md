@@ -29,22 +29,25 @@ Wilkes & Liberty, LLC is a small technology firm providing headless CMS, web del
 
 **Notes:**
 - Jeremy's Tier 4 position is subject to continuous evaluation. See [Continuous Evaluation](#continuous-evaluation) below.
-- Subcontractor flow-down clauses apply. FAR 52.244-6 (Subcontracts for Commercial Products and Commercial Services) applies; EPA-specific clauses flowed down by the prime may also apply. **Open issue:** obtain the complete flow-down clause list from the prime contractor — see OPEN_ISSUES.md.
-- Any EPA-originated data handled under this engagement is subject to EPA data-handling policies and potentially FOIA (5 U.S.C. § 552). Confirm with the prime whether any EPA-agency data is processed in Wilkes & Liberty's environment. See OPEN_ISSUES.md.
+- Jeremy is engaged as a lower-tier subcontractor (W&L → [PRIME] → higher-tier prime → EPA). Flow-down clauses, clearance sponsorship, and self-reporting obligations route through the immediate prime ([PRIME]).
+- **Scope separation:** EPA work is performed on a dedicated, separate device. The W&L infrastructure in this repo (on-prem macOS server, cloud VPS, Tailscale tailnet) is **not in scope** of the EPA contract and does not process or store EPA or government data. Flow-down clauses do not apply to this environment.
 
 ---
 
 ## Compliance Posture
 
-This organization is **currently performing federal work** under the EPA subcontract above. The compliance documentation in `docs/compliance/` (SSP, POA&M, INCIDENT_RESPONSE, ACCESS_CONTROL, etc.) reflects the controls in place for this active engagement, not aspirational preparation.
+The W&L infrastructure in this repo is the company's own dev/admin platform — **not an EPA-contract system**. The compliance documentation in `docs/compliance/` (SSP, POA&M, INCIDENT_RESPONSE, etc.) reflects aspirational-federal-readiness controls: good hygiene appropriate for a small firm whose principal holds federal trust clearance, and preparation for future federal contracting where this platform might be in scope.
 
-**Applicable frameworks:**
+**Current-relevance framing:**
+- The principal (Jeremy) is a cleared individual subject to Tier 4 Public Trust continuous evaluation. Audit logging, SSH session recording, and incident response in this repo are *consistent with* those expectations, even though this environment is not an EPA-contract system.
+- Spousal disclosure documentation (see [Spousal / Related-Party Disclosure](#spousal--related-party-disclosure)) is load-bearing for Jeremy's clearance maintenance — SF-86 Section 18 covers cohabitants — regardless of whether this infra processes federal data.
+
+**Applicable frameworks (aspirational readiness):**
 - **NIST SP 800-171 Rev 2** — 110 controls; current implementation status in [SSP.md](compliance/SSP.md); gaps in [POAM.md](compliance/POAM.md)
 - **FAR Part 9** — Contractor responsibility and conflicts of interest; spousal relationship documented in PROJECT_PLAN.md decision log
-- **FAR 52.244-6** — Subcontracts for commercial items (flow-down requirement)
-- **EPA-specific clauses** — TBD; obtain from prime
 
 **Not yet applicable (monitor):**
+- FAR 52.244-6 / EPA-specific flow-down clauses — apply to EPA-contract device, not this environment
 - DFARS 252.204-7012 (Safeguarding Covered Defense Information) — not applicable unless prime holds a DoD contract
 - FedRAMP — not applicable to this platform at present
 - CMMC — not applicable at present; would become relevant for DoD work
@@ -56,7 +59,7 @@ This organization is **currently performing federal work** under the EPA subcont
 Jeremy's Tier 4 Public Trust position is subject to periodic re-investigation and continuous evaluation:
 
 - **Investigation scope:** Tier 4 (High Risk) investigations cover financial history, foreign contacts, cohabitants, and spouse (SF-86 Section 18 and Section 17). Aleksandra Cerda's information is included in Jeremy's adjudication as spouse/cohabitant.
-- **Self-reporting obligations:** Reportable events include foreign travel, foreign contacts, financial hardship, arrests/charges, and cohabitant changes. Consult the prime contractor's FSO (Facility Security Officer) or the issuing agency for specific self-reporting triggers and timelines. See OPEN_ISSUES.md.
+- **Self-reporting obligations:** Reportable events include foreign travel, foreign contacts, financial hardship, arrests/charges, and cohabitant changes. Self-reporting routes through the immediate prime (clearance sponsor of record), not directly to the agency or higher-tier prime. Consult the immediate prime's FSO for specific triggers and timelines. See OPEN_ISSUES.md.
 - **Infrastructure relevance:** The logging, audit trails, SSH session recording (Tailscale Premium), and incident response capabilities in this repo partially satisfy the operational security expectations for a Tier 4 holder. Unexplained or anomalous access events on infrastructure controlled by a Tier 4 holder may become relevant to continuous evaluation.
 
 ---
