@@ -25,9 +25,12 @@ Assigned to operator and developer devices. One tag per person; determined by ro
 | Tag | Who | What it grants |
 |-----|-----|---------------|
 | `tag:admin` | Jeremy (Owner/Admin) | Full access to all on-prem services, VPS SSH, monitoring, staging |
+| `tag:business-continuity` | Aleksandra Cerda (spouse / continuity contact) | Broad read + SSH access to all on-prem services and VPS; no production deploy or SOPS key. Reserved for the owner's designated continuity contact. Not for routine use — logins are audited. |
 | `tag:dev` | Developers (future hires) | Staging services only; no production DB or secrets |
 | `tag:contractor` | Contractors (scoped work) | Specific repos via GitHub only; no tailnet access unless explicitly provisioned |
 | `tag:readonly` | Auditors / stakeholders | Read-only access to monitoring dashboards (Grafana, Uptime Kuma) |
+
+> **`tag:business-continuity` policy:** This tag exists solely for the owner's designated emergency contact (currently Aleksandra Cerda). It grants broad read/SSH access because business-continuity scenarios require reaching into the network from anywhere in the world without knowing in advance which service needs attention. Tailscale connections are global by default — no special routing or exit node is required. Logins from this tag generate audit log entries in Tailscale and should be reviewed whenever the account is activated. The tag is not used for routine work; if it appears in flow logs outside an acknowledged emergency, treat it as an anomaly.
 
 ### Service / Device Tags
 Assigned to infrastructure nodes. A device gets its service tag at enrollment.
@@ -59,10 +62,11 @@ The policy below is expressed in HuJSON (Tailscale's ACL format). This is the in
   // Only tag owners can assign a tag to a device.
   // ============================================================
   "tagOwners": {
-    "tag:admin":         ["autogroup:owner"],
-    "tag:dev":           ["autogroup:owner"],
-    "tag:contractor":    ["autogroup:owner"],
-    "tag:readonly":      ["autogroup:owner"],
+    "tag:admin":                ["autogroup:owner"],
+    "tag:business-continuity":  ["autogroup:owner"],
+    "tag:dev":                  ["autogroup:owner"],
+    "tag:contractor":           ["autogroup:owner"],
+    "tag:readonly":             ["autogroup:owner"],
     "tag:onprem-server": ["autogroup:owner"],
     "tag:vps":           ["autogroup:owner"],
     "tag:prod-drupal":   ["autogroup:owner"],
@@ -84,6 +88,17 @@ The policy below is expressed in HuJSON (Tailscale's ACL format). This is the in
       "action": "accept",
       "src":    ["tag:admin"],
       "dst":    ["*:*"]
+    },
+
+    // ── Business continuity: broad read + SSH, no deploy ─────
+    // Reserved for spouse / designated continuity contact (acerda).
+    // Grants same service reach as admin but no production deploy
+    // capability (enforced at the application layer — Keycloak role
+    // grants nothing active; SOPS key not provisioned).
+    {
+      "action": "accept",
+      "src":    ["tag:business-continuity"],
+      "dst":    ["tag:onprem-server:*", "tag:vps:*"]
     },
 
     // ── VPS → on-prem: reverse proxy traffic ──────────────────
@@ -173,6 +188,14 @@ The policy below is expressed in HuJSON (Tailscale's ACL format). This is the in
       "dst":         ["tag:onprem-server", "tag:vps"],
       "users":       ["autogroup:nonroot", "root"]
     },
+    // Business continuity: SSH to on-prem and VPS for emergency reach
+    {
+      "action":      "accept",
+      "src":         ["tag:business-continuity"],
+      "dst":         ["tag:onprem-server", "tag:vps"],
+      "users":       ["autogroup:nonroot", "root"],
+      "checkPeriod": "1h"  // Re-check authorization every hour during emergency use
+    },
     // Dev can SSH to VPS only (for Next.js troubleshooting)
     {
       "action":      "accept",
@@ -218,6 +241,11 @@ The policy below is expressed in HuJSON (Tailscale's ACL format). This is the in
     {
       "src":    "tag:vps",
       "deny":   ["tag:onprem-server:5432"]
+    },
+    // Business continuity can reach on-prem services
+    {
+      "src":    "tag:business-continuity",
+      "accept": ["tag:onprem-server:8080", "tag:onprem-server:8081", "tag:onprem-server:3001"]
     }
   ]
 }
@@ -234,13 +262,14 @@ The policy below is expressed in HuJSON (Tailscale's ACL format). This is the in
 
 **Migration steps (do not apply until signed off):**
 
-1. Enroll all devices in the tailnet (currently: on-prem server, VPS, operator laptop).
+1. Enroll all devices in the tailnet (currently: on-prem server, VPS, operator laptop; Aleksandra's device when Phase D is executed).
 2. Assign tags to all enrolled devices in the Tailscale admin console.
 3. Verify device inventory matches tag assignments — check [ACCESS_CONTROL.md](compliance/ACCESS_CONTROL.md) §2.
 4. Apply the ACL JSON to the tailnet (admin console → Access Controls → paste JSON → Save).
 5. Run `tailscale acl test` from the CLI to confirm the built-in tests pass.
 6. Verify: from the VPS, `curl http://<onprem-tailscale-ip>:8080/` should succeed; `curl http://<onprem-tailscale-ip>:5432/` should fail.
-7. Verify: from a dev-tagged device (once hired), confirm staging access works and production is blocked.
+7. Verify: from a `tag:business-continuity` device, confirm on-prem services are reachable; review Tailscale audit log to confirm login events are captured.
+8. Verify: from a dev-tagged device (once hired), confirm staging access works and production is blocked.
 
 ---
 

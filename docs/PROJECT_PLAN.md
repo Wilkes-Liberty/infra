@@ -119,29 +119,34 @@ Update this doc as initiatives complete: move finished phases to [Changelog](#ch
 | **Owner** | Jeremy (Keycloak provisioning) |
 | **Blockers** | Requires Phase A complete (Keycloak realm must exist) |
 
-**Context:** Aleksandra Cerda is Jeremy's spouse. She is not an employee. This account provides a minimum-viable break-glass path for business continuity if Jeremy is unexpectedly unreachable — not active access for day-to-day work. No Tailscale access is provisioned (an unused VPN credential is an attack surface).
+**Context:** Aleksandra Cerda is Jeremy's spouse. She is not an employee. This account provides emergency business-continuity reach — the ability to access the network from anywhere in the world if Jeremy is unexpectedly unreachable. The account exists and can connect; it is not for routine use. Logins are audited.
 
 **Provisioning steps:**
-1. In Keycloak: create user `acerda`, email `acerda@wilkesliberty.com`, no realm roles assigned
+1. In Keycloak: create user `acerda`, email `acerda@wilkesliberty.com`, no active realm roles assigned
 2. Set a strong password; store in the shared password manager in a vault Aleksandra can access
-3. **Disable the account** (`Enabled: OFF`) — it is dormant by default
-4. Document the activation procedure below in a note in the password manager
+3. Enroll Aleksandra's device in the Tailscale tailnet; assign `tag:business-continuity`
+4. Verify she can reach on-prem services (`:8080`, `:8081`, `:3001`) and SSH to on-prem/VPS
+5. Document the "what to do in an emergency" procedure in the password manager (which services to check, who to contact)
+6. Review Tailscale audit log to confirm device enrollment events are captured
 
-**Account activation procedure (break-glass only):**
-1. Jeremy (or Aleksandra if Jeremy is unreachable) logs into Keycloak admin → Users → `acerda` → Enable
-2. Grant minimum-necessary roles for the specific emergency (e.g., access to read backup status, contact a vendor)
-3. After the emergency is resolved: disable the account again and review what was accessed
+**Account scope:**
+- **Tailscale:** `tag:business-continuity` — broad read/SSH access to on-prem and VPS from anywhere; see TAILSCALE_ACL_DESIGN.md
+- **Keycloak:** account exists but no active roles — she can authenticate but cannot administer; roles granted only when needed for a specific emergency
+- **GitHub:** read access to infra repo (so she can read runbooks); no push
+- **SOPS age key:** not provisioned — she cannot decrypt secrets
+- **Production deploy:** not authorized
 
-**What this account does NOT provide:**
-- No Tailscale access — she cannot reach on-prem services or VPS directly
-- No GitHub access — she cannot push to infra repos
-- No SOPS age key access — she cannot decrypt secrets
-- No production deploy capability
+**What to do in an emergency (break-glass procedure):**
+1. Aleksandra connects via Tailscale from her device — access is immediate, no activation step needed
+2. If admin Keycloak access is needed: Jeremy (or she, if Jeremy is unavailable) grants minimum-necessary roles
+3. Follow runbooks in `docs/BACKUP_RESTORE.md`, `docs/compliance/INCIDENT_RESPONSE.md`, `docs/compliance/BCDR.md`
+4. After the emergency: review Tailscale audit log; revoke any temporarily-granted Keycloak roles
 
 **Exit criteria:**
-- `acerda` Keycloak account exists, is disabled, password stored in password manager
-- Aleksandra has been told the account exists and where to find the credentials
-- Activation procedure is documented in the password manager note
+- `acerda` Keycloak account exists; `acerda`'s device enrolled with `tag:business-continuity`
+- Aleksandra can reach on-prem services via Tailscale from her device
+- Break-glass procedure documented in password manager
+- Tailscale login events confirmed in audit log
 
 ---
 
@@ -191,7 +196,8 @@ Full details in `docs/OPEN_ISSUES.md`. Top unscheduled items by priority:
 | 2026-04-23 | Username convention: first-initial + last-name (`jsmith`) as default; `jmcerda` preserved as-is; collision → add middle initial | NIST 800-171 IA-2 requires unique user identification; generic accounts break audit accountability | Generic `admin` account for owner — rejected on compliance grounds |
 | 2026-04-23 | `acerda@wilkesliberty.com` Proton alias provisioned for spouse break-glass account, not personal Gmail | Keeps the org identity namespace consistent; `acerda@` routes to Aleksandra's personal mailbox as a forwarding alias | Personal Gmail — rejected; org email alias costs nothing and maintains a clean namespace |
 | 2026-04-23 | Tailscale Premium activated before first hire | Tag-based ACLs must be in place before a second device joins the tailnet; easier to define access rules with one device than retrofit after multiple are enrolled | Wait until hire — rejected because retrofitting ACLs on an existing multi-device tailnet is higher-risk |
-| 2026-04-23 | Spouse break-glass account — no Tailscale access, disabled by default | Aleksandra Cerda (spouse) has a dormant Keycloak account for business continuity only. No Tailscale access: an unused VPN credential is an unnecessary attack surface and does not meet the minimum-necessary standard. Account disabled at rest; activated only during an emergency, then disabled again. | Standing `tag:dev` Tailscale access — rejected as excessive for a non-operational account |
+| 2026-04-23 | Spouse break-glass account — Tailscale enrolled with `tag:business-continuity`, Keycloak dormant by default | _(Original: no Tailscale access — reversed same day.)_ **Revised:** Aleksandra Cerda (spouse) IS enrolled in Tailscale with `tag:business-continuity` for global emergency reach. Requirement: she must be able to reach the network from anywhere in the world if Jeremy is unreachable. Tailscale connections are global by default; no exit node or special routing needed. Keycloak account has no active roles; roles granted only during an acknowledged emergency then revoked. Logins from this tag are audited and treated as anomalous outside a declared emergency. | `tag:dev` access — rejected as semantically wrong (she's not a developer). No Tailscale at all — rejected because global reach is a genuine continuity requirement. |
+| 2026-04-23 | Compliance posture is for an ACTIVE EPA subcontract (Tier 4 Public Trust), not aspirational | Jeremy holds a Level 4 Public Trust position under an active EPA subcontract. Documentation framing adjusted from "preparing for federal work" to "currently performing federal work." Spouse disclosure work (Aleksandra Cerda) is current-relevance — Tier 4 BI scope explicitly covers cohabitants and spouses (SF-86 Section 18). Logging, audit trails, SSH session recording, and incident response are partially in service of continuous evaluation requirements. Subcontractor flow-down clauses apply (FAR 52.244-6 plus EPA-specific clauses from the prime); clause list to be obtained from prime. See COMPANY_PROFILE.md. | n/a |
 | 2026-04-23 | Spousal relationship disclosure — required on federal proposal forms | Jeremy Michael Cerda and Aleksandra Cerda are married. This requires explicit disclosure on: FAR 9.504 (Organizational Conflicts of Interest — spousal financial interests may constitute OCI); OGE rules for federal contractors (spousal employment and financial interests are reportable); 13 CFR 121 (SBA affiliation rules — spousal business activities count toward affiliation for small-business set-asides, including 8(a), WOSB/EDWOSB, VOSB, HUBZone eligibility determinations); SF-86/SF-85P (security clearance applications — spousal information always required). Disclose the relationship in SAM.gov registration, past performance certifications, and any set-aside eligibility representations. Not a blocker for any current work — informational. | n/a |
 
 ---

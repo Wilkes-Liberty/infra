@@ -13,7 +13,7 @@
 | Role | Name | Contact | Escalation order |
 |------|------|---------|-----------------|
 | Incident Commander / Primary Responder | Jeremy Michael Cerda (`jmcerda`) | `jmcerda@wilkesliberty.com` · TBD | 1st |
-| Business Continuity Contact (Spouse) | Aleksandra Cerda | `acerda@wilkesliberty.com` · TBD | Contact only if Jeremy is unreachable and business-continuity action is required. Not an IR responder — see PROJECT_PLAN.md Phase D for break-glass activation. |
+| Business Continuity Contact (Spouse) | Aleksandra Cerda | `acerda@wilkesliberty.com` · TBD | Contact if Jeremy is unreachable; enrolled in Tailscale with `tag:business-continuity` (global reach). Can SSH to on-prem/VPS and access all services. Not a technical IR lead — follow runbooks in BCDR.md and BACKUP_RESTORE.md. See PROJECT_PLAN.md Phase D for account scope. |
 | Legal Counsel (if data breach) | [NAME — fill in] | [EMAIL] · [PHONE] | Notify within 24h of confirmed breach |
 | Key Customer / Client Notification | [NAME — fill in] | [EMAIL] | Notify within 72h of confirmed breach affecting their data |
 
