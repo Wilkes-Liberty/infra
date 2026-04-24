@@ -109,6 +109,25 @@ _Updated 2026-04-23. W&L infrastructure is not in scope of the EPA contract (EPA
 
 ---
 
+## 7. Physical Security & Network
+
+_Updated 2026-04-24. See `docs/compliance/PHYSICAL_SECURITY.md` and `docs/NETWORK_PLAN.md` for full context. Items below are action items that do not require a code session — Jeremy executes directly._
+
+| Severity | Title | Description | Reference | Action owner | Revisit |
+|----------|-------|-------------|-----------|-------------|---------|
+| 🔴 High | Flat home network — work/IoT/personal not segmented | Current Eero mesh has no VLANs. Work systems (W&L server, EPA device) share a broadcast domain with IoT cameras, smart speakers, and cloud appliances. Violates the trust zone model in PHYSICAL_SECURITY.md §3. Network rewrite (Path 2, Firewalla Gold SE) is documented and deferred until after Keycloak Phase A. | [docs/NETWORK_PLAN.md](NETWORK_PLAN.md), [docs/compliance/PHYSICAL_SECURITY.md](compliance/PHYSICAL_SECURITY.md) | Jeremy — execute network rewrite after Keycloak Phase A | After Keycloak Phase A complete |
+| 🟡 Medium | Verify AT&T gateway is in bridge/passthrough mode | AT&T gateway bridge mode status is unconfirmed. If not in passthrough, Firewalla will be behind double-NAT. Log into AT&T gateway (`192.168.1.254`), check IP Passthrough settings. See NETWORK_PLAN.md §2 and Step 2. | [docs/NETWORK_PLAN.md](NETWORK_PLAN.md) | Jeremy | Before starting network rewrite |
+| 🟡 Medium | Confirm Eero model supports bridge mode | Bridge mode is supported on Eero Pro 6 / Eero 6 and later generations. Confirm exact Eero model before purchasing Firewalla. See NETWORK_PLAN.md Open Questions. | [docs/NETWORK_PLAN.md](NETWORK_PLAN.md) | Jeremy | Before purchasing Firewalla Gold SE |
+| 🟡 Medium | Add temperature monitoring to server rack closet | Server rack is mounted in office closet with no documented temperature or ventilation monitoring. Overheating risk, especially in summer. Options: HomeKit-compatible temperature sensor reporting to Apple Home, or a sensor reporting to Prometheus/Alertmanager (preferred for alerting). | [docs/compliance/PHYSICAL_SECURITY.md](compliance/PHYSICAL_SECURITY.md) §5 | Jeremy | Before summer / before Phase D at latest |
+| 🟡 Medium | Disable Samsung ACR (Samba) and Sony Bravia telemetry | Both TVs currently have ACR (Automatic Content Recognition) and analytics enabled by default. These phone home with viewing data and have microphone features that should be disabled. See PHYSICAL_SECURITY.md §4.3 for exact menu paths. | [docs/compliance/PHYSICAL_SECURITY.md](compliance/PHYSICAL_SECURITY.md) §4.3 | Jeremy | ASAP — before next work session with TVs in range |
+| 🟡 Medium | Confirm HomePods are physically removed from office | Smart speaker policy (PHYSICAL_SECURITY.md §4.2) prohibits HomePods in the office. Confirm all 4 (1 HomePod + 3 HomePod mini) are physically in non-office rooms. Verify "Listen for Hey Siri" is disabled on all units via Home app. | [docs/compliance/PHYSICAL_SECURITY.md](compliance/PHYSICAL_SECURITY.md) §4.2 | Jeremy | ASAP |
+| 🟢 Low | Enable Advanced Data Protection in iCloud | HomeKit Secure Video recordings are E2E encrypted by default, but iCloud Backup is not unless Advanced Data Protection (ADP) is enabled. Enable ADP to extend E2E encryption to Photos, Notes, Backups, etc. Settings → [Your Name] → iCloud → Advanced Data Protection → Turn On. | [docs/compliance/PHYSICAL_SECURITY.md](compliance/PHYSICAL_SECURITY.md) §4.1 | Jeremy | ASAP |
+| 🟢 Low | Add UPS (uninterruptible power supply) for server rack | No UPS is documented for the server rack. Power loss causes unclean shutdowns and potential DB corruption. NIST 800-171 PE-11. | [docs/compliance/PHYSICAL_SECURITY.md](compliance/PHYSICAL_SECURITY.md) §6 | Jeremy | Before any production-critical workloads |
+| 🟢 Low | Complete camera placement inventory in PHYSICAL_SECURITY.md | Camera table in PHYSICAL_SECURITY.md §4.1 has `[FILL IN]` fields for placement, line-of-sight, and audio-in-work-area status for the 5 wired + 3 WiFi Aqara cameras and Netatmo. Fill in actual room/position for each. | [docs/compliance/PHYSICAL_SECURITY.md](compliance/PHYSICAL_SECURITY.md) §4.1 | Jeremy | When convenient — before next compliance review |
+| 🟢 Low | Document Homebridge host decision and deploy | Homebridge host (dedicated Pi or mini-PC) must NOT co-host on W&L server. Decide hardware, procure, deploy on `iot-homekit` VLAN. See PHYSICAL_SECURITY.md §4.4 and NETWORK_PLAN.md. | [docs/NETWORK_PLAN.md](NETWORK_PLAN.md), [docs/compliance/PHYSICAL_SECURITY.md](compliance/PHYSICAL_SECURITY.md) §4.4 | Jeremy | After network rewrite (needs `iot-homekit` VLAN) |
+
+---
+
 ## Changelog
 
 Items are moved here when resolved, with a close date and one-line resolution.

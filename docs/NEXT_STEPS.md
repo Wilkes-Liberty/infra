@@ -125,6 +125,11 @@ These are blocked on Jeremy's direct input — code sessions cannot complete the
 | 10 | Attach current resume to repo for extraction into `docs/resume/` (redacted version — no phone/address) | Before first bid prep | `docs/resume/` (new directory) |
 | 11 | Fill in legal counsel contact and client notification contacts in `docs/compliance/INCIDENT_RESPONSE.md` contact tree | Before plan is operational | `docs/compliance/INCIDENT_RESPONSE.md` |
 | 12 | Review and sign off on `docs/compliance/SSP.md` per-control review; set real dates in `docs/compliance/POAM.md` | Before any federal bid | `docs/compliance/SSP.md`, `docs/compliance/POAM.md` |
+| 13 | **Enable Advanced Data Protection in iCloud** — extends E2E encryption to iCloud Backup, Notes, Photos. Settings → [Your Name] → iCloud → Advanced Data Protection → Turn On. | ASAP | `docs/compliance/PHYSICAL_SECURITY.md` §4.1, `docs/OPEN_ISSUES.md` §7 |
+| 14 | **Confirm HomePods are physically out of office** — verify all 4 HomePods are in non-office rooms; disable "Listen for Hey Siri" on each via Home app. | ASAP | `docs/compliance/PHYSICAL_SECURITY.md` §4.2 |
+| 15 | **Disable Samsung ACR (Samba) and Sony Bravia telemetry** — menu paths in PHYSICAL_SECURITY.md §4.3. | ASAP | `docs/compliance/PHYSICAL_SECURITY.md` §4.3 |
+| 16 | **Complete camera placement table in PHYSICAL_SECURITY.md §4.1** — fill in room/position and confirm no LOS to work monitors for each camera. | When convenient | `docs/compliance/PHYSICAL_SECURITY.md` §4.1 |
+| 17 | **Procure Firewalla Gold SE when ready to start the network rewrite** — ~$450; order after confirming Eero bridge-mode support and AT&T gateway passthrough status. | Before network rewrite | `docs/NETWORK_PLAN.md` §4, `docs/OPEN_ISSUES.md` §7 |
 
 ---
 
@@ -140,6 +145,7 @@ These items are real but not blocking the infrastructure or compliance buildout:
 - **Uptime Kuma credentials in sops** — low-priority; password manager is acceptable. See OPEN_ISSUES §5.
 - **config_split cleanup** — remove inert splits after Keycloak setup is stable. See OPEN_ISSUES §5.
 - **Webhook HMAC upgrade** — stronger than URL-embedded secret; defer to next `wl_postmark_webhook` release. See OPEN_ISSUES §1.
+- **Home network rewrite (Path 2 — Firewalla Gold SE)** — insert Firewalla Gold SE in front of Eero, Eero in bridge mode, VLAN segmentation (work / iot-homekit / iot-untrusted / personal / guest). Full plan in `docs/NETWORK_PLAN.md`. Deferred until Keycloak Phase A + Tailscale Phase B complete. Estimated: 1–2 evenings setup + 1 weekend tuning.
 
 ---
 
@@ -157,3 +163,5 @@ These items are real but not blocking the infrastructure or compliance buildout:
 | NIST 800-171 control status | `docs/compliance/SSP.md` |
 | Open remediation items | `docs/compliance/POAM.md` |
 | Incident response plan | `docs/compliance/INCIDENT_RESPONSE.md` |
+| Home office physical security | `docs/compliance/PHYSICAL_SECURITY.md` |
+| Home network rewrite plan | `docs/NETWORK_PLAN.md` |
