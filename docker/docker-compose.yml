@@ -330,32 +330,34 @@ services:
       - ~/nas_docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      # Bootstrap password — rotate via Grafana UI after first login.
-      # Once Keycloak OAuth2 is enabled below, set GF_AUTH_DISABLE_LOGIN_FORM=true
-      # and this password will no longer be used for regular login.
+      # Break-glass local password — kept for emergency access if OAuth is misconfigured.
+      # Normal login uses Keycloak OAuth2 (see block below).
+      # If locked out: comment out GF_AUTH_DISABLE_LOGIN_FORM and run make onprem to restore.
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
       - GF_SERVER_ROOT_URL=https://monitor.int.wilkesliberty.com
       - GF_INSTALL_PLUGINS=grafana-piechart-panel,grafana-clock-panel
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_ANALYTICS_REPORTING_ENABLED=false
       - GF_ANALYTICS_CHECK_FOR_UPDATES=false
-      # ── Keycloak OAuth2 SSO (recommended — enables single sign-on with your Keycloak realm)
-      # 1. Create a 'grafana' client in Keycloak (confidential, redirect URI: https://monitor.int.wilkesliberty.com/login/generic_oauth)
-      #    Note: Prometheus is at https://metrics.int.wilkesliberty.com
-      # 2. Set GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET to the client secret
-      # 3. Uncomment all lines below and remove GRAFANA_ADMIN_PASSWORD from active login use
-      # - GF_AUTH_GENERIC_OAUTH_ENABLED=true
-      # - GF_AUTH_GENERIC_OAUTH_NAME=Keycloak
-      # - GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP=true
-      # - GF_AUTH_GENERIC_OAUTH_CLIENT_ID=grafana
-      # - GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET=${GRAFANA_OAUTH_CLIENT_SECRET}
-      # - GF_AUTH_GENERIC_OAUTH_SCOPES=openid profile email
-      # - GF_AUTH_GENERIC_OAUTH_AUTH_URL=https://auth.wilkesliberty.com/realms/wilkesliberty/protocol/openid-connect/auth
-      # - GF_AUTH_GENERIC_OAUTH_TOKEN_URL=https://auth.wilkesliberty.com/realms/wilkesliberty/protocol/openid-connect/token
-      # - GF_AUTH_GENERIC_OAUTH_API_URL=https://auth.wilkesliberty.com/realms/wilkesliberty/protocol/openid-connect/userinfo
-      # - GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH=contains(groups[*], 'grafana-admin') && 'Admin' || 'Viewer'
-      # - GF_AUTH_DISABLE_LOGIN_FORM=true
-      # - GF_AUTH_SIGNOUT_REDIRECT_URL=https://auth.wilkesliberty.com/realms/wilkesliberty/protocol/openid-connect/logout
+      # ── Keycloak OAuth2 SSO ────────────────────────────────────────────────────────
+      # PREREQUISITE: add grafana_oauth_client_secret to app_secrets.yml via SOPS
+      # (obtain the secret from Keycloak after creating the 'grafana' client in setup-realm.sh).
+      # TODO Step 6: change ${GRAFANA_OAUTH_CLIENT_SECRET:-} to :?required once the secret is set.
+      - GF_AUTH_GENERIC_OAUTH_ENABLED=true
+      - GF_AUTH_GENERIC_OAUTH_NAME=Keycloak
+      - GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP=false
+      - GF_AUTH_GENERIC_OAUTH_CLIENT_ID=grafana
+      - GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET=${GRAFANA_OAUTH_CLIENT_SECRET:-}
+      - GF_AUTH_GENERIC_OAUTH_SCOPES=openid profile email groups
+      - GF_AUTH_GENERIC_OAUTH_AUTH_URL=https://auth.wilkesliberty.com/realms/wilkesliberty/protocol/openid-connect/auth
+      - GF_AUTH_GENERIC_OAUTH_TOKEN_URL=https://auth.wilkesliberty.com/realms/wilkesliberty/protocol/openid-connect/token
+      - GF_AUTH_GENERIC_OAUTH_API_URL=https://auth.wilkesliberty.com/realms/wilkesliberty/protocol/openid-connect/userinfo
+      # operators group → Admin; everyone else (including business-continuity) → denied.
+      # role_attribute_strict=true: empty result = login denied (not defaulted to Viewer).
+      - GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH=contains(groups[*], 'operators') && 'Admin' || ''
+      - GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_STRICT=true
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_AUTH_SIGNOUT_REDIRECT_URL=https://auth.wilkesliberty.com/realms/wilkesliberty/protocol/openid-connect/logout
     networks:
       - monitoring
     depends_on:

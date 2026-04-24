@@ -2,12 +2,13 @@
 # Wilkes-Liberty Infrastructure Makefile
 # =============================================
 
-.PHONY: help bootstrap check onprem vps deploy refresh-staging clean docker-clean status test-backup-restore
+.PHONY: help bootstrap check check-keycloak-creds onprem vps deploy refresh-staging clean docker-clean status test-backup-restore
 
 help:
 	@echo "Available targets:"
 	@echo "  bootstrap            - Install required local tools (sops, age, terraform, ansible)"
 	@echo "  check                - Validate local environment before deploying"
+	@echo "  check-keycloak-creds - Verify SOPS keycloak_admin_password matches live Keycloak"
 	@echo "  onprem               - Deploy wl-onprem role (on-prem server + Docker stack)"
 	@echo "  vps                  - Deploy Njalla VPS (Let's Encrypt + Caddy)"
 	@echo "  deploy               - Full deployment (onprem + vps)"
@@ -24,6 +25,12 @@ bootstrap:
 # Validate local environment before deploying
 check:
 	./scripts/dev-environment-check.sh
+
+# Verify the SOPS-stored keycloak_admin_password matches the live Keycloak instance.
+# Exits 0 if credentials match, 1 if they don't (drift detected).
+# Run this after any suspected credential drift or before running setup-realm.sh.
+check-keycloak-creds:
+	./scripts/keycloak/check-creds.sh
 
 # Deploy the on-prem server (wl-onprem role)
 # Decrypts sudo password from SOPS at run time and passes via --become-password-file.
