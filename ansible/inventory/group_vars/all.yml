@@ -16,10 +16,10 @@ tailscale_split_dns_domain: "int.wilkesliberty.com"
 tailscale_advertise_routes:
   - "{{ dns_reverse_cidr }}"
 
-# Admin access: restrict SSH and admin UIs to these CIDRs
-admin_allow_cidrs:
-  - 203.0.113.0/24     # Replace with your Proton Business egress or office IPs
-  - 203.0.113.10/32    # Replace with your specific admin IP
+# SSH is Tailscale-only by design — no public SSH. The UFW rule allows
+# SSH only from tailscale_network_cidr (100.64.0.0/10). There is no
+# public-facing SSH port. See docs/BREAK_GLASS_ACCESS.md for emergency
+# access procedures if Tailscale is unavailable.
 
 # ── Host Internal IP Addresses ────────────────────────────────────────
 # Two-host architecture: on-prem server + Njalla VPS.

@@ -1,12 +1,14 @@
 ---
 # UFW firewall rules — two-host architecture
 #
+# SSH is Tailscale-only. There is no public SSH port on either host.
+# Emergency access: see docs/BREAK_GLASS_ACCESS.md.
+#
 # on-prem: all services bind to localhost or Tailscale IP.
-#          No public ports needed beyond SSH from admin CIDRs.
-#          Tailscale handles all inter-host traffic.
+#          No public ports open at all.
 #
 # vps:     Public ingress (Caddy). Allows 80/443 publicly.
-#          Tailscale handles back-channel to on-prem.
+#          SSH allowed only from Tailscale mesh.
 
 - name: Ensure UFW present
   apt:
@@ -28,15 +30,9 @@
     direction: outgoing
     policy: allow
 
-# ── SSH ──────────────────────────────────────────────────────────────
-- name: Allow SSH from known admin CIDRs
-  ufw:
-    rule: allow
-    port: '22'
-    proto: tcp
-    src: "{{ item }}"
-  loop: "{{ admin_allow_cidrs }}"
-
+# ── SSH — Tailscale-only ─────────────────────────────────────────────
+# No public SSH. All admin access is over the Tailscale mesh.
+# Ansible connects to the VPS via its Tailscale MagicDNS address (hosts.ini).
 - name: Allow SSH from Tailscale mesh
   ufw:
     rule: allow
