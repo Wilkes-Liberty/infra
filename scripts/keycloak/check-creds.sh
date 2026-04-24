@@ -3,7 +3,9 @@
 # Exits 0 if credentials match, 1 if they don't (drift detected).
 set -euo pipefail
 
-KEYCLOAK_URL="${KEYCLOAK_URL:-http://localhost:8081}"
+# KC 26 requires HTTPS even for Docker-natted localhost connections.
+# Default to internal Caddy endpoint which forwards X-Forwarded-Proto: https.
+KEYCLOAK_URL="${KEYCLOAK_URL:-https://auth.int.wilkesliberty.com}"
 REALM="master"
 
 if [[ -z "${SOPS_AGE_KEY_FILE:-}" ]]; then

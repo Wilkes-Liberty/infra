@@ -10,7 +10,8 @@
 # After running, verify sync with: make check-keycloak-creds
 set -euo pipefail
 
-KEYCLOAK_URL="${KEYCLOAK_URL:-http://localhost:8081}"
+# KC 26 requires HTTPS even for Docker-natted localhost connections.
+KEYCLOAK_URL="${KEYCLOAK_URL:-https://auth.int.wilkesliberty.com}"
 
 usage() {
   echo "Usage: $0 --current-password <live-keycloak-admin-password>" >&2
