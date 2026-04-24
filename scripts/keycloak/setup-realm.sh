@@ -5,7 +5,7 @@
 # drift. All operations are PUT/POST with existence checks — safe to re-run.
 #
 # Prerequisites:
-#   - Keycloak running at $KEYCLOAK_URL (default: http://localhost:8081)
+#   - Keycloak running at $KEYCLOAK_URL (default: https://auth.int.wilkesliberty.com)
 #   - SOPS-decryptable keycloak_admin_password in sso_secrets.yml
 #   - SOPS_AGE_KEY_FILE set in environment
 #
@@ -24,7 +24,7 @@
 #   3. Run: make onprem   (to apply the secret to .env)
 set -euo pipefail
 
-KEYCLOAK_URL="${KEYCLOAK_URL:-http://localhost:8081}"
+KEYCLOAK_URL="${KEYCLOAK_URL:-https://auth.int.wilkesliberty.com}"
 REALM="wilkesliberty"
 ADMIN_USER="admin"
 
@@ -149,6 +149,7 @@ if [[ "${REALM_EXISTS}" == "404" ]]; then
 else
   echo "  Realm exists, updating settings..."
   kc_put "" '{
+    "sslRequired": "external",
     "registrationAllowed": false,
     "bruteForceProtected": true,
     "permanentLockout": false,
