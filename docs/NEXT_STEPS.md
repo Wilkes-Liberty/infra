@@ -129,7 +129,7 @@ These are blocked on Jeremy's direct input — code sessions cannot complete the
 | 14 | **Confirm HomePods are physically out of office** — verify all 4 HomePods are in non-office rooms; disable "Listen for Hey Siri" on each via Home app. | ASAP | `docs/compliance/PHYSICAL_SECURITY.md` §4.2 |
 | 15 | **Disable Samsung ACR (Samba) and Sony Bravia telemetry** — menu paths in PHYSICAL_SECURITY.md §4.3. | ASAP | `docs/compliance/PHYSICAL_SECURITY.md` §4.3 |
 | 16 | **Complete camera placement table in PHYSICAL_SECURITY.md §4.1** — fill in room/position and confirm no LOS to work monitors for each camera. | When convenient | `docs/compliance/PHYSICAL_SECURITY.md` §4.1 |
-| 17 | **Procure Firewalla Gold SE when ready to start the network rewrite** — ~$450; order after confirming Eero bridge-mode support and AT&T gateway passthrough status. | Before network rewrite | `docs/NETWORK_PLAN.md` §4, `docs/OPEN_ISSUES.md` §7 |
+| 17 | **Decide firewall model and procure when ready to start the network rewrite** — AT&T is 5 Gbps; Gold SE (~$450) caps at 2.5 Gbps, Gold Pro (~$900) and UDM Pro Max (~$600) preserve full line rate. See §4.1 comparison. Also verify AT&T gateway IP Passthrough is already enabled (likely yes — check `192.168.1.254` → Firewall → IP Passthrough). | Before network rewrite | `docs/NETWORK_PLAN.md` §4.1, `docs/OPEN_ISSUES.md` §7 |
 
 ---
 
