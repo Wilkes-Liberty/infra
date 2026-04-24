@@ -1,7 +1,7 @@
 # Employee / Contractor Offboarding
 
 **Organization:** Wilkes & Liberty  
-**Maintained by:** Jeremy (`3@wilkesliberty.com`)  
+**Maintained by:** Jeremias M. Cerda (`3@wilkesliberty.com`)  
 **Last reviewed:** 2026-04-23
 
 ---
@@ -46,12 +46,12 @@ For each credential the person had knowledge of or access to:
 
 | Credential | Who rotates | Procedure |
 |-----------|-------------|----------|
-| SOPS age key | Jeremy | Generate new key, update `.sops.yaml`, re-encrypt all secrets, redeploy |
-| Drupal OAuth client secret | Jeremy | Regenerate in Drupal admin → update sops → `make onprem && make vps` |
-| Postmark server token | Jeremy | Revoke in Postmark dashboard → update sops → `make onprem` |
-| PostgreSQL passwords | Jeremy | Update in sops → `make onprem` (Ansible resets passwords) |
-| Tailscale admin access | Jeremy | Change account password + rotate MFA secret |
-| GitHub admin access | Jeremy | Review GitHub audit log for any changes made |
+| SOPS age key | Jeremias M. Cerda (`jmcerda`) | Generate new key, update `.sops.yaml`, re-encrypt all secrets, redeploy |
+| Drupal OAuth client secret | Jeremias M. Cerda (`jmcerda`) | Regenerate in Drupal admin → update sops → `make onprem && make vps` |
+| Postmark server token | Jeremias M. Cerda (`jmcerda`) | Revoke in Postmark dashboard → update sops → `make onprem` |
+| PostgreSQL passwords | Jeremias M. Cerda (`jmcerda`) | Update in sops → `make onprem` (Ansible resets passwords) |
+| Tailscale admin access | Jeremias M. Cerda (`jmcerda`) | Change account password + rotate MFA secret |
+| GitHub admin access | Jeremias M. Cerda (`jmcerda`) | Review GitHub audit log for any changes made |
 
 **For Admin/Owner role departures:** All credentials listed above must be rotated. This takes priority over all other offboarding steps.
 

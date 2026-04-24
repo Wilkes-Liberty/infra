@@ -1,7 +1,7 @@
 # Project Plan
 
 **Organization:** Wilkes & Liberty  
-**Maintained by:** Jeremy (`3@wilkesliberty.com`)  
+**Maintained by:** Jeremias M. Cerda (`3@wilkesliberty.com`)  
 **Last reviewed:** 2026-04-23
 
 ---
@@ -48,14 +48,14 @@ Update this doc as initiatives complete: move finished phases to [Changelog](#ch
 2. Create realm: `wilkesliberty`
 3. Configure realm settings: Login (brute-force protection on, remember-me off), Tokens (access token 15 min, refresh 8h), Email (SMTP already configured via Postmark)
 4. Create realm roles: `admin`, `dev`, `contractor`, `readonly`, `drupal-admin`, `grafana-admin`
-5. Create user `jcerda` (or chosen username convention — see Decision Log), assign all admin roles, set permanent password
+5. Create user `jmcerda` (Jeremias M. Cerda), assign all admin roles, set permanent password
 6. Test forgot-password email flow to confirm Postmark integration works end-to-end
 
 **Reference:** `docs/ADMIN_SETUP.md` §3
 
 **Exit criteria:**
 - `wilkesliberty` realm exists with brute-force protection enabled
-- `jcerda` user created with all admin roles
+- `jmcerda` user created with all admin roles
 - Password reset email received via Postmark (confirms SMTP is wired correctly)
 
 ---
@@ -117,20 +117,20 @@ Update this doc as initiatives complete: move finished phases to [Changelog](#ch
 | **Status** | Not started |
 | **Estimate** | ~30 minutes |
 | **Owner** | User (Proton + Keycloak provisioning); code-session support available |
-| **Blockers** | Requires Phases A–C complete; requires user-provided info (real name, role assignment) |
+| **Blockers** | Requires Phases A–C complete |
 
 **Steps:**
-1. In Proton: create `<initial><lastname>@wilkesliberty.com` alias routing to their real mailbox
-2. In Keycloak: create user with the new email, assign appropriate roles (likely `dev` initially)
-3. Set temporary password; email onboarding instructions and link to `docs/team/ONBOARDING.md`
-4. They authenticate via Keycloak through Tailscale OIDC — device enrollment is automatic
-5. Assign their device the `tag:dev` tag in Tailscale admin console
-6. Verify they can reach staging services and Grafana but not production Drupal/DB
+1. In Proton: confirm `acerda@wilkesliberty.com` alias is routing to Aleksandra's real mailbox
+2. In Keycloak: create user `acerda` (Aleksandra Cerda) with `dev` realm role, set temporary password
+3. Email Aleksandra the temporary password and a link to `docs/team/ONBOARDING.md`
+4. She authenticates via Keycloak through Tailscale OIDC — device enrollment is automatic
+5. Assign her device the `tag:dev` tag in Tailscale admin console
+6. Verify she can reach staging services (`:8090`, `:8091`, `:8993`, `:3010`) and Grafana (`:3001`), but not production Drupal (`:8080`) or DB
 
 **Reference:** `docs/team/ONBOARDING.md`, `docs/TAILSCALE_ACL_DESIGN.md`
 
 **Exit criteria:**
-- Second user has working Keycloak account with Tailscale-native login
+- `acerda` has working Keycloak account with Tailscale-native login
 - Device tagged `tag:dev`; staging access confirmed; production access blocked
 - Onboarding acknowledgment email received at `3@wilkesliberty.com`
 
@@ -166,7 +166,7 @@ Full details in `docs/OPEN_ISSUES.md`. Top unscheduled items by priority:
 
 1. **🔴 No credential rotation schedule** — NIST 800-171 §3.5.x; define cadence + calendar for all 8 credential types (`OPEN_ISSUES.md` §1)
 2. **🔴 No incident response plan reviewed** — INCIDENT_RESPONSE.md is drafted; needs contact tree filled in and owner sign-off (`OPEN_ISSUES.md` §1, §6)
-3. **🔴 SSP and POA&M review** — SSP.md needs legal entity name + per-control review; POA&M needs real target dates (`OPEN_ISSUES.md` §6)
+3. **🔴 SSP and POA&M review** — SSP.md needs per-control review (legal entity `Wilkes & Liberty, LLC` now filled in); POA&M needs real target dates (`OPEN_ISSUES.md` §6)
 4. **🟡 PII retention policy** — watchdog log rotation + documented deletion procedure for webform submissions (`OPEN_ISSUES.md` §1)
 5. **🟡 Container image vulnerability scanning** — add `trivy image` to DEPLOYMENT_CHECKLIST.md pre-deploy step (`OPEN_ISSUES.md` §1)
 
@@ -177,9 +177,10 @@ Full details in `docs/OPEN_ISSUES.md`. Top unscheduled items by priority:
 | Date | Decision | Why | Alternatives considered |
 |------|----------|-----|------------------------|
 | 2026-04-23 | Keycloak configured before Tailscale ACL changes | Identity stability: applying ACLs against pre-Keycloak identities would require a redo after migration | Tailscale ACL first with current external IdP, then re-tag after Keycloak cutover — rejected as more error-prone |
-| 2026-04-23 | Self-identifying Keycloak usernames (`jcerda` pattern), not generic role accounts | NIST 800-171 IA-2 requires unique user identification; generic accounts break audit accountability | Generic `admin` account for owner — rejected on compliance grounds |
+| 2026-04-23 | Username convention: first-initial + last-name (`jsmith`) as default; existing `jmcerda` (owner) preserved as-is; collision → add middle initial | NIST 800-171 IA-2 requires unique user identification; generic accounts break audit accountability. First two users: `jmcerda` (Jeremias M. Cerda) and `acerda` (Aleksandra Cerda) — no collision under this convention | Generic `admin` account for owner — rejected on compliance grounds |
 | 2026-04-23 | Provision `@wilkesliberty.com` email for second teammate, not personal Gmail | NIST 800-171 AC-2/IA-4 require organizational identifier control; personal email breaks lifecycle management | Gmail to reduce Proton seat cost — rejected as insufficient for federal contracting direction |
 | 2026-04-23 | Tailscale Premium activated before first hire | Tag-based ACLs must be in place before a second device joins the tailnet; easier to define access rules with one device than retrofit after multiple are enrolled | Wait until hire — rejected because retrofitting ACLs on an existing multi-device tailnet is higher-risk |
+| 2026-04-23 | Related-party disclosure — note for federal proposals | The two current team members (Jeremias M. Cerda and Aleksandra Cerda) share a last name and are family members. This is not a problem operationally but is a disclosure item when submitting federal proposals: FAR 9.504 (conflict of interest), and any small business or set-aside program certifications under 13 CFR 121 (SBA affiliation rules). Document the relationship in proposal forms (SAM.gov, CCR) as appropriate; do not omit it. Not a blocker for any current work. | n/a |
 
 ---
 

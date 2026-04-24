@@ -2,7 +2,7 @@
 
 **Organization:** Wilkes & Liberty  
 **System name:** WilkesLiberty Content & Delivery Platform  
-**System owner:** Jeremy (`3@wilkesliberty.com`)  
+**System owner:** Jeremias M. Cerda (`jmcerda` / `3@wilkesliberty.com`)  
 **Framework:** NIST SP 800-171 Rev 2 (110 controls)  
 **Last reviewed:** 2026-04-23  
 **Document status:** Draft — requires legal review before submission to federal customer
@@ -15,7 +15,7 @@
 
 **Purpose:** Headless CMS and public website delivery platform for Wilkes & Liberty.  
 **Architecture:** Two-host stack — on-prem macOS server (Docker Compose: Drupal, Keycloak, PostgreSQL, Redis, Solr, monitoring) connected via Tailscale WireGuard mesh to a Njalla cloud VPS (Caddy, Next.js). See [ENVIRONMENT_OVERVIEW.md](../ENVIRONMENT_OVERVIEW.md) and `CLAUDE.md`/`AGENTS.md` for full architecture details.  
-**CUI categories handled:** None at present. [COMPANY_NAME — fill in legal entity] must update this SSP before accepting work involving CUI under DFARS 252.204-7012 or equivalent clauses.  
+**CUI categories handled:** None at present. Wilkes & Liberty, LLC must update this SSP before accepting work involving CUI under DFARS 252.204-7012 or equivalent clauses.  
 **System boundary:** All components in `infra/` repo scope, including the webcms and ui repos that run on this infrastructure.  
 **Authorization status:** Not yet authorized for CUI. Operating under commercial posture.
 
@@ -161,7 +161,7 @@
 
 ### 3.3.2 — Ensure individual user actions can be traced to those users
 **Status:** ⚠️ Partially Implemented — POA&M #AU-1  
-**Implementation:** Drupal watchdog associates events with user accounts (uid). Caddy logs include IP addresses. Git commits are attributed to `Jeremy`.  
+**Implementation:** Drupal watchdog associates events with user accounts (uid). Caddy logs include IP addresses. Git commits are attributed to `jmcerda`.  
 **Gap:** No centralized user identity provider (Keycloak) is active yet, so application actions across multiple services cannot be correlated to a single identity.
 
 ### 3.3.3 — Review and update logged events
