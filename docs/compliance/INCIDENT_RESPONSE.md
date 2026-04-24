@@ -2,7 +2,7 @@
 
 **Organization:** Wilkes & Liberty  
 **Framework:** NIST SP 800-61 Rev 2  
-**Maintained by:** Jeremias M. Cerda (`3@wilkesliberty.com`)  
+**Maintained by:** Jeremy Michael Cerda (`jmcerda@wilkesliberty.com`)  
 **Last reviewed:** 2026-04-23  
 **Applies to:** All systems under `wilkesliberty.com` (on-prem server, Njalla VPS, associated SaaS accounts)
 
@@ -12,8 +12,8 @@
 
 | Role | Name | Contact | Escalation order |
 |------|------|---------|-----------------|
-| Incident Commander / Primary Responder | Jeremias M. Cerda (`jmcerda`) | `3@wilkesliberty.com` · TBD | 1st |
-| Secondary Responder / Backup | Aleksandra Cerda (`acerda`) | `acerda@wilkesliberty.com` · TBD | 2nd (if primary unreachable) |
+| Incident Commander / Primary Responder | Jeremy Michael Cerda (`jmcerda`) | `jmcerda@wilkesliberty.com` · TBD | 1st |
+| Business Continuity Contact (Spouse) | Aleksandra Cerda | `acerda@wilkesliberty.com` · TBD | Contact only if Jeremy is unreachable and business-continuity action is required. Not an IR responder — see PROJECT_PLAN.md Phase D for break-glass activation. |
 | Legal Counsel (if data breach) | [NAME — fill in] | [EMAIL] · [PHONE] | Notify within 24h of confirmed breach |
 | Key Customer / Client Notification | [NAME — fill in] | [EMAIL] | Notify within 72h of confirmed breach affecting their data |
 
@@ -29,11 +29,11 @@ The following detection channels are active and monitored:
 
 | Channel | What it detects | Where to check |
 |---------|----------------|---------------|
-| Prometheus / Alertmanager | Service downtime, high error rates, disk pressure, unusual traffic | `https://alerts.int.wilkesliberty.com` · email to `3@wilkesliberty.com` |
+| Prometheus / Alertmanager | Service downtime, high error rates, disk pressure, unusual traffic | `https://alerts.int.wilkesliberty.com` · email to `jmcerda@wilkesliberty.com` |
 | Drupal watchdog | PHP errors, access denied events, failed logins | `drush watchdog:show --severity=error` · `/admin/reports/dblog` |
 | Caddy access logs | 4xx/5xx spikes, unusual request patterns, rate-limit triggers | `/var/log/caddy/api.log` on VPS |
 | Uptime Kuma | Public endpoint availability | `https://uptime.int.wilkesliberty.com` |
-| Backup failure alerts | `backup-onprem.sh` failures | Postmark email to `3@wilkesliberty.com` |
+| Backup failure alerts | `backup-onprem.sh` failures | Postmark email to `jmcerda@wilkesliberty.com` |
 | GitHub Dependabot | Dependency CVEs | GitHub repo security tab |
 
 ### 1.2 Response kit

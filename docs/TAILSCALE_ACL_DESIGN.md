@@ -1,7 +1,7 @@
 # Tailscale ACL Design
 
 **Organization:** Wilkes & Liberty  
-**Maintained by:** Jeremy (`3@wilkesliberty.com`)  
+**Maintained by:** Jeremy (`jmcerda@wilkesliberty.com`)  
 **Last reviewed:** 2026-04-23  
 **Status:** Design — requires sign-off before applying to the tailnet
 

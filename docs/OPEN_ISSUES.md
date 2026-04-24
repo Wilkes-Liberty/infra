@@ -10,7 +10,7 @@
 - Cross-references point to the authoritative detail (SECURITY_CHECKLIST §x, STAGING_REFRESH.md, etc.).
 - Severity: 🔴 High (exploitable/data loss risk, or required for federal contracting) · 🟡 Medium (real gap, not immediately exploitable) · 🟢 Low (hardening, process improvement) · 🔵 Info (deferred enhancement, no security impact)
 
-**Owner:** Jeremy (`3@wilkesliberty.com`)
+**Owner:** Jeremy (`jmcerda@wilkesliberty.com`)
 **Last reviewed:** 2026-04-23
 
 ---

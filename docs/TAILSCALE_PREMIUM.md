@@ -1,7 +1,7 @@
 # Tailscale Premium — Features & Operations
 
 **Organization:** Wilkes & Liberty  
-**Maintained by:** Jeremy (`3@wilkesliberty.com`)  
+**Maintained by:** Jeremy (`jmcerda@wilkesliberty.com`)  
 **Last reviewed:** 2026-04-23  
 **Account tier:** Premium (activated 2026-04-23)
 

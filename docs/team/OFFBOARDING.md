@@ -1,7 +1,7 @@
 # Employee / Contractor Offboarding
 
 **Organization:** Wilkes & Liberty  
-**Maintained by:** Jeremias M. Cerda (`3@wilkesliberty.com`)  
+**Maintained by:** Jeremy Michael Cerda (`jmcerda@wilkesliberty.com`)  
 **Last reviewed:** 2026-04-23
 
 ---
@@ -10,7 +10,7 @@
 
 Access must be revoked within **24 hours** of departure notification (voluntary or involuntary). For involuntary terminations, revoke Tailscale access **immediately** as the first action.
 
-All offboarding actions must be logged. The log is maintained as a commit to this repo or an email to `3@wilkesliberty.com` with the offboarding checklist as an attachment.
+All offboarding actions must be logged. The log is maintained as a commit to this repo or an email to `jmcerda@wilkesliberty.com` with the offboarding checklist as an attachment.
 
 ---
 
@@ -46,12 +46,12 @@ For each credential the person had knowledge of or access to:
 
 | Credential | Who rotates | Procedure |
 |-----------|-------------|----------|
-| SOPS age key | Jeremias M. Cerda (`jmcerda`) | Generate new key, update `.sops.yaml`, re-encrypt all secrets, redeploy |
-| Drupal OAuth client secret | Jeremias M. Cerda (`jmcerda`) | Regenerate in Drupal admin → update sops → `make onprem && make vps` |
-| Postmark server token | Jeremias M. Cerda (`jmcerda`) | Revoke in Postmark dashboard → update sops → `make onprem` |
-| PostgreSQL passwords | Jeremias M. Cerda (`jmcerda`) | Update in sops → `make onprem` (Ansible resets passwords) |
-| Tailscale admin access | Jeremias M. Cerda (`jmcerda`) | Change account password + rotate MFA secret |
-| GitHub admin access | Jeremias M. Cerda (`jmcerda`) | Review GitHub audit log for any changes made |
+| SOPS age key | Jeremy Michael Cerda (`jmcerda`) | Generate new key, update `.sops.yaml`, re-encrypt all secrets, redeploy |
+| Drupal OAuth client secret | Jeremy Michael Cerda (`jmcerda`) | Regenerate in Drupal admin → update sops → `make onprem && make vps` |
+| Postmark server token | Jeremy Michael Cerda (`jmcerda`) | Revoke in Postmark dashboard → update sops → `make onprem` |
+| PostgreSQL passwords | Jeremy Michael Cerda (`jmcerda`) | Update in sops → `make onprem` (Ansible resets passwords) |
+| Tailscale admin access | Jeremy Michael Cerda (`jmcerda`) | Change account password + rotate MFA secret |
+| GitHub admin access | Jeremy Michael Cerda (`jmcerda`) | Review GitHub audit log for any changes made |
 
 **For Admin/Owner role departures:** All credentials listed above must be rotated. This takes priority over all other offboarding steps.
 
