@@ -133,6 +133,16 @@ The Eero Pro 7 Max is a strong foundation for this architecture:
 5. **Eero bridge mode confirmed** — Confirmed: Eero Pro 7 Max supports bridge mode.
 6. **New firewall received** — decide model per §4.1 before purchasing; allow 3–5 days delivery after ordering.
 
+### 5.1 Current Misconfigurations Discovered 2026-04-24
+
+During IP Passthrough verification on 2026-04-24, two current-state issues surfaced that are not Firewalla-specific but should be resolved as part of pre-migration cleanup:
+
+**(a) AT&T BGW IPv4 IP Passthrough is broken — stale MAC in Passthrough Fixed MAC field.** The configured MAC (`fc:3d:73:91:69:00`) does not match the Eero Pro 7 Max's WAN MAC, so IPv4 Passthrough is not landing on Eero and IPv4 traffic is currently double-NATed. Fix before Firewalla insertion; fix again after (Passthrough MAC must be updated to the new firewall's WAN MAC, not Eero's). See `docs/OPEN_ISSUES.md` §7.
+
+**(b) BGW Wi-Fi radios are still enabled** — BGW is broadcasting `ATT722pjmrv` and `ATT722pjmrv_Guest` alongside the Eero mesh, creating parallel SSIDs and potential rogue-device attachment (anything on BGW SSIDs bypasses Eero's routing entirely). Disable all BGW radios before starting the VLAN migration. See `docs/OPEN_ISSUES.md` §7.
+
+Both items are pre-migration cleanup — resolve them before Step 3 (placing the new firewall).
+
 ---
 
 ## 6. Migration Steps
